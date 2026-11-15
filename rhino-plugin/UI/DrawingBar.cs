@@ -39,7 +39,7 @@ namespace RhinoSketchingTool
 
         static double OptionWidth(Item item) => item.Part == Part.Color ? 30 :
             Math.Min(item.Part == Part.Help ? 330 : 190, LabelWidth(item.Value ?? "") +
-            (item.Part == Part.View ? 42 : item.Part == Part.Snap ? 38 : item.Part == Part.SavedView ? 42 : 22));
+            (item.Part == Part.View || item.Part == Part.SyncViews ? 42 : item.Part == Part.Snap ? 38 : item.Part == Part.SavedView ? 42 : 22));
 
         // Native QA reads the hit-test layout without requiring IronPython to unbox private enum fields.
         internal string[] OptionParts(RhinoView view) => OptionsFrame(view).Items.Select(item => item.Part.ToString()).ToArray();
@@ -68,12 +68,7 @@ namespace RhinoSketchingTool
             else if (current == Part.Views)
             {
                 specs.Add(new Item {Part=Part.SaveView,Value="+ Save view"});
-                foreach (var name in controller.NamedViewNames)
-                {
-                    if (specs.Count >= 5) break;
-                    specs.Add(new Item {Part=Part.SavedView,Value=name});
-                }
-                specs.Add(new Item {Part=Part.SyncViews,Value="Named Views ↻"});
+                specs.Add(new Item {Part=Part.SyncViews,Value=controller.CurrentViewName ?? "Saved views"});
             }
             else
             {
@@ -139,7 +134,7 @@ namespace RhinoSketchingTool
             double popupWidth = Math.Min(PopupWidth, availableWidth);
             double popupHeight = optionsPopup == OptionsPopup.Colors ? Math.Min(302, Math.Max(180, viewport.Height / scale - 2 * Inset)) : 48 + Math.Min(frame.PageSize, Math.Max(1, frame.Views.Count - viewPage * frame.PageSize)) * 30 + (frame.Views.Count > frame.PageSize ? 30 : 0);
             frame.PopupSize = new Wpf.Size(popupWidth, popupHeight);
-            var anchor = items.Find(i => i.Part == (optionsPopup == OptionsPopup.Colors ? Part.Color : Part.View)).Box;
+            var anchor = items.Find(i => i.Part == (optionsPopup == OptionsPopup.Colors ? Part.Color : current == Part.Views ? Part.SyncViews : Part.View)).Box;
             double px = frame.OptionOrigin.X + anchor.X * scale;
             double py = frame.OptionOrigin.Y + (anchor.Bottom + 8) * scale;
             if (py + popupHeight * scale > viewport.Height - Inset * scale)
@@ -430,7 +425,7 @@ namespace RhinoSketchingTool
             if (item.DividerBefore) c.DrawLine(new Media.Pen(Fill(Shade, .16), 1), new Wpf.Point(box.X-9,box.Y+5), new Wpf.Point(box.X-9,box.Bottom-5));
             bool selected = item.Part == Part.Object && controller.Method == DrawMethod.Surface || item.Part == Part.Plane && controller.Method == DrawMethod.Plane || item.Part == Part.Cursor && controller.Method == DrawMethod.Cursor || item.Part == Part.View && controller.Method == DrawMethod.View
                 || item.Part==Part.PlaceCursor && controller.PlacingCursor || item.Part==Part.PickFace && controller.PickingPlane || item.Part==Part.SavedView && item.Value==controller.CurrentViewName || item.Part==Part.EraseWhole && controller.Erase==EraseMode.Stroke || item.Part==Part.ErasePart && controller.Erase==EraseMode.Part;
-            bool passive = item.Part==Part.Help || item.Part==Part.SelectedCount || item.Part==Part.Color || item.Part==Part.Snap || item.Part==Part.SyncViews;
+            bool passive = item.Part==Part.Help || item.Part==Part.SelectedCount || item.Part==Part.Color || item.Part==Part.Snap;
             if(!passive) c.DrawRoundedRectangle(Fill(selected ? Picture.Selected : Picture.Well), null, box, 10, 10);
             bool arrowHover = item.Part == Part.View && (hover == Part.ViewList || pressed == Part.ViewList);
             if (hover == item.Part || pressed == item.Part || arrowHover) c.DrawRoundedRectangle(Fill(Shade, pressed == item.Part || pressed == Part.ViewList && item.Part == Part.View ? PressShade : HoverShade), null, box, 8, 8);
@@ -456,9 +451,9 @@ namespace RhinoSketchingTool
                 }
                 textX = box.X + 26;
             }
-            if (item.Part == Part.View) PaintIcon(c, Icons.Chevron, new Wpf.Point(box.Right - 14, box.Y+15), 18, arrowHover ? Ink : Ink2, 1, 0);
+            if (item.Part == Part.View || item.Part == Part.SyncViews) PaintIcon(c, Icons.Chevron, new Wpf.Point(box.Right - 14, box.Y+15), 18, arrowHover ? Ink : Ink2, 1, 0);
             if (item.Part == Part.SavedView) c.DrawText(Picture.Text("×",16,Wpf.FontWeights.Normal,Muted), new Wpf.Point(box.Right-20,box.Y+3));
-            var text = Picture.Text(label, 12, Wpf.FontWeights.Medium, item.Part==Part.ClearSketches ? Rgb(0xe5,0x48,0x4d) : passive ? Muted : selected ? Ink : Ink2, Math.Max(12, box.Right - textX - (item.Part == Part.View || item.Part==Part.SavedView ? 30 : 8)));
+            var text = Picture.Text(label, 12, Wpf.FontWeights.Medium, item.Part==Part.ClearSketches ? Rgb(0xe5,0x48,0x4d) : passive ? Muted : selected ? Ink : Ink2, Math.Max(12, box.Right - textX - (item.Part == Part.View || item.Part == Part.SyncViews || item.Part==Part.SavedView ? 30 : 8)));
             c.DrawText(text, new Wpf.Point(textX, box.Y + (box.Height - text.Height) / 2));
         }
 
@@ -494,7 +489,7 @@ namespace RhinoSketchingTool
             c.DrawText(Picture.Text("+ Capture view…",12,Wpf.FontWeights.SemiBold,Ink),new Wpf.Point(13,12));
             c.DrawLine(new Media.Pen(Fill(Shade,.08),1), new Wpf.Point(10,36),new Wpf.Point(f.PopupSize.Width-10,36));
             int start = viewPage * f.PageSize, count = Math.Min(f.PageSize, f.Views.Count-start);
-            if (count == 0) c.DrawText(Picture.Text("No named views yet",12,Wpf.FontWeights.Normal,Muted),new Wpf.Point(13,47));
+            if (count == 0) c.DrawText(Picture.Text("No saved views yet",12,Wpf.FontWeights.Normal,Muted),new Wpf.Point(13,47));
             for (int i = 0; i < count; i++)
             {
                 string name = f.Views[start+i]; bool selected = name == controller.CurrentViewName;
