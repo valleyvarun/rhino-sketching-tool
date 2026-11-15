@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section headers</title>
+<link rel="stylesheet" href="../tokens/tokens.css">
+<style>
+*{ box-sizing:border-box; }
+body{ margin:0; background:#eceef1; color:var(--ink); font:13px/1.5 var(--f-ui); padding:32px 20px 80px; }
+main{ max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:22px; }
+h1{ margin:0; font-size:22px; letter-spacing:-.015em; }
+.lede{ margin:4px 0 0; color:var(--ink-2); max-width:760px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:16px; align-items:start; }
+.opt{ display:flex; flex-direction:column; gap:10px; }
+.opt > header{ display:flex; align-items:baseline; gap:8px; padding:0 4px; }
+.opt > header b{ font-size:14px; }
+.opt > header span{ color:var(--muted); font-size:12px; }
+.opt > header em{ margin-left:auto; font-style:normal; font-size:11px; font-weight:700; color:var(--accent); }
+.opt > p{ margin:0; padding:0 4px; color:var(--ink-2); font-size:12.5px; }
+.opt.pick .panel{ box-shadow:0 0 0 2px var(--accent), var(--shadow-2); }
+
+/* a slice of the real side panel */
+.panel{ background:var(--surface-2); border-radius:14px; box-shadow:var(--shadow-2); padding:12px 12px 14px; display:flex; flex-direction:column; gap:14px; }
+.sec{ display:flex; flex-direction:column; gap:3px; }
+.pr{ display:grid; grid-template-columns:66px 1fr; align-items:center; gap:10px; height:34px; padding:0 8px; border-radius:10px; font-weight:500; }
+.pr.on{ background:var(--soft-sel); }
+.pr svg{ width:66px; height:20px; }
+.row{ display:flex; align-items:center; gap:10px; min-height:34px; padding:0 4px; }
+.lbl{ width:56px; flex:none; color:var(--ink-2); font-weight:500; }
+.dots{ display:flex; gap:8px; }
+.dots i{ width:18px; height:18px; border-radius:50%; background:var(--c); }
+.dots i:first-child{ box-shadow:0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--ink); }
+.bar{ position:relative; flex:1; height:26px; border-radius:8px; background:var(--well); overflow:hidden; }
+.bar i{ position:absolute; inset:0 auto 0 0; background:var(--soft-sel); box-shadow:inset -2px 0 0 var(--ink-2); }
+.bar span{ position:absolute; right:9px; top:0; bottom:0; display:flex; align-items:center; font-size:12px; font-variant-numeric:tabular-nums; }
+.tick{ display:flex; gap:10px; align-items:flex-start; padding:5px 4px; }
+.tick .ck{ width:15px; height:15px; flex:none; margin-top:2px; border-radius:4px; box-shadow:inset 0 0 0 1.5px var(--line-2); position:relative; }
+.tick .ck svg{ position:absolute; left:-3px; top:-8px; width:23px; height:23px; overflow:visible; }
+.tick small{ display:block; color:var(--muted); font-size:11px; }
+
+/* A: today */
+.capsA{ margin:0 0 2px; padding:0 4px; font:600 10.5px var(--f-ui); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+/* B: sentence case */
+.titleB{ margin:0 0 2px; padding:0 4px; font:600 13px var(--f-ui); color:var(--ink); }
+/* C: title + action */
+.titleC{ display:flex; align-items:center; height:26px; margin:0 0 2px; padding:0 2px 0 4px; font:600 13px var(--f-ui); color:var(--ink); }
+.titleC .act{ margin-left:auto; display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 7px; border-radius:7px; color:var(--muted); font-weight:500; font-size:12px; }
+.titleC .act:hover{ background:var(--hover); color:var(--ink); }
+.titleC .act svg{ width:14px; height:14px; }
+/* D: hairlines only */
+.sepD{ height:1px; background:var(--line); margin:0 4px; }
+/* E: fold-out */
+.foldE{ display:flex; align-items:center; gap:7px; height:30px; padding:0 4px; border-radius:8px; font:600 13px var(--f-ui); }
+.foldE svg{ width:12px; height:12px; color:var(--muted); transform:rotate(90deg); }
+.foldE.closed svg{ transform:none; }
+.foldE .n{ margin-left:auto; color:var(--muted); font-weight:500; font-size:11.5px; }
+/* F: label column */
+.colF{ display:grid; grid-template-columns:62px 1fr; gap:8px; }
+.colF > .side{ padding:9px 0 0 4px; font:600 12px var(--f-ui); color:var(--ink); }
+.colF + .colF{ padding-top:12px; border-top:1px solid var(--line); }
+.colF .lbl{ width:50px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Section headers: alternatives to the small all-caps labels</h1>
+    <p class="lede">Each option shows the same slice of the Sketch tab. The all-caps label is common because it is cheap to add; the options below either make the header more useful or let the content speak for itself.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const wave = (c, w, o = 1) => `<svg viewBox="0 0 66 20"><path d="M3 12c8-9 16-9 24-2s17 8 36-3" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-opacity="${o}"/></svg>`;
+const TICK = '<i class="ck"><svg viewBox="0 0 24 24"><path d="M4.2 13.4c1.5 1 2.7 2.5 3.7 4.5.4.7 1 .7 1.3 0 2.4-5.3 6.3-10 11.9-13.9" fill="none" stroke="var(--accent)" stroke-width="2.3" stroke-linecap="round"/></svg></i>';
+const presets = `<div class="pr on">${wave('#23262c', 2.2)}Pencil</div><div class="pr">${wave('#1f5fd1', 4, .8)}Marker</div><div class="pr">${wave('#9731b0', 3, .9)}Crayon</div>`;
+const stroke = (lblCls) => `<div class="row"><span class="lbl ${lblCls || ''}">Colour</span><div class="dots"><i style="--c:#23262c"></i><i style="--c:#1f5fd1"></i><i style="--c:#d0352b"></i><i style="--c:#14845a"></i></div></div>`
+  + `<div class="row"><span class="lbl">Weight</span><div class="bar"><i style="width:22%"></i><span>3 px</span></div></div>`
+  + `<div class="row"><span class="lbl">Opacity</span><div class="bar"><i style="width:100%"></i><span>100%</span></div></div>`
+  + `<div class="tick">${TICK}<div>Pressure<small>Pressing harder draws a wider line</small></div></div>`;
+const PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>';
+const RESET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
+const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const OPTIONS = [
+  { name:'A · Today', sub:'small caps labels', why:'Familiar, but it shouts a little and adds a label that says what is already obvious.',
+    body:`<div class="sec"><p class="capsA">Presets</p>${presets}</div><div class="sec"><p class="capsA">Stroke</p>${stroke()}</div>` },
+  { name:'B · Sentence case', sub:'a quiet title', why:'The same structure, read as normal words. Calmer, and closer to how Gecko and most modern tools label groups.',
+    body:`<div class="sec"><p class="titleB">Presets</p>${presets}</div><div class="sec"><p class="titleB">Stroke</p>${stroke()}</div>` },
+  { name:'C · Title with an action', sub:'every header has a job', pick:true, why:'The header carries the action that belongs to its section: + saves a preset, Reset puts the stroke back. Nothing is decoration. This is how Figma and Rhino 8 panels do it.',
+    body:`<div class="sec"><div class="titleC">Presets<span class="act">${PLUS}</span></div>${presets}</div><div class="sec"><div class="titleC">Stroke<span class="act">${RESET}Reset</span></div>${stroke()}</div>` },
+  { name:'D · No headers', sub:'a hairline between groups', why:'The rows explain themselves (Colour, Weight…), so only a thin line separates the groups. The cleanest, but a new user has fewer signposts.',
+    body:`<div class="sec">${presets}</div><div class="sepD"></div><div class="sec">${stroke()}</div>` },
+  { name:'E · Fold-out sections', sub:'like the 3D cursor today', why:'Each section folds away with a count, so a long tab stays short. Good when there is more to come; one more click when there is not.',
+    body:`<div class="sec"><div class="foldE">${CHEV}Presets<span class="n">4</span></div>${presets}</div><div class="sec"><div class="foldE">${CHEV}Stroke</div>${stroke()}</div><div class="sec"><div class="foldE closed">${CHEV}3D cursor<span class="n">On Massing</span></div></div>` },
+  { name:'F · Label column', sub:'like a settings form', why:'The section name sits in a narrow column beside its rows, the way macOS settings group things. Very orderly, but it costs width in a narrow panel.',
+    body:`<div class="colF"><div class="side">Presets</div><div class="sec">${presets}</div></div><div class="colF"><div class="side">Stroke</div><div class="sec">${stroke()}</div></div>` },
+];
+document.getElementById('grid').innerHTML = OPTIONS.map((o) => `<section class="opt${o.pick ? ' pick' : ''}"><header><b>${o.name}</b><span>${o.sub}</span>${o.pick ? '<em>My pick</em>' : ''}</header><div class="panel">${o.body}</div><p>${o.why}</p></section>`).join('');
+</script>
+</body>
+</html>

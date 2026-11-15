@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent panel proposal</title>
+<style>
+/* Paper Cobalt · Soft grey. Neutral buttons; blue only for focus, state dots, switches and the AI tag. */
+:root{
+  --bg:#ffffff; --bg-2:#f6f7f9; --well:#f1f2f5; --sel:#e6e8ec; --line:rgba(16,20,28,.08); --line-2:rgba(16,20,28,.14);
+  --ink:#15171c; --ink-2:#4a505d; --muted:#878d99; --accent:#3d6bff; --accent-soft:rgba(61,107,255,.10); --ok:#1f8a4c;
+  --ease:cubic-bezier(.3,0,.2,1); --f:-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:#e9ebee; color:var(--ink); font:13px/1.45 var(--f); padding:28px 16px 60px; }
+button, textarea, input{ font:inherit; color:inherit; }
+button{ background:none; border:0; cursor:pointer; padding:0; }
+button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
+[hidden]{ display:none !important; }
+.wrap{ max-width:1100px; margin:0 auto; display:grid; grid-template-columns:372px minmax(0,1fr); gap:34px; align-items:start; }
+@media (max-width:860px){ .wrap{ grid-template-columns:1fr; } }
+.intro h1{ margin:0 0 6px; font-size:22px; letter-spacing:-.02em; }
+.intro p{ margin:0 0 14px; color:#5c6270; }
+.namebar{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:18px; font-size:12px; color:#6b7280; }
+.namebar button{ height:26px; padding:0 10px; border-radius:99px; background:#fff; box-shadow:0 0 0 1px var(--line-2); font-weight:500; }
+.namebar button[aria-pressed="true"]{ background:var(--ink); color:#fff; box-shadow:none; }
+.notes{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.notes li{ display:grid; grid-template-columns:24px 1fr; gap:10px; background:#fff; border-radius:12px; padding:12px 14px; box-shadow:0 0 0 1px var(--line); }
+.notes b{ display:block; margin-bottom:2px; }
+.notes .k{ width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:var(--accent-soft); color:var(--accent); font:700 11px var(--f); }
+.notes p{ margin:0; color:#5c6270; font-size:12.5px; }
+
+/* ---------- the docked panel (as it would sit in Rhino's panel area) ---------- */
+.panel{ position:relative; width:372px; max-width:100%; height:740px; display:flex; flex-direction:column; background:var(--bg); border-radius:12px; box-shadow:0 0 0 1px var(--line), 0 30px 60px -36px rgba(16,20,28,.45); overflow:hidden; }
+.head{ flex:none; display:flex; align-items:center; gap:10px; height:56px; padding:0 12px 0 16px; border-bottom:1px solid var(--line); }
+.logo{ width:26px; height:26px; flex:none; border-radius:8px; display:grid; place-items:center; color:#fff; background:var(--brand, #3d6bff); }
+.logo svg{ width:16px; height:16px; }
+.brand{ flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.15; }
+.brand b{ font-size:15px; letter-spacing:-.015em; }
+.brand small{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+.brand small::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--ok); }
+.ib{ width:30px; height:30px; display:grid; place-items:center; border-radius:8px; color:var(--muted); transition:background .14s, color .14s; }
+.ib:hover{ background:var(--well); color:var(--ink); }
+.ib svg{ width:17px; height:17px; }
+.switch{ flex:none; display:grid; grid-template-columns:1fr 1fr; margin:12px 16px 4px; padding:3px; border-radius:99px; background:var(--well); position:relative; }
+.switch::before{ content:""; position:absolute; top:3px; bottom:3px; left:3px; width:calc(50% - 3px); border-radius:99px; background:var(--sel); transform:translateX(100%); }
+.switch span{ position:relative; text-align:center; padding:6px 0; font-weight:600; font-size:12.5px; color:var(--muted); }
+.switch span.on{ color:var(--ink); }
+.tabs{ flex:none; display:flex; gap:4px; padding:8px 16px 0; border-bottom:1px solid var(--line); }
+.tab{ position:relative; padding:7px 10px 9px; font-size:12px; font-weight:500; color:var(--muted); }
+.tab[aria-selected="true"]{ color:var(--ink); }
+.tab[aria-selected="true"]::after{ content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:2px; border-radius:2px; background:var(--ink); }
+.content{ flex:1; min-height:0; overflow-y:auto; padding:0 16px 16px; display:flex; flex-direction:column; scrollbar-width:thin; }
+
+/* welcome */
+.welcome{ margin:auto 0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; padding:20px 4px 40px; }
+.hero{ width:60px; height:60px; border-radius:18px; display:grid; place-items:center; color:#fff; background:linear-gradient(160deg, color-mix(in srgb, var(--brand, #3d6bff) 70%, #fff), var(--brand, #3d6bff)); box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 14px 26px -14px var(--brand, #3d6bff); margin-bottom:10px; }
+.hero svg{ width:34px; height:34px; }
+.welcome h2{ margin:0; font-size:22px; line-height:1.25; letter-spacing:-.025em; }
+.welcome p{ margin:0; color:var(--muted); max-width:270px; font-size:12.5px; }
+.sugg{ width:100%; display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+.sugg button{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:var(--bg-2); text-align:left; font-size:12.5px; transition:background .14s; }
+.sugg button:hover{ background:var(--well); }
+.sugg i{ width:24px; height:24px; flex:none; border-radius:7px; display:grid; place-items:center; background:#fff; box-shadow:0 0 0 1px var(--line); color:var(--ink-2); font-style:normal; }
+.sugg svg{ width:14px; height:14px; }
+
+/* thread */
+.thread{ display:flex; flex-direction:column; padding-top:6px; }
+.user{ align-self:flex-end; max-width:84%; margin:16px 0 4px; padding:9px 12px; border-radius:14px 14px 4px 14px; background:var(--well); animation:up .18s var(--ease) both; }
+.att{ display:flex; gap:6px; margin-bottom:7px; }
+.thumb{ width:64px; height:64px; border-radius:10px; overflow:hidden; background:#fff; box-shadow:0 0 0 1px var(--line-2); display:grid; place-items:center; }
+.thumb svg{ width:56px; height:56px; }
+.reply{ display:flex; gap:9px; margin-top:12px; animation:up .18s var(--ease) both; }
+.reply > .logo{ width:22px; height:22px; border-radius:7px; margin-top:1px; }
+.reply > .logo svg{ width:13px; height:13px; }
+.rbody{ flex:1; min-width:0; }
+.steps{ display:flex; flex-direction:column; gap:6px; padding-left:11px; border-left:1.5px solid var(--line-2); }
+.step{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--muted); animation:up .18s var(--ease) both; }
+.step .ic{ width:14px; height:14px; flex:none; border-radius:50%; display:grid; place-items:center; }
+.step.ok{ color:var(--ink-2); }
+.step.ok .ic{ background:var(--ok); color:#fff; }
+.step.ok .ic svg{ width:9px; height:9px; }
+.step.run .ic{ border:1.5px solid var(--line-2); border-top-color:var(--ink); animation:spin .8s linear infinite; }
+.answer{ margin:10px 0 0; color:var(--ink-2); line-height:1.55; }
+.result{ margin-top:10px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px var(--line-2); overflow:hidden; animation:up .2s var(--ease) both; }
+.preview{ height:132px; background:var(--bg-2); display:grid; grid-template-columns:1fr 1fr; gap:1px; border-bottom:1px solid var(--line); }
+.preview div{ display:grid; place-items:center; background:#fbfbfc; position:relative; }
+.preview small{ position:absolute; left:8px; top:6px; font:600 9.5px var(--f); text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+.preview svg{ width:100px; height:100px; }
+.rmeta{ padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+.rmeta b{ font-size:12.5px; }
+.rmeta span{ font-size:11.5px; color:var(--muted); }
+.acts{ display:flex; gap:6px; }
+.btn{ height:30px; padding:0 12px; border-radius:9px; font-weight:600; font-size:12px; background:var(--well); color:var(--ink); transition:background .14s; }
+.btn:hover{ background:var(--sel); }
+.btn.strong{ background:var(--sel); }
+.btn.strong:hover{ background:#dadde3; }
+.btn.ghost{ background:transparent; color:var(--muted); }
+.btn.ghost:hover{ background:var(--well); color:var(--ink); }
+.done{ margin-top:10px; padding-left:11px; border-left:1.5px solid var(--accent); font-size:11.5px; color:var(--ink-2); animation:up .18s var(--ease) both; }
+.done a{ color:var(--ink); font-weight:600; text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+
+/* history */
+.hist{ padding-top:8px; }
+.hrow{ display:flex; align-items:center; gap:10px; width:100%; padding:10px 6px; border-radius:10px; text-align:left; border-bottom:1px solid var(--line); }
+.hrow:hover{ background:var(--bg-2); }
+.hrow .thumb{ width:34px; height:34px; border-radius:8px; }
+.hrow .thumb svg{ width:30px; height:30px; }
+.hrow b{ display:block; font-size:12.5px; font-weight:600; }
+.hrow small{ color:var(--muted); font-size:11px; }
+
+/* composer */
+.dock{ flex:none; padding:8px 12px 12px; position:relative; }
+.composer{ position:relative; border-radius:16px; background:#fff; box-shadow:0 0 0 1px var(--line-2), 0 10px 24px -18px rgba(16,20,28,.35); padding:10px 10px 8px; transition:box-shadow .16s; }
+.composer:focus-within{ box-shadow:0 0 0 1.5px var(--accent), 0 10px 24px -18px rgba(16,20,28,.35); }
+.composer.drag{ box-shadow:0 0 0 1.5px var(--accent), 0 0 0 5px var(--accent-soft); }
+.composer.voice{ box-shadow:0 0 0 1.5px var(--ink); }
+.tray{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.tray:empty{ display:none; }
+.tile{ position:relative; width:56px; height:56px; border-radius:10px; overflow:hidden; background:var(--bg-2); box-shadow:0 0 0 1px var(--line-2); display:grid; place-items:center; animation:up .16s var(--ease) both; }
+.tile img{ width:100%; height:100%; object-fit:cover; }
+.tile svg{ width:48px; height:48px; }
+.tile .x{ position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%; background:rgba(21,23,28,.72); color:#fff; font-size:12px; line-height:18px; text-align:center; }
+textarea{ width:100%; min-height:44px; max-height:140px; resize:none; border:0; outline:0; background:transparent; padding:2px 3px; font-size:13px; line-height:1.45; }
+textarea::placeholder{ color:var(--muted); }
+.voicebars{ display:flex; align-items:center; gap:3px; height:44px; padding-left:4px; }
+.voicebars i{ width:3px; height:10px; border-radius:2px; background:var(--ink); animation:bar .9s ease-in-out infinite; }
+.voicebars i:nth-child(2){ animation-delay:.12s; } .voicebars i:nth-child(3){ animation-delay:.24s; } .voicebars i:nth-child(4){ animation-delay:.36s; } .voicebars i:nth-child(5){ animation-delay:.48s; }
+.voicebars span{ margin-left:8px; color:var(--muted); font-size:12px; }
+.row{ display:flex; align-items:center; gap:2px; }
+.row .gap{ flex:1; }
+.pill{ height:30px; display:inline-flex; align-items:center; gap:6px; padding:0 9px; border-radius:9px; color:var(--ink-2); font-size:12px; font-weight:500; transition:background .14s; white-space:nowrap; }
+.pill:hover, .pill[aria-expanded="true"]{ background:var(--well); color:var(--ink); }
+.pill svg{ width:16px; height:16px; flex:none; }
+.pill .chev{ width:12px; height:12px; color:var(--muted); }
+.pill .count{ min-width:17px; height:17px; padding:0 5px; border-radius:99px; background:var(--accent-soft); color:var(--accent); font:700 10px/17px var(--f); text-align:center; }
+.pill.icon{ width:30px; padding:0; justify-content:center; }
+.pill[aria-pressed="true"]{ background:var(--ink); color:#fff; }
+.send{ width:32px; height:32px; border-radius:50%; display:grid; place-items:center; background:var(--sel); color:var(--ink); transition:background .14s, opacity .14s; }
+.send:hover{ background:#d6d9df; }
+.send:disabled{ opacity:.4; cursor:default; }
+.send svg{ width:16px; height:16px; }
+
+/* menus open upward from the composer, spanning its width */
+.menu{ position:absolute; left:12px; right:12px; bottom:calc(100% - 4px); z-index:5; padding:6px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px var(--line-2), 0 20px 40px -22px rgba(16,20,28,.45); animation:menu .14s var(--ease) both; }
+.mlabel{ padding:6px 8px 6px; font:700 9.5px var(--f); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.mi{ width:100%; display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; text-align:left; }
+.mi:hover{ background:var(--bg-2); }
+.mi .mic{ width:28px; height:28px; flex:none; border-radius:8px; display:grid; place-items:center; background:var(--well); color:var(--ink-2); }
+.mi .mic svg{ width:16px; height:16px; }
+.mi b{ display:block; font-size:12.5px; font-weight:600; }
+.mi small{ display:block; color:var(--muted); font-size:11px; line-height:1.35; }
+.mi .tick{ margin-left:auto; width:16px; height:16px; color:var(--ink); opacity:0; }
+.mi[aria-checked="true"] .tick{ opacity:1; }
+.mi[aria-checked="true"] .mic{ background:var(--sel); color:var(--ink); }
+.tg{ margin-left:auto; flex:none; width:30px; height:18px; border-radius:99px; background:var(--line-2); position:relative; transition:background .16s var(--ease); }
+.tg::after{ content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .16s var(--ease); }
+.mi[aria-checked="true"] .tg{ background:var(--accent); }
+.mi[aria-checked="true"] .tg::after{ transform:translateX(12px); }
+.mfoot{ display:flex; justify-content:space-between; align-items:center; padding:6px 8px 2px; border-top:1px solid var(--line); margin-top:4px; font-size:11.5px; color:var(--muted); }
+.mfoot button{ font-weight:600; color:var(--ink); }
+pre.ctx{ margin:6px 0 0; max-height:150px; overflow:auto; white-space:pre-wrap; font:10.5px/1.5 ui-monospace,Menlo,Consolas,monospace; background:var(--bg-2); border-radius:10px; padding:8px 10px; color:var(--ink-2); }
+
+@keyframes up{ from{ opacity:0; transform:translateY(4px); } }
+@keyframes menu{ from{ opacity:0; transform:translateY(4px); } }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+@keyframes bar{ 0%,100%{ height:6px; } 50%{ height:20px; } }
+@media (prefers-reduced-motion: reduce){ *{ animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="namebar" id="namebar"><span>Preview name:</span></div>
+    <section class="panel" id="panel">
+      <header class="head">
+        <span class="logo" data-logo></span>
+        <div class="brand"><b data-name>Crane</b><small>Sketch model ready</small></div>
+        <button class="ib" id="newChat" aria-label="New chat" title="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+      </header>
+      <div class="switch" aria-hidden="true"><span>Info</span><span class="on">Agent</span></div>
+      <div class="tabs" role="tablist"><button class="tab" role="tab" data-tab="chat" aria-selected="true">Chat</button><button class="tab" role="tab" data-tab="history" aria-selected="false">History</button></div>
+      <div class="content" id="content">
+        <div class="welcome" id="welcome">
+          <span class="hero" data-logo></span>
+          <h2>What should we build?</h2>
+          <p>Sketch in Rhino, then tell me what it is. I read your marks, your sketch and the 3D cursor.</p>
+          <div class="sugg" id="sugg"></div>
+        </div>
+        <div class="thread" id="thread" hidden></div>
+        <div class="hist" id="hist" hidden></div>
+      </div>
+      <div class="dock">
+        <div class="menu" id="modeMenu" role="menu" hidden></div>
+        <div class="menu" id="seesMenu" role="menu" hidden></div>
+        <div class="menu" id="addMenu" role="menu" hidden></div>
+        <form class="composer" id="composer">
+          <div class="tray" id="tray"></div>
+          <textarea id="input" rows="2" placeholder="Describe what to build from your sketch…" aria-label="Message"></textarea>
+          <div class="voicebars" id="voicebars" hidden><i></i><i></i><i></i><i></i><i></i><span>Listening… tap the mic to stop</span></div>
+          <div class="row">
+            <button type="button" class="pill icon" id="addBtn" aria-label="Add" aria-expanded="false" title="Upload or capture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button type="button" class="pill icon" id="micBtn" aria-label="Voice" aria-pressed="false" title="Talk while you sketch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
+            <button type="button" class="pill" id="modeBtn" aria-expanded="false" title="What the agent should do"><span id="modeIcon"></span><span id="modeLabel">Sketch → 3D</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/></svg></button>
+            <button type="button" class="pill" id="seesBtn" aria-expanded="false" title="What the agent can see"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>Sees<span class="count" id="seesCount">4</span></button>
+            <span class="gap"></span>
+            <button type="submit" class="send" id="send" aria-label="Send" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+          </div>
+          <input type="file" id="file" accept="image/*,.pdf" multiple hidden>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="intro">
+    <h1>Agent panel proposal</h1>
+    <p>Gecko's structure (header mark, Chat and History tabs, a welcome screen, a composer with upload, mode, context and voice, run steps and a done line) in our white Paper Cobalt look. Buttons are neutral greys; blue appears only for focus, switches, counts and the done line. Everything is clickable: try a suggestion, the + button, Mode, Sees and the mic, or drop an image on the composer.</p>
+    <ol class="notes">
+      <li><span class="k">1</span><div><b>Mode (was “Sketch → 3D”)</b><p>Says what the agent will do with your sketch: make a 3D model, read a floor plan, act on your numbered marks, or only answer questions. Each option has a one-line explanation, so nobody has to guess.</p></div></li>
+      <li><span class="k">2</span><div><b>Sees (was “Context”)</b><p>What the agent is given: sketches marked AI in Info, the 3D cursor, the current view, selected objects and the active layout. The number shows how many are on. “Preview” shows the exact text sent to Varun's model.</p></div></li>
+      <li><span class="k">3</span><div><b>Upload</b><p>+ opens: upload an image or PDF, capture the viewport, or paste a sketch. You can also drop files on the composer or paste with Ctrl+V. Images show as tiles you can remove.</p></div></li>
+      <li><span class="k">4</span><div><b>Voice</b><p>Talk while you sketch. The composer outline turns dark and level bars show it is listening. No glow.</p></div></li>
+      <li><span class="k">5</span><div><b>Results you can keep</b><p>Run steps tick off as the model works, then a result card shows the plan and the 3D massing. Keep adds it to the model and it appears in Info › What changed with its own Undo.</p></div></li>
+      <li><span class="k">6</span><div><b>History</b><p>Past sessions with a thumbnail of what was built, as in Gecko.</p></div></li>
+    </ol>
+  </div>
+</div>
+<script>
+const $ = (s) => document.querySelector(s);
+const SV = (d, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.8}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+// Top name picks from names.html, so the header and welcome can be previewed with each.
+const NAMES = [
+  ['Crane', '#3d6bff', '<path d="M9 13.5L12 3l3 10.5"/><path d="M5.5 13.5h13L12 20.5z"/><path d="M5.5 13.5L2.8 6.6l1.7-.6"/><path d="M18.5 13.5L21.5 8"/>'],
+  ['Inkling', '#2f3378', '<path d="M12 3c3.1 2.4 4.6 5.5 4.6 8.6H7.4C7.4 8.5 8.9 5.4 12 3z"/><path d="M9.2 11.6c0 3-1.4 4.6-3.2 6"/><path d="M12 11.6v6.2c0 1.5 1 2.4 2.3 2.4"/><path d="M14.8 11.6c0 3 1.4 4.6 3.2 6"/>'],
+  ['Tracery', '#6b5b95', '<path d="M5 21V11.5C5 7.5 8 4 12 3c4 1 7 4.5 7 8.5V21z"/><path d="M12 21v-7"/><circle cx="12" cy="9.5" r="2.2"/><path d="M8.2 14.5c.4-1.6 1.8-2.6 3.8-2.6s3.4 1 3.8 2.6"/>'],
+  ['Trace', '#c99a2e', '<rect x="3" y="6" width="13" height="14" rx="1.6"/><path d="M8 3.5h11.5A1.5 1.5 0 0 1 21 5v12"/><path d="M6 15.5c2-3 4-3 5.5-1s3 .5 3.5-1.5" stroke-width="2.2"/>'],
+  ['Lift', '#0f766e', '<path d="M3 20h18" opacity=".55"/><path d="M7 16.5v-7l5-3 5 3v7l-5 3z"/><path d="M7 9.5l5 3 5-3M12 12.5v7"/><path d="M12 2.2v2.6M10.6 3.5L12 2.2l1.4 1.3"/>']
+];
+function setName(i){
+  const [n, c, d] = NAMES[i];
+  document.documentElement.style.setProperty('--brand', c);
+  document.querySelectorAll('[data-name]').forEach((e) => { e.textContent = n; });
+  document.querySelectorAll('[data-logo]').forEach((e) => { e.innerHTML = SV(d); });
+  document.querySelectorAll('#namebar button').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
+}
+$('#namebar').insertAdjacentHTML('beforeend', NAMES.map(([n], i) => `<button type="button" data-i="${i}">${n}</button>`).join(''));
+$('#namebar').addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (b) setName(+b.dataset.i); });
+setName(0);
+
+const IC = {
+  cube: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+  plan: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 11h8v9.5M11.5 11V3.5M15 11h5.5"/>',
+  marks: '<path d="M19.6 11.4c0 3.5-3.5 6.3-7.8 6.3S4 14.9 4 11.4 7.5 5 11.8 5c2.6 0 4.9 1 6.3 2.6"/><path d="M18.9 3.6l-.6 4.2-4.1-.8"/>',
+  ask: '<path d="M4 5h16v11H9l-5 4z"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5"/><circle cx="12" cy="14.6" r=".5" fill="currentColor"/>',
+  tick: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  img: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8.5"/>',
+  cam: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>',
+  paste: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 11h6M9 15h4"/>',
+  pen: '<path d="M15.6 4.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9.4 18.6 5 19.9l1.3-4.4z"/><path d="M2.5 21.3c2-1.4 3.6-1.4 5 0s3.2 1.4 5 0"/>'
+};
+const MODES = [
+  ['3d', 'Sketch → 3D', 'Sketch → 3D model', 'Turn the sketch into geometry you can keep.', IC.cube],
+  ['plan', 'Sketch → Plan', 'Sketch → Floor plan', 'Read walls and rooms from a plan sketch.', IC.plan],
+  ['marks', 'Act on marks', 'Act on my marks', 'Pull, cut and remove as your numbered marks say.', IC.marks],
+  ['ask', 'Ask only', 'Ask only', 'Answers questions. Never changes the model.', IC.ask]
+];
+const SEES = [
+  ['sketch', 'Sketches marked AI', '2 · Region, 3 · Pull 3 m', true],
+  ['cursor', '3D cursor (“here”)', 'Main block · top face', true],
+  ['view', 'Current view', 'A picture of the Perspective view', true],
+  ['sel', 'Selected objects', 'Tower', true],
+  ['layout', 'Active layout', 'A-100 Site plan', false]
+];
+let mode = '3d', sees = Object.fromEntries(SEES.map(([k, , , on]) => [k, on])), files = [];
+
+/* ---------- menus ---------- */
+const menus = { modeBtn:'#modeMenu', seesBtn:'#seesMenu', addBtn:'#addMenu' };
+function closeMenus(except){ Object.entries(menus).forEach(([b, m]) => { if (b !== except){ $(m).hidden = true; $('#' + b).setAttribute('aria-expanded', 'false'); } }); }
+function toggle(btnId, render){
+  const m = $(menus[btnId]), open = m.hidden;
+  closeMenus(btnId); if (open) render(); m.hidden = !open; $('#' + btnId).setAttribute('aria-expanded', String(open));
+}
+const tickSvg = SV(IC.tick, 2.2).replace('<svg', '<svg class="tick"');
+function renderMode(){
+  $('#modeMenu').innerHTML = '<div class="mlabel">What should it do?</div>' + MODES.map(([k, , long, sub, ic]) => `<button type="button" class="mi" role="menuitemradio" data-mode="${k}" aria-checked="${k === mode}"><span class="mic">${SV(ic)}</span><span><b>${long}</b><small>${sub}</small></span>${tickSvg}</button>`).join('');
+}
+function renderSees(){
+  $('#seesMenu').innerHTML = '<div class="mlabel">What the agent sees</div>' + SEES.map(([k, l, sub]) => `<button type="button" class="mi" role="menuitemcheckbox" data-see="${k}" aria-checked="${sees[k]}"><span><b>${l}</b><small>${sub}</small></span><i class="tg"></i></button>`).join('')
+    + `<div class="mfoot"><span>Add sketches with the AI button in Info.</span><button type="button" id="preview">Preview</button></div><pre class="ctx" id="ctx" hidden></pre>`;
+}
+function renderAdd(){
+  $('#addMenu').innerHTML = '<div class="mlabel">Add to your message</div>'
+    + `<button type="button" class="mi" data-add="file"><span class="mic">${SV(IC.img)}</span><span><b>Upload image or PDF</b><small>A photo of a paper sketch, a reference, a plan</small></span></button>`
+    + `<button type="button" class="mi" data-add="view"><span class="mic">${SV(IC.cam)}</span><span><b>Capture the viewport</b><small>What you see in Rhino right now</small></span></button>`
+    + `<button type="button" class="mi" data-add="sketch"><span class="mic">${SV(IC.pen)}</span><span><b>Attach current sketch</b><small>Your ink and marks as a drawing</small></span></button>`;
+}
+function syncModeBtn(){ const m = MODES.find((x) => x[0] === mode); $('#modeLabel').textContent = m[1]; $('#modeIcon').innerHTML = SV(m[4]); }
+function syncSees(){ $('#seesCount').textContent = Object.values(sees).filter(Boolean).length; }
+$('#modeBtn').addEventListener('click', () => toggle('modeBtn', renderMode));
+$('#seesBtn').addEventListener('click', () => toggle('seesBtn', renderSees));
+$('#addBtn').addEventListener('click', () => toggle('addBtn', renderAdd));
+$('#modeMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (!b) return; mode = b.dataset.mode; syncModeBtn(); closeMenus(); $('#input').focus(); });
+$('#seesMenu').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-see]');
+  if (b){ sees[b.dataset.see] = !sees[b.dataset.see]; b.setAttribute('aria-checked', String(sees[b.dataset.see])); syncSees(); return; }
+  if (e.target.closest('#preview')){
+    const pre = $('#ctx'); pre.hidden = !pre.hidden;
+    pre.textContent = ['Model: Pavilion.3dm, meters, Z up', `Mode: ${MODES.find((x) => x[0] === mode)[2]}`].concat(sees.cursor ? ['3D cursor ("here"): (-3.2, -1.6, 4.0) on Main block · top face'] : [], sees.sketch ? ['', '2 · Region 4.2 × 2.4 m (Region mark, open)', '  Means: An area on the south face of Main block.', '', '3 · Pull 3.0 m (Pull mark, open)', '  Means: Pull the top face of Tower out by 3.0 m.'] : [], sees.view ? ['', 'Attached: perspective.png (current view)'] : [], sees.sel ? ['Selected: Tower'] : [], sees.layout ? ['Layout: A-100 Site plan'] : []).join('\n');
+  }
+});
+$('#addMenu').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-add]'); if (!b) return; closeMenus();
+  if (b.dataset.add === 'file') $('#file').click();
+  else addTile({ name:b.dataset.add === 'view' ? 'Viewport.png' : 'Sketch.png', svg:b.dataset.add === 'view' ? THUMB_VIEW : THUMB_SKETCH });
+});
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.menu, #modeBtn, #seesBtn, #addBtn')) closeMenus(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(); });
+
+/* ---------- upload: file picker, drag and drop, paste ---------- */
+const THUMB_SKETCH = '<svg viewBox="0 0 60 60" fill="none" stroke="#3a3f4b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 46V16h40v30z" stroke-dasharray="1 0"/><path d="M10 30h18v16M28 16v8M36 30h14"/><path d="M12 47c6-1.5 30-1.5 37 0" stroke="#3d6bff" stroke-width="1.2" opacity=".7"/></svg>';
+const THUMB_VIEW = '<svg viewBox="0 0 60 60" fill="none" stroke="#3a3f4b" stroke-width="1.4" stroke-linejoin="round"><rect x="0" y="0" width="60" height="60" fill="#d4d7db" stroke="none"/><path d="M14 38l14-7 18 6-14 8z" fill="#f4f4f2"/><path d="M14 38V26l14-7v12M28 19l18 6v12" fill="#ebebe8"/><path d="M38 28v-14l5 1.6v13.5" fill="#f4f4f2"/></svg>';
+function addTile(f){ files.push(f); drawTray(); }
+function drawTray(){
+  $('#tray').innerHTML = files.map((f, i) => `<div class="tile" title="${f.name}">${f.url ? `<img src="${f.url}" alt="${f.name}">` : f.svg}<button type="button" class="x" data-rm="${i}" aria-label="Remove ${f.name}">×</button></div>`).join('');
+  sync();
+}
+$('#tray').addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (b){ files.splice(+b.dataset.rm, 1); drawTray(); } });
+$('#file').addEventListener('change', (e) => { [...e.target.files].forEach((f) => addTile({ name:f.name, url:f.type.startsWith('image/') ? URL.createObjectURL(f) : null, svg:THUMB_SKETCH })); e.target.value = ''; });
+const comp = $('#composer');
+comp.addEventListener('dragover', (e) => { e.preventDefault(); comp.classList.add('drag'); });
+comp.addEventListener('dragleave', () => comp.classList.remove('drag'));
+comp.addEventListener('drop', (e) => { e.preventDefault(); comp.classList.remove('drag'); [...e.dataTransfer.files].forEach((f) => addTile({ name:f.name, url:f.type.startsWith('image/') ? URL.createObjectURL(f) : null, svg:THUMB_SKETCH })); });
+$('#input').addEventListener('paste', (e) => { const imgs = [...(e.clipboardData && e.clipboardData.files || [])].filter((f) => f.type.startsWith('image/')); if (imgs.length){ e.preventDefault(); imgs.forEach((f) => addTile({ name:f.name, url:URL.createObjectURL(f) })); } });
+
+/* ---------- voice ---------- */
+$('#micBtn').addEventListener('click', (e) => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', String(on)); comp.classList.toggle('voice', on);
+  $('#voicebars').hidden = !on; $('#input').hidden = on;
+  if (!on){ $('#input').value = 'Make this a two-storey pavilion with a roof terrace'; sync(); $('#input').focus(); }
+});
+
+/* ---------- send + scripted reply ---------- */
+const input = $('#input'), send = $('#send');
+function sync(){ send.disabled = !input.value.trim() && !files.length; input.style.height = 'auto'; input.style.height = Math.min(140, Math.max(44, input.scrollHeight)) + 'px'; }
+input.addEventListener('input', sync);
+input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); comp.requestSubmit(); } });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const scroll = () => { const c = $('#content'); c.scrollTop = c.scrollHeight; };
+const PLAN = '<svg viewBox="0 0 100 100" fill="none" stroke="#3a3f4b" stroke-width="2" stroke-linejoin="round"><path d="M14 18h72v64H14z"/><path d="M14 50h34v32M48 18v20M62 50h24M62 50v32" stroke-width="1.4"/><path d="M26 50v-6M48 64h-6" stroke="#fbfbfc" stroke-width="3"/><text x="22" y="34" font-size="7" fill="#878d99" stroke="none" font-family="system-ui">Living</text><text x="66" y="68" font-size="7" fill="#878d99" stroke="none" font-family="system-ui">Bed</text></svg>';
+const MASS = '<svg viewBox="0 0 100 100" fill="none" stroke="#3a3f4b" stroke-width="1.4" stroke-linejoin="round"><path d="M18 62l32-16 34 14-32 17z" fill="#eef0f3"/><path d="M18 62V44l32-16v18M50 28l34 14v18" fill="#f8f8f7"/><path d="M18 44l34 14 32-16M52 58v19" /><path d="M30 38V30l20-10 22 9v9" fill="#ffffff"/></svg>';
+async function reply(text){
+  $('#welcome').hidden = true; $('#thread').hidden = false;
+  const u = document.createElement('div'); u.className = 'user';
+  u.innerHTML = (files.length ? `<div class="att">${files.map((f) => `<span class="thumb">${f.url ? `<img src="${f.url}" alt="" style="width:100%;height:100%;object-fit:cover">` : f.svg}</span>`).join('')}</div>` : '') + (text ? `<div>${text.replace(/</g, '&lt;')}</div>` : '');
+  $('#thread').append(u); files = []; drawTray(); input.value = ''; sync(); scroll();
+  const r = document.createElement('div'); r.className = 'reply';
+  r.innerHTML = `<span class="logo">${document.querySelector('.head .logo').innerHTML}</span><div class="rbody"><div class="steps"></div></div>`;
+  $('#thread').append(r); const steps = r.querySelector('.steps');
+  const S = mode === 'ask' ? ['Reading your sketch', 'Looking at the model'] : ['Reading your sketch and marks', 'Finding walls and rooms', 'Building the floor plan', 'Making the 3D massing'];
+  for (const s of S){
+    const el = document.createElement('div'); el.className = 'step run'; el.innerHTML = `<span class="ic"></span>${s}`; steps.append(el); scroll();
+    await wait(650); el.className = 'step ok'; el.querySelector('.ic').innerHTML = SV(IC.tick, 3);
+  }
+  const body = r.querySelector('.rbody');
+  if (mode === 'ask'){ body.insertAdjacentHTML('beforeend', '<p class="answer">The region on the south face is about 4.2 × 2.4 m. The tower roof is at 10 m; your pull mark would take it to 13 m.</p>'); scroll(); return; }
+  body.insertAdjacentHTML('beforeend', `<p class="answer">Here is what I read from your sketch: four rooms around a central living space, with the tower as a stair core.</p>
+    <div class="result"><div class="preview"><div><small>Plan</small>${PLAN}</div><div><small>3D</small>${MASS}</div></div>
+    <div class="rmeta"><b>Floor plan · 4 rooms · 86 m²</b><span>Preview in the viewport. Nothing is added until you keep it.</span>
+    <div class="acts"><button type="button" class="btn strong" data-keep>Keep</button><button type="button" class="btn" data-show>Show in viewport</button><button type="button" class="btn ghost" data-discard>Discard</button></div></div></div>`);
+  scroll();
+}
+$('#thread').addEventListener('click', (e) => {
+  const card = e.target.closest('.result'); if (!card) return;
+  if (e.target.closest('[data-keep]')){ card.querySelector('.acts').remove(); card.insertAdjacentHTML('afterend', '<div class="done">Added to the model. It is in Info › What changed. <a>Undo</a></div>'); scroll(); }
+  if (e.target.closest('[data-discard]')){ card.querySelector('.acts').innerHTML = '<span style="font-size:11.5px;color:var(--muted)">Discarded</span>'; }
+});
+comp.addEventListener('submit', (e) => { e.preventDefault(); if (send.disabled) return; closeMenus(); reply(input.value.trim()); });
+const SUGG = [['Make a 3D model from my sketch', IC.cube, '3d'], ['Read this sketch as a floor plan', IC.plan, 'plan'], ['Do what my marks say', IC.marks, 'marks']];
+$('#sugg').innerHTML = SUGG.map(([t, ic, m]) => `<button type="button" data-m="${m}"><i>${SV(ic)}</i>${t}</button>`).join('');
+$('#sugg').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (!b) return; mode = b.dataset.m; syncModeBtn(); addTile({ name:'Sketch.png', svg:THUMB_SKETCH }); reply(b.textContent); });
+
+/* ---------- tabs + new chat ---------- */
+const HIST = [['Pavilion floor plan', 'Today · 4 rooms · kept'], ['Canopy from outline', 'Today · discarded'], ['Tower pull 3 m', 'Yesterday · kept'], ['Site path redline', 'Mon · plan only']];
+$('#hist').innerHTML = HIST.map(([t, m]) => `<button type="button" class="hrow"><span class="thumb">${MASS}</span><span><b>${t}</b><small>${m}</small></span></button>`).join('');
+document.querySelector('.tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-tab]'); if (!t) return;
+  document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+  const h = t.dataset.tab === 'history', has = $('#thread').children.length;
+  $('#hist').hidden = !h; $('#thread').hidden = h || !has; $('#welcome').hidden = h || has;
+});
+$('#newChat').addEventListener('click', () => { $('#thread').innerHTML = ''; $('#thread').hidden = true; $('#welcome').hidden = false; files = []; drawTray(); });
+syncModeBtn(); syncSees(); sync();
+</script>
+</body>
+</html>

@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<style>[hidden]{ display:none !important; } /* added for local preview: the artifact host provides this */</style>
 <title>Rhino Sketch Modes</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +14,8 @@
   --float:rgba(250,250,251,.94); --float-line:rgba(0,0,0,.10); --shadow:0 8px 24px rgba(16,20,28,.16),0 1px 3px rgba(16,20,28,.12);
   --vp-bg:#a8abaf; --vp-grid:#9c9fa3; --vp-grid-major:#878a8f; --vp-obj:#e3e3e1; --vp-edge:#141414;
   --paper:#fbfaf6; --paper-fill:#e4e1da; --paper-edge:#1a1a1a; --paper-ink:#1a1a1a;
-  --sel:#f2c200;
+  --sel:#f2c200; --ok:#1d7f46; --warn:#9a6c00;
+  --c-add:#3fae6a; --c-chg:#3a7bd5; --c-rem:#e0443a;
   --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;
   --f-text:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
@@ -23,6 +26,7 @@
   --accent:#6b95ff; --accent-ink:#0b1022; --accent-soft:rgba(107,149,255,.18);
   --float:rgba(38,38,42,.94); --float-line:rgba(255,255,255,.10); --shadow:0 8px 24px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
   --vp-bg:#4a4d51; --vp-grid:#56595d; --vp-grid-major:#686b70; --vp-obj:#cbcccd; --vp-edge:#0d0d0d;
+  --ok:#4cc27e; --warn:#e2b23a;
   color-scheme:dark } }
 :root[data-theme="dark"]{
   --page:#131417; --page-ink:#e8eaee; --page-muted:#99a0ab; --page-line:#2b2e34;
@@ -30,6 +34,7 @@
   --accent:#6b95ff; --accent-ink:#0b1022; --accent-soft:rgba(107,149,255,.18);
   --float:rgba(38,38,42,.94); --float-line:rgba(255,255,255,.10); --shadow:0 8px 24px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
   --vp-bg:#4a4d51; --vp-grid:#56595d; --vp-grid-major:#686b70; --vp-obj:#cbcccd; --vp-edge:#0d0d0d;
+  --ok:#4cc27e; --warn:#e2b23a;
   color-scheme:dark }
 
 html,body{ background:var(--page); color:var(--page-ink); }
@@ -150,9 +155,63 @@ kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bot
 .chk{ display:flex; gap:8px; align-items:flex-start; font-size:12px; cursor:pointer; }
 .chk input{ margin:1px 0 0; accent-color:var(--accent); }
 .slist{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; border:1px solid var(--win-line); border-radius:8px; overflow:hidden; background:var(--field); }
-.srow{ display:grid; grid-template-columns:10px minmax(0,1fr) auto auto; align-items:center; gap:8px; padding:6px 6px 6px 9px; border-top:1px solid var(--win-line); }
+.aib{ height:20px; min-width:26px; padding:0 5px; border-radius:5px; border:1px solid var(--win-line); background:var(--win); color:var(--win-muted); font:600 10px var(--f-ui); cursor:pointer; }
+.aib:hover{ border-color:var(--accent); color:var(--accent); }
+.aib[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.aichips{ display:flex; flex-wrap:wrap; gap:5px; }
+.aichips .none{ font-size:12px; color:var(--win-muted); }
+.aipre{ margin:0; max-height:220px; overflow:auto; white-space:pre-wrap; font:11px/1.5 var(--f-mono); background:var(--field); border:1px solid var(--win-line); border-radius:7px; padding:8px; color:var(--win-ink); }
+.mlabel.ai .in::after{ content:"AI"; font:600 9px var(--f-ui); color:var(--accent-ink); background:var(--accent); border-radius:4px; padding:1px 4px; margin-left:2px; }
+.srow{ display:grid; grid-template-columns:10px minmax(0,1fr) auto auto auto; align-items:center; gap:6px 7px; padding:6px 4px 6px 9px; border-top:1px solid var(--win-line); cursor:pointer; }
 .srow:first-child{ border-top:0; }
 .srow:hover{ background:var(--hover); }
+.srow.sel{ background:var(--accent-soft); }
+.srow .sn input{ font:600 12px var(--f-ui); width:100%; border:1px solid var(--accent); border-radius:4px; background:var(--field); color:var(--win-ink); padding:1px 4px; }
+.chev svg{ width:14px; height:14px; transition:transform .15s; }
+.srow.exp .chev svg{ transform:rotate(180deg); }
+.pill{ font:600 9.5px var(--f-ui); text-transform:uppercase; letter-spacing:.05em; border-radius:999px; padding:2px 7px; white-space:nowrap; border:1px solid transparent; }
+.pill.open{ color:var(--accent); background:var(--accent-soft); }
+.pill.sent{ color:var(--win-muted); border-color:var(--win-line); }
+.pill.preview{ color:var(--warn); border-color:var(--warn); }
+.pill.done{ color:var(--ok); border-color:var(--ok); }
+.pill.dismissed{ color:var(--win-muted); text-decoration:line-through; }
+.pill.ink{ color:var(--win-muted); border-color:var(--win-line); }
+.sdet{ grid-column:1 / -1; display:flex; flex-direction:column; gap:7px; padding:4px 4px 4px 18px; cursor:default; }
+.means{ margin:0; font:12.5px/1.45 var(--f-text); }
+.frow{ display:flex; gap:6px 10px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--win-muted); }
+.frow label{ display:flex; align-items:center; gap:5px; }
+.frow select, .frow input{ font:11.5px var(--f-ui); border:1px solid var(--win-line); background:var(--field); color:var(--win-ink); border-radius:5px; padding:2px 5px; }
+.frow input[type="number"]{ width:64px; }
+.frow input[type="text"]{ flex:1; min-width:0; }
+.dv{ margin:0; font-size:11px; color:var(--win-muted); }
+.thread{ display:flex; flex-direction:column; gap:3px; border-left:2px solid var(--win-line); padding-left:8px; }
+.thread p{ margin:0; font-size:11.5px; line-height:1.4; }
+.psec-tools{ display:flex; gap:8px; align-items:center; }
+.tgl{ display:flex; gap:5px; align-items:center; font-size:11.5px; color:var(--win-muted); cursor:pointer; white-space:nowrap; }
+.tgl input{ accent-color:var(--accent); margin:0; }
+.legend{ display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; color:var(--win-muted); }
+.legend i{ display:inline-block; width:9px; height:9px; border-radius:2px; background:var(--c); margin-right:4px; vertical-align:-1px; }
+.legend .dash{ border-bottom:1.5px dashed var(--win-muted); line-height:1.15; }
+.clist{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+.citem{ display:grid; grid-template-columns:8px minmax(0,1fr) auto; gap:8px; align-items:center; padding:6px 6px 6px 8px; border-radius:7px; background:var(--field); border:1px solid var(--win-line); cursor:pointer; }
+.citem:hover{ border-color:var(--accent); }
+.citem .k{ width:8px; height:8px; border-radius:2px; background:var(--c); }
+.ct{ font-weight:600; font-size:12px; }
+.cs{ font-size:11px; color:var(--win-muted); }
+.cempty{ font-size:12px; color:var(--win-muted); padding:8px 10px; border:1px dashed var(--win-line); border-radius:7px; }
+.counts{ margin:0; font-size:11.5px; color:var(--win-muted); }
+.counts b{ color:var(--win-ink); font-weight:600; }
+.seg-full{ display:flex; } .seg-full button{ flex:1; }
+.ofilter{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; padding:5px 6px 5px 9px; border-radius:7px; background:var(--accent-soft); }
+.glist2{ display:flex; flex-direction:column; gap:10px; }
+.grp{ display:flex; flex-direction:column; gap:4px; }
+.gh{ display:flex; justify-content:space-between; align-items:center; font:600 11px var(--f-ui); color:var(--win-muted); padding:0 2px; background:none; border:0; cursor:pointer; text-align:left; }
+.gh:hover{ color:var(--accent); }
+details.pen summary{ cursor:pointer; font:600 10.5px var(--f-ui); text-transform:uppercase; letter-spacing:.07em; color:var(--win-muted); }
+details.pen[open]{ gap:8px; }
+.mlabel .in{ pointer-events:auto; cursor:pointer; }
+.mlabel.sel .in{ box-shadow:0 0 0 2px var(--sel), var(--shadow); }
+.mlabel.dis .in{ opacity:.45; } .mlabel.dis .mt{ text-decoration:line-through; }
 .srow .sw{ width:10px; height:10px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--win-line); }
 .sn{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ss{ color:var(--win-muted); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -161,7 +220,7 @@ kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bot
 .tag.mark{ color:var(--accent); border-color:var(--accent-soft); background:var(--accent-soft); }
 .mini{ border:1px solid var(--win-line); background:var(--win); border-radius:5px; height:22px; padding:0 7px; font:500 11px var(--f-ui); cursor:pointer; white-space:nowrap; }
 .mini:hover{ border-color:var(--accent); color:var(--accent); }
-.ix{ width:22px; height:22px; border:0; background:transparent; border-radius:5px; color:var(--win-muted); cursor:pointer; font-size:15px; line-height:1; }
+.ix{ display:grid; place-items:center; width:22px; height:22px; border:0; background:transparent; border-radius:5px; color:var(--win-muted); cursor:pointer; font-size:15px; line-height:1; }
 .ix:hover{ background:var(--hover); color:var(--win-ink); }
 .empty{ padding:12px; color:var(--win-muted); font-size:12px; }
 .actions{ flex-direction:row; flex-wrap:wrap; gap:6px; }
@@ -246,9 +305,9 @@ kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bot
 <div class="page">
   <header class="intro">
     <div class="intro-text">
-      <p class="eyebrow">Concept mockup · Rhino + Ant</p>
+      <p class="eyebrow">Concept mockup · Rhino</p>
       <h1>Sketch Modes</h1>
-      <p class="lede">Sketch straight into the model. Drop a 3D cursor to say “here”, draw on planes, objects and drawings, and send the sketch to Ant with one sentence. The viewport below is live: try every mode.</p>
+      <p class="lede">Sketch straight into the model. Drop a 3D cursor to say “here”, draw on planes, objects and drawings, and pick which sketches to give an AI as context. The viewport below is live: try every mode.</p>
     </div>
     <dl class="keys">
       <div><dt>Orbit</dt><dd>Right-drag or Option-drag</dd></div>
@@ -304,29 +363,44 @@ kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bot
           <button class="ptab" role="tab" data-tab="sketch" aria-selected="true">Sketch</button>
           <button class="ptab" role="tab" data-tab="cursor" aria-selected="false">3D Cursor</button>
           <button class="ptab" role="tab" data-tab="layers" aria-selected="false">Layers</button>
-          <button class="ptab" role="tab" data-tab="ant" aria-selected="false">Ant<span class="badge" id="antBadge"></span></button>
         </div>
 
         <section class="pane" id="pane-sketch">
           <div class="psec">
-            <h3>Pen</h3>
+            <div class="psec-h"><h3>What changed</h3><div class="psec-tools"><label class="tgl"><input type="checkbox" id="showChanges"> Show in model</label><button type="button" class="mini" id="copySummary">Copy</button></div></div>
+            <div class="legend" id="chgLegend" hidden><span><i style="--c:var(--c-add)"></i>Added</span><span><i style="--c:var(--c-chg)"></i>Changed</span><span><i style="--c:var(--c-rem)"></i>Removed</span><span class="dash">Dashed = before</span></div>
+            <ul class="clist" id="changeList"></ul>
+            <p class="counts" id="sCounts"></p>
+          </div>
+          <div class="psec">
+            <div class="psec-h"><h3>Sketch</h3><label class="tgl"><input type="checkbox" id="openOnly"> Only open</label></div>
+            <div class="seg seg-full" id="groupSeg"><button type="button" data-group="object">By object</button><button type="button" data-group="kind">By kind</button><button type="button" data-group="order">In order</button></div>
+            <div class="ofilter" id="objFilter" hidden></div>
+            <div class="glist2" id="strokeList"></div>
+          </div>
+          <div class="psec">
+            <div class="psec-h"><h3>AI context</h3><span class="count" id="aiCount"></span></div>
+            <div class="aichips" id="aiChips"></div>
+            <div class="row">
+              <button type="button" class="mini" id="aiShow" aria-expanded="false">Show what the AI gets</button>
+              <button type="button" class="mini" id="aiCopy">Copy</button>
+              <button type="button" class="mini" id="aiClear">Clear</button>
+            </div>
+            <pre class="aipre" id="aiPre" hidden></pre>
+          </div>
+          <div class="psec actions">
+            <button class="btn ghost" id="btnClear">Clear sketch</button>
+          </div>
+          <details class="psec pen">
+            <summary>Pen settings</summary>
             <div class="pen-row">
               <div class="swatches" id="penSw"></div>
               <label class="rng" for="penWidth">Width <input id="penWidth" type="range" min="1" max="8" step="1" value="3"><output id="penWidthOut">3 px</output></label>
             </div>
             <label class="chk"><input type="checkbox" id="penPressure" checked> Pen pressure changes the width</label>
             <label class="chk"><input type="checkbox" id="penSmart" checked> Hold still at the end of a stroke to snap it to a line or circle</label>
-          </div>
-          <div class="psec">
-            <div class="psec-h"><h3>On the sketch layer</h3><span class="count" id="sCount"></span></div>
-            <ul class="slist" id="strokeList"></ul>
-          </div>
-          <div class="psec actions">
-            <button class="btn primary" id="btnReal">Turn ink into curves</button>
-            <button class="btn" id="btnAnt">Send to Ant</button>
-            <button class="btn ghost" id="btnClear">Clear sketch</button>
-          </div>
-          <p class="tip">Ink isn't geometry. It stays on its own layer until you turn it into curves or send it to Ant. Hover a row to find it in the model.</p>
+          </details>
+          <p class="tip">Click a row to fly back to where you drew it, and click again to zoom in. Double-click a name to rename it. Press AI on a row to add it to the AI context. In Navigate mode, click a sketch or an object in the viewport to find it here.</p>
         </section>
 
         <section class="pane" id="pane-cursor" hidden>
@@ -349,7 +423,7 @@ kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bot
             <h3>Use the cursor as</h3>
             <label class="chk"><input type="checkbox" id="optFollow"> Construction plane: the grid moves to the cursor</label>
             <label class="chk"><input type="checkbox" id="optPivot" checked> Pivot for Rotate, Scale and Mirror</label>
-            <label class="chk"><input type="checkbox" id="optAnt" checked> The spot where Ant puts new things</label>
+            <label class="chk"><input type="checkbox" id="optAI" checked> AI context: tells the AI where “here” is</label>
             <label class="chk"><input type="checkbox" id="optSnap" checked> Snap to corners while placing</label>
           </div>
           <div class="psec row">
@@ -361,19 +435,7 @@ kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bot
 
         <section class="pane" id="pane-layers" hidden>
           <ul class="layers" id="layerList"></ul>
-          <p class="tip">Sketch ink and marks live on a new kind of layer. They don't print or export unless you turn them into curves.</p>
-        </section>
-
-        <section class="pane ant" id="pane-ant" hidden>
-          <div class="ant-log" id="antLog"></div>
-          <div class="ant-box">
-            <div class="ant-att"><span class="lbl">Ant reads</span><div class="chips" id="antChips"></div></div>
-            <label class="sr" for="antText">Message to Ant</label>
-            <textarea id="antText" rows="2" placeholder="Say what your sketch means…"></textarea>
-            <div class="sugg" id="antSugg"></div>
-            <div class="ant-send"><span class="muted small">Return to send</span><button class="btn primary" id="antSend">Send to Ant</button></div>
-          </div>
-          <p class="tip">In this mockup Ant's replies are scripted to show the flow.</p>
+          <p class="tip">Sketch ink and marks live on a new kind of layer. They don't print or export.</p>
         </section>
       </aside>
     </div>
@@ -433,7 +495,6 @@ const ICON = {
   drawing: SV('<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M7 7h6v5H7zM13 9.5h4"/><path d="M13 20.5v-4h7.5"/>'),
   eraser: SV('<path d="M14.6 4.6l4.8 4.8-9.2 9.2H6.4L3.8 16z"/><path d="M8.9 10.3l4.8 4.8M11 20.5h9"/>'),
   pen: SV('<path d="M4 20l1.2-4.6L16 4.6a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/><path d="M14.5 6l3.5 3.5"/>'),
-  ant: SV('<path d="M4 5h16v11H9l-5 4z"/><path d="M9 13l3-6 3 6M10 11h4"/>'),
   eye: SV('<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/>')
 };
 
@@ -474,15 +535,16 @@ const S = {
   cplaneFollows:false, sketchUI:true, cursorOn:true,
   strokes:[], inkN:0, redN:0, markN:0, uid:0,
   cur:{ p:new V3(), n:ZUP.clone(), q:new THREE.Quaternion(), on:'World origin' },
-  overVp:false, overRw:false, lastPtr:null, antExclude:new Set(), pending:null, tab:'sketch',
+  overVp:false, overRw:false, lastPtr:null, ai:new Set(), aiCursor:true, tab:'sketch',
   lockedPlane:null, eraseArm:false, clearArm:false,
+  sel:null, group:'object', openOnly:false, expanded:new Set(), changes:[], showChanges:false, objFilter:null,
   layers:{ model:true, ink:true, marks:true, curves:true, preview:true, grid:true }
 };
 
 /* ---------- scene ---------- */
 const scene = new THREE.Scene();
 const G = {};
-['grid', 'model', 'curves', 'ink', 'marks', 'preview', 'helpers'].forEach((k) => { G[k] = new THREE.Group(); scene.add(G[k]); });
+['grid', 'model', 'changes', 'curves', 'ink', 'marks', 'preview', 'helpers'].forEach((k) => { G[k] = new THREE.Group(); scene.add(G[k]); });
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f96, 0.72); hemi.position.set(0, 0, 10); scene.add(hemi);
 const head = new THREE.DirectionalLight(0xffffff, 0.5); scene.add(head); scene.add(head.target);
 
@@ -497,7 +559,11 @@ const M = {
   axisY: new THREE.LineBasicMaterial({ color:0x2f8f3a }),
   ghost: new THREE.MeshLambertMaterial({ color:0xf5c518, transparent:true, opacity:0.6, side:THREE.DoubleSide, depthWrite:false }),
   ghostRed: new THREE.MeshBasicMaterial({ color:0xe0443a, transparent:true, opacity:0.42, side:THREE.DoubleSide, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2 }),
-  ghostEdge: new THREE.LineBasicMaterial({ color:0x8a6a00 })
+  ghostEdge: new THREE.LineBasicMaterial({ color:0x8a6a00 }),
+  added: new THREE.MeshLambertMaterial({ color:0x7fd19c, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1 }),
+  changed: new THREE.MeshLambertMaterial({ color:0x8fb4ee, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1 }),
+  removed: new THREE.MeshBasicMaterial({ color:0xe0443a, transparent:true, opacity:0.32, side:THREE.DoubleSide, depthWrite:false }),
+  before: new THREE.LineDashedMaterial({ color:0x1d2633, dashSize:0.35, gapSize:0.22 })
 };
 const COL = { bg:new THREE.Color(0xa8abaf), paper:new THREE.Color(0xfbfaf6) };
 
@@ -531,7 +597,7 @@ function rebuildBox(m){
   m.position.set(u.cx, u.cy, u.z0 + u.h / 2);
   u.edges.geometry.dispose(); u.edges.geometry = new THREE.EdgesGeometry(m.geometry, 30);
 }
-const mainBlock = boxMesh('Main block', 14, 8, 4, 0, 0, 0);
+const mainBlock = boxMesh('Main block', 12, 8, 4, -1, 0, 0);
 const tower = boxMesh('Tower', 4, 4, 10, 9, 3, 0);
 const CW = { cx:-12, cy:7, r:6, h:3.6, t0:-Math.PI / 4 - Math.PI / 3, tl:2 * Math.PI / 3 };
 const wallGeom = new THREE.CylinderGeometry(CW.r, CW.r, CW.h, 72, 1, true, CW.t0, CW.tl);
@@ -745,7 +811,7 @@ function setCursor(p, n, on, which, anim){
   else { cursor.position.copy(p); cursor.quaternion.copy(q); curAnim = null; }
   S.cur.p.copy(p); S.cur.q.copy(q); S.cur.n = ZUP.clone().applyQuaternion(q); S.cur.on = on;
   if (S.cplaneFollows) syncGrid();
-  syncCursorPane(); refreshAnt();
+  syncCursorPane(); refreshAI();
 }
 function placeCursorAt(px, py, which, anim){
   const t = cursorTargetAt(px, py, which);
@@ -859,6 +925,7 @@ function startStroke(e, px, py, which){
   const color = kind === 'mark' ? (S.markTool !== 'auto' ? MARK[S.markTool].c : '#5a5f69') : (S.mode === 'drawing' ? REDLINE : PEN[S.pen.i].c);
   const s = newStroke({ kind, target, which, color, isPen:e.pointerType === 'pen',
     markType:kind === 'mark' && S.markTool !== 'auto' ? S.markTool : null, auto:kind === 'mark' && S.markTool === 'auto' });
+  s.view = snapNow(which);
   if (target === 'plane'){ const pl = currentPlane(camFor(which)); s.planeO = pl.o; s.planeN = pl.n; s.planeName = pl.name; S.lockedPlane = pl; }
   else {
     const h = hitModel(rayAt(px, py, which));
@@ -883,8 +950,10 @@ function disposeStroke(s){
 }
 function removeStroke(s){
   disposeStroke(s);
+  if (S.sel === s.id) S.sel = null;
+  S.expanded.delete(s.id);
   const i = S.strokes.indexOf(s); if (i >= 0) S.strokes.splice(i, 1);
-  S.antExclude.delete(String(s.id));
+  S.ai.delete(s.id);
   refresh();
 }
 function resample2(P, step){
@@ -950,7 +1019,7 @@ function whereInk(s){
   const o = majorityObj(s); return o ? 'on ' + o.userData.name : 'on CPlane';
 }
 function finalizeInk(s){
-  s.done = true;
+  s.done = true; s.thread = s.thread || [];
   s.name = s.target === 'drawing' || s.color === REDLINE && S.mode === 'drawing' ? 'Redline ' + (++S.redN) : 'Ink ' + (++S.inkN);
   s.where = s.where || whereInk(s);
   const L = pathLen3(s.pts);
@@ -959,7 +1028,7 @@ function finalizeInk(s){
   log(`${s.name} added ${s.where}${s.quick ? ' (snapped to a ' + s.quick + ')' : ''}.`);
 }
 function finalizeMark(s){
-  s.num = ++S.markN;
+  s.num = ++S.markN; s.status = s.status || 'open'; s.thread = s.thread || [];
   s.obj = majorityObj(s) || s.obj || (s.startHit && s.startHit.object) || null;
   s.color = MARK[s.markType].c; s.mat.color.set(s.color);
   if (s.markType === 'arrow'){
@@ -1024,6 +1093,7 @@ function makeLabel(s){
   s.labels = ['main', 'plan'].map((which) => {
     const el = document.createElement('div'); el.className = 'mlabel';
     el.innerHTML = '<span class="in"><span class="mnum"></span><span class="mt"></span></span>';
+    el.querySelector('.in').addEventListener('click', (ev) => { if (ev.target.closest('input')) return; ev.stopPropagation(); selectStroke(s, { fly:false, reveal:true }); });
     ov.appendChild(el); return { el, which };
   });
   updateLabel(s);
@@ -1032,9 +1102,12 @@ function updateLabel(s){
   if (!s.labels) return;
   s.labels.forEach((L) => {
     L.el.style.setProperty('--mc', s.color);
-    L.el.classList.toggle('done', !!s.applied);
+    L.el.classList.toggle('done', s.status === 'done');
+    L.el.classList.toggle('dis', s.status === 'dismissed');
+    L.el.classList.toggle('sel', S.sel === s.id);
+    L.el.classList.toggle('ai', S.ai.has(s.id));
     L.el.querySelector('.mnum').textContent = s.num;
-    const mt = L.el.querySelector('.mt'); if (mt) mt.textContent = s.markType === 'note' ? (s.text || 'Note') : s.title;
+    const mt = L.el.querySelector('.mt'); if (mt) mt.textContent = s.label || (s.markType === 'note' ? (s.text || 'Note') : s.title);
   });
 }
 function labelAnchor(s){
@@ -1060,6 +1133,7 @@ function makeNote(px, py, which){
   const pr = projectStroke(s, px, py);
   if (!pr){ disposeStroke(s); return; }
   s.pts = [pr.p]; s.nrms = [pr.n]; s.widths = [0]; s.done = true; s.num = ++S.markN; s.title = 'Note'; s.text = '';
+  s.status = 'open'; s.thread = []; s.view = snapNow(which);
   s.obj = pr.obj; s.face = '';
   s.mesh.geometry.dispose(); s.mesh.geometry = new THREE.SphereGeometry(0.16, 16, 12);
   s.mesh.position.copy(pr.p).addScaledVector(pr.n, 0.16); s.mesh.visible = true;
@@ -1100,7 +1174,7 @@ function quickShape(s){
   rebuild(s); toast(cap(shape), last.x, last.y);
 }
 function strokeVisible(s){ return s.kind === 'mark' ? G.marks.visible : (s.made ? G.curves.visible : G.ink.visible); }
-function eraseAt(px, py, which){
+function strokeAtScreen(px, py, which){
   setupCam(which);
   for (let i = S.strokes.length - 1; i >= 0; i--){
     const s = S.strokes[i]; if (!strokeVisible(s)) continue;
@@ -1109,224 +1183,88 @@ function eraseAt(px, py, which){
       const step = Math.max(1, Math.floor(pts.length / 80));
       for (let k = 0; k < pts.length; k += step){
         const sp = toScreen(pts[k], which);
-        if (sp && Math.hypot(sp.x - px, sp.y - py) < 12){ removeStroke(s); log(`Erased ${nameOf(s)}.`); return; }
+        if (sp && Math.hypot(sp.x - px, sp.y - py) < 12) return s;
       }
     }
   }
+  return null;
 }
-function fitCurve(s){
-  let P = s.pts, N = s.nrms;
-  if (P.length > 220){ P = P.filter((_, i) => i % 2 === 0 || i === s.pts.length - 1); N = N.filter((_, i) => i % 2 === 0 || i === s.nrms.length - 1); }
-  const L = pathLen3(P), C = P[0].distanceTo(P[P.length - 1]);
-  const planar = s.target !== 'object' || N.every((n) => n.dot(N[0]) > 0.98);
-  if (planar && C / L > 0.965) return { type:'line', pts:[P[0].clone(), P[P.length - 1].clone()], nrms:[N[0], N[N.length - 1]] };
-  const closed = C < 0.15 * L;
-  if (planar && closed){
-    const n = s.planeN ? s.planeN.clone() : avgN(N), c = centroid(P), b = basisFromNormal(n), d = new V3();
-    const rs = P.map((p) => { d.subVectors(p, c); return Math.hypot(d.dot(b.x), d.dot(b.y)); }), r = avg(rs);
-    const sd = Math.sqrt(avg(rs.map((x) => (x - r) * (x - r))));
-    if (sd / r < 0.12){
-      const pts = [], nrms = [], nf = N[0].dot(n) < 0 ? n.clone().negate() : n;
-      for (let i = 0; i <= 72; i++){ const a = i / 72 * Math.PI * 2; pts.push(c.clone().addScaledVector(b.x, r * Math.cos(a)).addScaledVector(b.y, r * Math.sin(a))); nrms.push(nf); }
-      return { type:'circle', pts, nrms };
-    }
-  }
-  let pts = P.map((p) => p.clone()), nrms = N.slice();
-  for (let k = 0; k < 2; k++){
-    const np = [pts[0]], nn = [nrms[0]];
-    for (let i = 0; i < pts.length - 1; i++){ np.push(pts[i].clone().lerp(pts[i + 1], 0.25), pts[i].clone().lerp(pts[i + 1], 0.75)); nn.push(nrms[i], nrms[i + 1]); }
-    np.push(pts[pts.length - 1]); nn.push(nrms[nrms.length - 1]); pts = np; nrms = nn;
-  }
-  if (closed){ pts.push(pts[0].clone()); nrms.push(nrms[0]); }
-  return { type:closed ? 'closed curve' : 'curve', pts, nrms };
-}
-function makeReal(){
-  const list = S.strokes.filter((s) => s.kind === 'ink' && !s.made);
-  if (!list.length){ log('There is no ink left to turn into curves.'); return; }
-  const tally = {};
-  list.forEach((s) => {
-    const r = fitCurve(s), w = avg(s.widths) * 0.42;
-    s.curveMat = new THREE.MeshBasicMaterial({ color:CURVE_COLOR, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4 });
-    const m = new THREE.Mesh(ribbon(r.pts, r.nrms, r.pts.map(() => w), 0.02), s.curveMat);
-    m.renderOrder = 11; m.userData.stroke = s; G.curves.add(m);
-    s.curve = m; s.curvePts = r.pts; s.made = true; s.curveType = r.type; s.mesh.visible = false;
-    tally[r.type] = (tally[r.type] || 0) + 1;
-  });
-  const parts = Object.keys(tally).map((k) => `${tally[k]} ${k}${tally[k] > 1 ? 's' : ''}`).join(', ');
-  log(`Turned ${list.length} ink stroke${list.length > 1 ? 's' : ''} into ${parts} on the layer “Curves from sketch”.`);
-  refresh();
+function eraseAt(px, py, which){
+  const s = strokeAtScreen(px, py, which);
+  if (s){ removeStroke(s); log(`Erased ${nameOf(s)}.`); }
 }
 
-/* ---------- Ant (scripted) ---------- */
+/* ---------- applying a mark by hand ---------- */
 function ghostMesh(g, mat){
   const m = new THREE.Mesh(g, mat || M.ghost); m.renderOrder = 20;
   const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 30), M.ghostEdge); m.add(e);
   m.userData.edges = e; G.preview.add(m); return m;
 }
-function toModel(m, name){
-  G.preview.remove(m); m.material = M.obj; m.userData.edges.material = M.edge;
-  m.userData = { name, kind:'part', alive:true, edges:m.userData.edges };
-  G.model.add(m); modelMeshes.push(m);
-}
 function dropGhosts(list){ list.forEach((m) => { G.preview.remove(m); if (!m.userData.shared) m.geometry.dispose(); if (m.userData.edges) m.userData.edges.geometry.dispose(); }); }
 function nameOfObj(m){ return m ? m.userData.name : 'nothing'; }
-
-function actFins(region, spacing){
-  const R = region.reg, obj = region.obj, hgt = Math.max(0.3, R.h);
-  const count = Math.max(2, Math.min(40, Math.floor(R.w / (spacing / 1000))));
-  const step = R.w / count, depth = 0.35, thick = 0.06, ghosts = [];
-  for (let i = 0; i < count; i++){
-    const u = R.u[0] + step * (i + 0.5);
-    const base = R.c.clone().addScaledVector(R.b.x, u).addScaledVector(R.b.y, (R.v[0] + R.v[1]) / 2);
-    let p = base, n = R.n.clone();
-    if (obj){
-      const rc = new THREE.Raycaster(base.clone().addScaledVector(R.n, 3), R.n.clone().negate());
-      const hs = rc.intersectObject(obj, false);
-      if (hs.length){ p = hs[0].point; n = hs[0].face.normal.clone().transformDirection(obj.matrixWorld); if (n.dot(R.n) < 0) n.negate(); }
-    }
-    const z = n.normalize(), y = R.b.y.clone().addScaledVector(z, -R.b.y.dot(z)).normalize(), x = new V3().crossVectors(y, z);
-    const m = ghostMesh(new THREE.BoxGeometry(thick, hgt, depth));
-    m.quaternion.copy(quatFromBasis({ x, y, z })); m.position.copy(p).addScaledVector(z, depth / 2 + 0.005);
-    ghosts.push(m);
-  }
-  return { ghosts, preview:'Preview in yellow',
-    plan:`Add ${count} vertical fins inside Region ${region.num}, ${spacing} mm apart and ${depth * 1000} mm deep, following the ${nameOfObj(obj)} surface.`,
-    apply(){ ghosts.forEach((m) => toModel(m, 'Fin')); region.applied = true; updateLabel(region); return `added ${count} fins in Region ${region.num}`; } };
-}
-function actPull(arrow, dOv){
+// Each act* returns { apply() } ; apply() changes the model and returns a change record for "What changed".
+function actPull(arrow){
   const m = arrow.obj;
-  if (!m || m.userData.kind !== 'box' || arrow.pull === null) return null;
+  if (!m || m.userData.kind !== 'box' || arrow.pull === null || !arrow.startHit) return null;
   const n = arrow.startHit.normal, a = { x:Math.abs(n.x), y:Math.abs(n.y), z:Math.abs(n.z) };
   const ax = a.z >= a.x && a.z >= a.y ? 'z' : (a.x >= a.y ? 'x' : 'y'), sg = Math.sign(n[ax]) || 1;
-  const u = m.userData, dims = { x:u.w, y:u.d, z:u.h }, cen = { x:u.cx, y:u.cy, z:u.z0 + u.h / 2 };
-  let d = dOv !== undefined ? dOv : arrow.pull;
-  d = Math.max(d, 0.3 - dims[ax]);
-  const face = cen[ax] + sg * dims[ax] / 2, size = Object.assign({}, dims), c = Object.assign({}, cen);
-  size[ax] = Math.max(0.02, Math.abs(d)); c[ax] = face + sg * d / 2;
-  const g = ghostMesh(new THREE.BoxGeometry(size.x, size.y, size.z), d >= 0 ? M.ghost : M.ghostRed);
-  g.position.set(c.x, c.y, c.z);
-  const verb = d >= 0 ? 'Pull' : 'Push';
-  return { ghosts:[g], preview:d >= 0 ? 'Preview in yellow' : 'Removed part in red',
-    plan:`${verb} the ${arrow.face} of ${u.name} ${d >= 0 ? 'out' : 'in'} by ${fmt(Math.abs(d))} m.`,
-    apply(){
-      if (ax === 'x'){ u.w += d; u.cx += sg * d / 2; }
-      else if (ax === 'y'){ u.d += d; u.cy += sg * d / 2; }
-      else if (sg > 0) u.h += d; else { u.z0 -= d; u.h += d; }
-      rebuildBox(m); dropGhosts([g]); arrow.applied = true; updateLabel(arrow);
-      return `${verb.toLowerCase()}ed ${u.name} ${fmt(Math.abs(d))} m (now ${fmt(u.w)} × ${fmt(u.d)} × ${fmt(u.h)} m)`;
-    } };
-}
-function actExtrude(loop, h, lift){
-  const n = (loop.planeN ? loop.planeN.clone() : avgN(loop.nrms)).normalize();
-  const b = basisFromNormal(n), c = centroid(loop.pts), d = new V3();
-  let src = loop.pts.length > 120 ? loop.pts.filter((_, i) => i % Math.ceil(loop.pts.length / 120) === 0) : loop.pts;
-  let cutAt = src.length - 1, best = Infinity;
-  for (let i = Math.floor(src.length * 0.6); i < src.length; i++){ const dd = src[i].distanceTo(src[0]); if (dd < best){ best = dd; cutAt = i; } }
-  src = src.slice(0, cutAt + 1);
-  const p2 = src.map((p) => { d.subVectors(p, c); return new THREE.Vector2(d.dot(b.x), d.dot(b.y)); });
-  let area = 0; for (let i = 0; i < p2.length; i++){ const a = p2[i], q = p2[(i + 1) % p2.length]; area += a.x * q.y - q.x * a.y; }
-  area = Math.abs(area) / 2;
-  const ghosts = [];
-  const m = ghostMesh(new THREE.ExtrudeGeometry(new THREE.Shape(p2), { depth:h, bevelEnabled:false, steps:1, curveSegments:4 }));
-  m.quaternion.copy(quatFromBasis(b)); m.position.copy(c).addScaledVector(n, lift); ghosts.push(m);
-  if (lift > 0){
-    for (let k = 0; k < 4; k++){
-      const p = src[Math.floor(k * src.length / 4)], toC = c.clone().sub(p), dist = toC.length();
-      const at = p.clone().addScaledVector(toC.normalize(), Math.min(0.45, dist * 0.3));
-      const g = new THREE.CylinderGeometry(0.07, 0.07, lift, 10); g.rotateX(Math.PI / 2); g.translate(0, 0, lift / 2);
-      const post = ghostMesh(g); post.quaternion.copy(quatFromBasis(b)); post.position.copy(at); ghosts.push(post);
-    }
-  }
-  const what = lift > 0 ? `a ${h * 1000} mm canopy ${fmt(lift)} m above it on four posts` : `a ${fmt(h)} m tall volume`;
-  return { ghosts, preview:'Preview in yellow',
-    plan:`Turn ${loop.name} (${fmt(area)} m², ${loop.where}) into ${what}.`,
-    apply(){ ghosts.forEach((g, i) => toModel(g, lift > 0 ? (i ? 'Post' : 'Canopy') : 'Volume')); return lift > 0 ? 'added a canopy' : `extruded ${loop.name}`; } };
+  const u = m.userData;
+  const delta = (dd) => {
+    if (ax === 'x'){ u.w += dd; u.cx += sg * dd / 2; }
+    else if (ax === 'y'){ u.d += dd; u.cy += sg * dd / 2; }
+    else if (sg > 0) u.h += dd; else { u.z0 -= dd; u.h += dd; }
+    rebuildBox(m);
+  };
+  return { apply(){
+    const old = { x:u.w, y:u.d, z:u.h }[ax], d = Math.max(arrow.pull, 0.3 - old);
+    const before = { w:u.w, d:u.d, h:u.h, cx:u.cx, cy:u.cy, z0:u.z0 };
+    delta(d);
+    return { kind:'changed', text:`${u.name}: ${{ x:'length', y:'depth', z:'height' }[ax]} ${fmt(old)} → ${fmt(old + d)} m`, objects:[m], before, undo(){ delta(-d); } };
+  } };
 }
 function actRemove(cross){
   const obj = cross.obj; if (!obj) return null;
-  const g = new THREE.Mesh(obj.geometry, M.ghostRed); g.position.copy(obj.position); g.quaternion.copy(obj.quaternion);
-  g.renderOrder = 20; g.userData.shared = true; G.preview.add(g);
-  return { ghosts:[g], preview:'Shown in red', plan:`Remove ${obj.userData.name}.`,
-    apply(){ obj.visible = false; obj.userData.alive = false; dropGhosts([g]); cross.applied = true; updateLabel(cross); return `removed ${obj.userData.name}`; } };
+  return { apply(){
+    obj.visible = false; obj.userData.alive = false;
+    return { kind:'removed', text:`${obj.userData.name} removed`, objects:[obj], undo(){ obj.visible = true; obj.userData.alive = true; } };
+  } };
 }
-function actColumn(h){
-  const g = new THREE.CylinderGeometry(0.22, 0.22, h, 20); g.rotateX(Math.PI / 2); g.translate(0, 0, h / 2);
-  const m = ghostMesh(g); m.quaternion.copy(S.cur.q); m.position.copy(S.cur.p);
-  return { ghosts:[m], preview:'Preview in yellow', plan:`Place a ${fmt(h)} m column at the 3D cursor on ${S.cur.on}, standing on the cursor's blue axis.`,
-    apply(){ toModel(m, 'Column'); return 'placed a column at the 3D cursor'; } };
-}
-function antContext(){
-  return S.strokes.filter((s) => (s.kind === 'mark' && !s.applied) || (s.kind === 'ink' && !s.made && s.closed));
-}
-function describe(s){
-  if (s.kind === 'ink') return `${s.name}: closed outline ${s.where}, about ${(() => { const r = regionInfo(s.pts, s.nrms, s.planeN); return fmt(r.w) + ' × ' + fmt(r.h); })()} m`;
-  const w = whereMark(s);
-  switch (s.markType){
-    case 'region': return `Mark ${s.num}: area ${w}, about ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m`;
-    case 'arrow': return s.pull === null ? `Mark ${s.num}: arrow ${w}` : `Mark ${s.num}: ${s.title.toLowerCase()} from the ${s.face} of ${nameOfObj(s.obj)}`;
-    case 'cross': return `Mark ${s.num}: ${nameOfObj(s.obj)} is crossed out`;
-    case 'cut': return `Mark ${s.num}: cut line ${w}`;
-    case 'note': return `Mark ${s.num}: note “${s.text || 'Note'}” ${w}`;
-  }
-  return s.title;
-}
-function antPlan(text){
-  const t = text.toLowerCase();
-  const ctx = antContext().filter((s) => !S.antExclude.has(String(s.id)));
-  const useCursor = !S.antExclude.has('cursor');
-  const read = ctx.map(describe); if (useCursor) read.push(`3D cursor on ${S.cur.on}`);
-  const lastOf = (type) => ctx.slice().reverse().find((s) => s.kind === 'mark' && s.markType === type);
-  const loop = ctx.slice().reverse().find((s) => s.kind === 'ink');
-  const region = lastOf('region'), arrow = lastOf('arrow'), cross = lastOf('cross'), cut = lastOf('cut');
-  const num = (re, def) => { const m = t.match(re); return m ? parseFloat(m[1]) : def; };
-  let pick;
-  if (/\bfins?\b|louv|shad|screen|slat/.test(t) && region) pick = 'fins';
-  else if (/pull|push|taller|higher|raise|extend|longer|deeper|up\b/.test(t) && arrow) pick = 'pull';
-  else if (/extrude|canopy|volume|mass|box|roof|outline/.test(t) && loop) pick = 'extrude';
-  else if (/remove|delete|demolish|get rid|crossed/.test(t) && cross) pick = 'remove';
-  else if (/split|cut/.test(t) && cut) pick = 'cut';
-  else if (/column|post|pillar|here/.test(t) && useCursor) pick = 'column';
-  else pick = region ? 'fins' : arrow ? 'pull' : cross ? 'remove' : loop ? 'extrude' : cut ? 'cut' : (useCursor ? 'column' : null);
-  let action = null, plan = '';
-  if (pick === 'fins') action = actFins(region, num(/(\d+(?:\.\d+)?)\s*mm/, 400));
-  else if (pick === 'pull'){
-    action = actPull(arrow, /(\d+(?:\.\d+)?)\s*m\b/.test(t) ? num(/(\d+(?:\.\d+)?)\s*m\b/, arrow.pull) * (arrow.pull < 0 ? -1 : 1) : undefined);
-    if (!action) plan = `Mark ${arrow.num} doesn't start on a flat face of a box. In this mockup I can only push or pull box faces, like the main block or the tower.`;
-  }
-  else if (pick === 'extrude'){ const canopy = /canopy|shade|cover/.test(t); action = actExtrude(loop, canopy ? 0.3 : num(/(\d+(?:\.\d+)?)\s*m\b/, 3), canopy ? num(/(\d+(?:\.\d+)?)\s*m\s*(?:above|up|high)/, 2.7) : 0); }
-  else if (pick === 'remove'){ action = actRemove(cross); if (!action) plan = `Mark ${cross.num} doesn't cross out an object.`; }
-  else if (pick === 'cut') plan = `I'd split ${nameOfObj(cut.obj)} along Mark ${cut.num} into two parts. Splitting isn't shown in this mockup.`;
-  else if (pick === 'column') action = actColumn(num(/(\d+(?:\.\d+)?)\s*m\b/, 3.5));
-  else plan = 'I need something to work from. Draw a mark, or place the 3D cursor where you want it.';
-  if (action) plan = action.plan;
-  return { read, plan, action };
-}
-const antLog = $('#antLog');
-function addMsg(cls, html){ const el = document.createElement('div'); el.className = 'msg ' + cls; el.innerHTML = html; antLog.appendChild(el); antLog.scrollTop = antLog.scrollHeight; return el; }
-function discardPending(note){
-  if (!S.pending) return;
-  dropGhosts(S.pending.ghosts);
-  const act = S.pending.el.querySelector('.msg-act'); if (act) act.innerHTML = `<span class="muted small">${note || 'Discarded'}</span>`;
-  S.pending = null;
-}
-function antSend(text){
-  text = (text || '').trim() || 'Do what the sketch says';
-  addMsg('me', esc(text));
-  discardPending('Replaced by a newer request');
-  const typing = addMsg('ant', '<span class="dots"><i></i><i></i><i></i></span>');
-  setTimeout(() => {
-    typing.remove();
-    const res = antPlan(text);
-    let h = '';
-    if (res.read.length) h += `<p class="mh">What I read</p><ul>${res.read.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
-    h += `<p>${esc(res.plan)}</p>`;
-    if (res.action) h += `<div class="msg-act"><button class="btn primary" data-ant="keep">Keep</button><button class="btn" data-ant="discard">Discard</button><span class="muted small">${res.action.preview}</span></div>`;
-    const el = addMsg('ant', h);
-    if (res.action) S.pending = Object.assign({ el }, res.action);
-  }, 700);
-}
-function openAnt(prefill){ setTab('ant'); if (prefill !== undefined) $('#antText').value = prefill; if (window.matchMedia('(min-width: 781px)').matches) $('#antText').focus(); }
 
+/* ---------- AI context ---------- */
+// S.ai holds the ids of sketches added as context; S.aiCursor adds the 3D cursor ("here").
+const v3txt = (p) => `(${fmt(p.x)}, ${fmt(p.y)}, ${fmt(p.z)})`;
+function aiItems(){ return S.strokes.filter((s) => S.ai.has(s.id)); }
+function contextLines(s){
+  const b = new THREE.Box3().setFromPoints(strokePts(s)), c = b.getCenter(new V3()), sz = b.getSize(new V3());
+  const kind = s.kind === 'mark' ? `${MARK[s.markType].name} mark, ${STATUS_LABEL[s.status].toLowerCase()}` : (s.target === 'drawing' ? 'redline on the site plan' : 'ink');
+  const lines = [`${nameOf(s)} (${kind})`, `  Means: ${meaning(s)}`];
+  if (s.kind === 'mark' && s.markType === 'arrow' && s.startHit) lines.push(`  Starts at ${v3txt(s.startHit.point)}, direction ${v3txt(s.startHit.normal)}`);
+  else if (s.kind === 'mark' && s.markType === 'note') lines.push(`  At ${v3txt(s.pts[0])}`);
+  else lines.push(`  Centre ${v3txt(c)}, size ${fmt(sz.x)} × ${fmt(sz.y)} × ${fmt(sz.z)} m`);
+  if (s.view) lines.push(`  Drawn in ${viewName(s.view)}`);
+  return lines;
+}
+function contextText(){
+  const items = aiItems();
+  const out = ['Model: Pavilion.3dm, meters, Z up'];
+  if (S.aiCursor) out.push(`3D cursor ("here"): ${v3txt(S.cur.p)} on ${S.cur.on}, pointing ${v3txt(S.cur.n)}`);
+  if (!items.length && !S.aiCursor) out.push('(nothing added yet)');
+  items.forEach((s) => { out.push(''); contextLines(s).forEach((l) => out.push(l)); });
+  return out.join('\n');
+}
+function toggleAI(s){
+  if (S.ai.has(s.id)){ S.ai.delete(s.id); log(`${nameOf(s)} removed from the AI context.`); }
+  else { S.ai.add(s.id); log(`${nameOf(s)} added to the AI context.`); }
+  updateLabel(s); refresh();
+}
+function refreshAI(){
+  const items = aiItems(), n = items.length + (S.aiCursor ? 1 : 0);
+  $('#aiCount').textContent = n ? `${n} item${n === 1 ? '' : 's'}` : '';
+  const chips = items.map((s) => `<button type="button" class="chip" data-aichip="${s.id}" style="--c:${s.color}" title="Remove from AI context"><i></i>${esc(nameOf(s))} ×</button>`);
+  if (S.aiCursor) chips.unshift('<button type="button" class="chip" data-aichip="cursor" style="--c:#e5352b" title="Remove from AI context"><i></i>3D cursor ×</button>');
+  $('#aiChips').innerHTML = chips.length ? chips.join('') : '<span class="none">Nothing added. Press AI on a row to add it.</span>';
+  const pre = $('#aiPre'); if (!pre.hidden) pre.textContent = contextText();
+}
 /* ---------- UI ---------- */
 const modebar = $('#modebar'), subbar = $('#subbar');
 function swatches(){ return PEN.map((p, i) => `<button type="button" class="sw-b${S.pen.i === i ? ' on' : ''}" data-act="pen:${i}" style="--c:${p.c}" aria-label="${p.name} pen" title="${p.name}"></button>`).join(''); }
@@ -1338,7 +1276,7 @@ function renderSubbar(){
     case 'cursor': h = `<span class="sb-l">Line up with</span>${seg('align', [['surface', 'Surface'], ['world', 'World'], ['view', 'View']], S.align)}<button type="button" class="sb-t${S.cplaneFollows ? ' on' : ''}" data-act="follow">Grid follows cursor</button><button type="button" class="sb-t" data-act="reset">Reset</button>`; break;
     case 'plane': h = `<span class="sb-l">Draw on</span>${seg('plane', [['cplane', 'CPlane'], ['cursor', 'Cursor plane'], ['view', 'View plane']], S.planeKind)}<span class="sb-div"></span>${swatches()}`; break;
     case 'object': h = `${swatches()}<span class="sb-div"></span><button type="button" class="sb-t${S.pen.smart ? ' on' : ''}" data-act="smart">Smart shapes</button>`; break;
-    case 'marks': h = `${marksSeg}<span class="sb-div"></span><button type="button" class="sb-t" data-act="ant">Send to Ant</button>`; break;
+    case 'marks': h = marksSeg; break;
     case 'drawing': h = `${seg('draw', [['redline', 'Redline'], ['marks', 'Marks']], S.drawTool)}${S.drawTool === 'marks' ? marksSeg : '<span class="sb-l">Lands on the 3D model too</span>'}`; break;
     case 'eraser': h = `<span class="sb-l">Drag over ink or marks</span><button type="button" class="sb-t" data-act="eraseall">${S.eraseArm ? 'Click again to erase all' : 'Erase all'}</button>`; break;
   }
@@ -1347,7 +1285,7 @@ function renderSubbar(){
 function hintText(){
   const stacked = RECTS.plan && RECTS.plan.w === VPW;
   switch (S.mode){
-    case 'navigate': return 'Drag to orbit. Shift + right-drag to pan. Scroll to zoom. Pick a sketch mode above to draw.';
+    case 'navigate': return 'Drag to orbit. Click a sketch or an object to find it in the panel. Pick a sketch mode above to draw.';
     case 'cursor': return 'Click any surface to drop the 3D cursor. It lines up with the surface and snaps to corners. Drag to slide it.';
     case 'plane': return ({ cplane:'Ink lands on the construction plane (the grid).', cursor:'Ink lands on the plane through the 3D cursor, shown in blue.', view:'Ink lands on a plane facing you, through the 3D cursor.' })[S.planeKind] + ' Right-drag or Option-drag to orbit.';
     case 'object': return 'Draw on any object; ink wraps around curves. Hold still at the end of a stroke to snap a line or circle.';
@@ -1367,7 +1305,7 @@ function promptSpec(){
     case 'cursor': return ['Click a surface to place the 3D cursor', [['Align', cap(S.align), () => { S.align = cycle(['surface', 'world', 'view'], S.align); }], ['GridFollows', yes(S.cplaneFollows), () => { S.cplaneFollows = !S.cplaneFollows; syncGrid(); }], ['SnapToCorners', yes(S.snap), () => { S.snap = !S.snap; }]]];
     case 'plane': return ['Draw on a plane', [['Plane', { cplane:'CPlane', cursor:'Cursor', view:'View' }[S.planeKind], () => { S.planeKind = cycle(['cplane', 'cursor', 'view'], S.planeKind); }], ['Pen', pen, cyclePen], ['Width', S.pen.width, cycleW]]];
     case 'object': return ['Draw on objects', [['Pen', pen, cyclePen], ['Width', S.pen.width, cycleW], ['Pressure', yes(S.pen.pressure), () => { S.pen.pressure = !S.pen.pressure; }], ['SmartShapes', yes(S.pen.smart), () => { S.pen.smart = !S.pen.smart; }]]];
-    case 'marks': return ['Draw a mark', [['Kind', MARK_TOOL_LABEL[S.markTool], () => { S.markTool = cycle(MARK_TOOLS, S.markTool); }], ['SendToAnt', null, () => openAnt()]]];
+    case 'marks': return ['Draw a mark', [['Kind', MARK_TOOL_LABEL[S.markTool], () => { S.markTool = cycle(MARK_TOOLS, S.markTool); }]]];
     case 'drawing': return ['Mark up drawing A-100', [['Tool', S.drawTool === 'redline' ? 'Redline' : 'Marks', () => { S.drawTool = S.drawTool === 'redline' ? 'marks' : 'redline'; }], ['ShowIn3D', 'Yes', () => {}]]];
     case 'eraser': return ['Drag over ink to erase', [['All', null, eraseAll]]];
   }
@@ -1392,39 +1330,10 @@ function renderTabs(){
 function setTab(tab){
   S.tab = tab;
   $$('.ptab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-  ['sketch', 'cursor', 'layers', 'ant'].forEach((k) => { $('#pane-' + k).hidden = k !== tab; });
+  ['sketch', 'cursor', 'layers'].forEach((k) => { $('#pane-' + k).hidden = k !== tab; });
 }
-function nameOf(s){ return s.kind === 'mark' ? `${s.num} · ${s.markType === 'note' ? (s.text || 'Note') : s.title}` : s.name; }
-function refresh(){
-  const list = $('#strokeList');
-  $('#sCount').textContent = S.strokes.length ? `${S.strokes.length} item${S.strokes.length > 1 ? 's' : ''}` : '';
-  if (!S.strokes.length) list.innerHTML = '<li class="empty">Nothing sketched yet. Pick a mode above the viewport and draw.</li>';
-  else list.innerHTML = S.strokes.map((s) => {
-    const tag = s.kind === 'mark' ? 'Mark' : (s.made ? cap(s.curveType) : 'Ink');
-    const where = s.kind === 'mark' ? whereMark(s) : s.where;
-    let act = '';
-    if (s.kind === 'mark' && !s.applied){
-      if ((s.markType === 'arrow' && s.obj && s.obj.userData.kind === 'box' && s.pull !== null) || (s.markType === 'cross' && s.obj)) act = `<button type="button" class="mini" data-act="apply">Apply</button>`;
-      else if (s.markType !== 'note') act = `<button type="button" class="mini" data-act="ask">Ask Ant</button>`;
-    }
-    return `<li class="srow" data-id="${s.id}"><span class="sw" style="--c:${s.made ? CURVE_COLOR : s.color}"></span><div style="min-width:0"><div class="sn">${esc(nameOf(s))}</div><div class="ss">${esc(where)}${s.applied ? ' · done' : ''}</div></div><div class="sact">${act}<span class="tag ${s.kind === 'mark' ? 'mark' : ''}">${tag}</span></div><button type="button" class="ix" data-act="del" aria-label="Delete ${esc(nameOf(s))}">×</button></li>`;
-  }).join('');
-  refreshAnt();
-}
-function refreshAnt(){
-  const ctx = antContext();
-  const chips = ctx.map((s) => {
-    const off = S.antExclude.has(String(s.id));
-    const label = s.kind === 'mark' ? nameOf(s) : s.name + ' · outline';
-    return `<button type="button" class="chip${off ? ' off' : ''}" data-chip="${s.id}" style="--c:${s.color}" aria-pressed="${!off}"><i></i>${esc(label)}</button>`;
-  });
-  const coff = S.antExclude.has('cursor');
-  chips.push(`<button type="button" class="chip${coff ? ' off' : ''}" data-chip="cursor" style="--c:#e5352b" aria-pressed="${!coff}"><i></i>3D cursor</button>`);
-  $('#antChips').innerHTML = chips.join('');
-  const n = ctx.filter((s) => !S.antExclude.has(String(s.id))).length;
-  $('#antBadge').textContent = n ? String(n) : '';
-}
-const LAYERS = [['model', 'Massing', '#8a919c'], ['ink', 'Sketch ink', '#23262c', 'Sketch'], ['marks', 'Marks', '#e08600', 'Sketch'], ['curves', 'Curves from sketch', '#101113'], ['preview', 'Ant previews', '#f2c200'], ['grid', 'Grid', '#9c9fa3']];
+function nameOf(s){ return s.kind === "mark" ? `${s.num} · ${s.label || (s.markType === "note" ? (s.text || "Note") : s.title)}` : (s.label || s.name); }
+const LAYERS = [['model', 'Massing', '#8a919c'], ['ink', 'Sketch ink', '#23262c', 'Sketch'], ['marks', 'Marks', '#e08600', 'Sketch'], ['grid', 'Grid', '#9c9fa3']];
 function renderLayers(){
   $('#layerList').innerHTML = LAYERS.map(([k, name, c, tag]) => `<li><button type="button" class="eye" data-layer="${k}" aria-pressed="${S.layers[k]}" aria-label="${S.layers[k] ? 'Hide' : 'Show'} ${name}">${ICON.eye}</button><span class="sw" style="--c:${c}"></span><span class="nm">${name}</span>${tag ? `<span class="tag mark">${tag}</span>` : ''}</li>`).join('');
 }
@@ -1438,7 +1347,7 @@ function syncCursorPane(){
   [['#curX', p.x], ['#curY', p.y], ['#curZ', p.z]].forEach(([id, v]) => { const el = $(id); if (document.activeElement !== el) el.value = v.toFixed(2); });
   $('#curOn').textContent = `On ${S.cur.on}. Blue axis = the direction new things grow.`;
   $$('#alignSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.align === S.align)));
-  $('#optFollow').checked = S.cplaneFollows; $('#optSnap').checked = S.snap; $('#optAnt').checked = !S.antExclude.has('cursor');
+  $('#optFollow').checked = S.cplaneFollows; $('#optSnap').checked = S.snap; $('#optAI').checked = S.aiCursor;
 }
 function syncPen(){
   $('#penSw').innerHTML = swatches();
@@ -1473,10 +1382,10 @@ function setMode(m){
   renderTabs(); syncAll();
   if (prev !== m) log(`Command: ${CMD_NAME[m]}`);
 }
-function setView(v){
+function setView(v, silent){
   if (v === 'plan'){ setMode('drawing'); return; }
   if (S.mode === 'drawing') setMode('object');
-  S.view = v; syncGrid(); renderTabs(); log(`Command: _${OV[v] ? OV[v].name : 'Perspective'}`);
+  S.view = v; syncGrid(); renderTabs(); if (!silent) log(`Command: _${OV[v] ? OV[v].name : 'Perspective'}`);
 }
 function eraseAll(){
   if (!S.eraseArm){ S.eraseArm = true; renderSubbar(); setTimeout(() => { S.eraseArm = false; renderSubbar(); }, 3000); return; }
@@ -1547,6 +1456,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const eraserEnd = e.pointerType === 'pen' && (e.buttons & 32);
   const nav = e.button === 1 || e.button === 2 || e.altKey || (S.mode === 'navigate' && e.button === 0);
   if (nav && !eraserEnd){
+    camAnim = null;
     const flat = which === 'plan' || S.view !== 'perspective';
     drag = { type:(e.button === 1 || e.shiftKey || flat) ? 'pan' : 'orbit', which, lx:px, ly:py, moved:0, button:e.button, shift:e.shiftKey };
     if (S.mode === 'navigate') canvas.style.cursor = 'grabbing';
@@ -1610,13 +1520,16 @@ function endPointer(e){
   if ((d.type === 'orbit' || d.type === 'pan') && d.button === 2 && d.moved < 4 && d.shift){
     const { px, py } = loc(e); if (placeCursorAt(px, py, d.which, true)) logCursor(); return;
   }
+  if ((d.type === 'orbit' || d.type === 'pan') && d.button === 0 && d.moved < 4 && S.mode === 'navigate'){
+    const { px, py } = loc(e); pickAt(px, py, d.which); return;
+  }
   if (d.type === 'draw' && drawing) finishStroke(drawing);
   if (d.type === 'cursor') logCursor();
 }
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
+  e.preventDefault(); camAnim = null;
   const { px, py } = loc(e), which = whichRect(px, py);
   const dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
   const f = Math.exp(e.ctrlKey ? dy * 0.01 : dy * 0.0012);
@@ -1684,10 +1597,10 @@ function pass(which){
   if (plan){ modelMeshes.forEach((m) => { m.material = M.planFill; m.userData.edges.material = M.planEdge; }); G.grid.visible = false; }
   renderer.setClearColor(plan ? COL.paper : COL.bg, 1);
   renderer.render(scene, cam);
-  if (plan){ modelMeshes.forEach((m) => { m.material = M.obj; m.userData.edges.material = M.edge; }); G.grid.visible = S.layers.grid; }
+  if (plan){ modelMeshes.forEach((m) => { m.material = m.userData.mat || M.obj; m.userData.edges.material = M.edge; }); G.grid.visible = S.layers.grid; }
 }
 function frame(now){
-  resize(); RECTS = computeRects();
+  resize(); RECTS = computeRects(); stepCamAnim(now);
   if (curAnim){
     const k = Math.min(1, (now - curAnim.t0) / curAnim.dur), e = 1 - Math.pow(1 - k, 3);
     cursor.position.lerpVectors(curAnim.p0, S.cur.p, e); cursor.quaternion.copy(curAnim.q0).slerp(S.cur.q, e);
@@ -1711,12 +1624,12 @@ const TOOLBAR = [
   ['Circle', '<circle cx="12" cy="12" r="8"/>'], ['Rectangle', '<rect x="4" y="6" width="16" height="12"/>'], '|',
   ['Extrude', '<path d="M4 9l8-4 8 4-8 4zM4 9v6l8 4 8-4V9M12 13v6"/>'], ['Boolean union', '<circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/>'],
   ['Gumball', '<path d="M12 12V4M12 12l7 4M12 12l-7 4"/>'], ['Render', '<circle cx="12" cy="12" r="8"/><path d="M8 9a5 5 0 0 1 4-2"/>'],
-  'gap', ['Sketch', ICON.pen, 'sketch'], ['Ant', ICON.ant, 'ant']
+  'gap', ['Sketch', ICON.pen, 'sketch']
 ];
 $('#tools').innerHTML = TOOLBAR.map((t) => {
   if (t === '|') return '<span class="tb-sep"></span>';
   if (t === 'gap') return '<span class="tb-gap"></span>';
-  const [name, d, act] = t, wide = act === 'sketch' || act === 'ant';
+  const [name, d, act] = t, wide = act === 'sketch';
   const svg = d.startsWith('<svg') ? d : SV(d);
   return `<button type="button" class="tb${wide ? ' wide' : ''}${act === 'sketch' ? ' on' : ''}" data-tool="${act || name}" title="${name}" aria-label="${name}"${act === 'sketch' ? ' aria-pressed="true"' : ''}>${svg}${wide ? `<span>${name}</span>` : ''}</button>`;
 }).join('');
@@ -1732,7 +1645,6 @@ function onTool(e){
   const b = e.target.closest('[data-tool]'); if (!b) return;
   const t = b.dataset.tool;
   if (t === 'undo') return undo();
-  if (t === 'ant') return openAnt();
   if (t === 'sketch'){
     S.sketchUI = !S.sketchUI; b.classList.toggle('on', S.sketchUI); b.setAttribute('aria-pressed', String(S.sketchUI));
     modebar.hidden = !S.sketchUI; renderSubbar();
@@ -1748,21 +1660,378 @@ modebar.innerHTML = ['navigate', 'cursor', 'plane', 'object', 'marks', 'drawing'
   + '<span class="mb-sep"></span><span class="mb-ring"><kbd>Space</kbd> ring menu</span>';
 modebar.addEventListener('click', (e) => { const b = e.target.closest('.mb'); if (b) setMode(b.dataset.mode); });
 const GUIDE = [
-  ['cursor', '3D cursor', 'Says “here”. Click a surface and the cursor sits on it, lined up with it. New sketch planes, rotate pivots and Ant\'s new objects start from it.', 'Shift + right-click anywhere', 'Tap with the cursor tool'],
+  ['cursor', '3D cursor', 'Says “here”. Click a surface and the cursor sits on it, lined up with it. New sketch planes and rotate pivots start from it, and it can go to the AI as “here”.', 'Shift + right-click anywhere', 'Tap with the cursor tool'],
   ['plane', 'Sketch on planes', 'Ink lands on a flat plane you choose: the grid, a plane through the 3D cursor, or a plane facing you. The blue patch shows where.', 'Draw with the left button', 'Draw; pressure sets the width'],
   ['object', 'Sketch on objects', 'Ink wraps onto whatever is under the pen, curved surfaces too. Hold still at the end of a stroke to snap it into a clean line or circle.', 'Draw, then hold still', 'Draw, then hold the pen still'],
-  ['marks', 'Marks with meaning', 'Circle an area, drag out of a face to pull it, zigzag to cut, cross out to remove, tap to pin a note. Each mark gets a number Ant can refer to.', 'Draw the gesture', 'Same gestures, plus the eraser end'],
+  ['marks', 'Marks with meaning', 'Circle an area, drag out of a face to pull it, zigzag to cut, cross out to remove, tap to pin a note. Each mark gets a number, so the panel and the AI can refer to it.', 'Draw the gesture', 'Same gestures, plus the eraser end'],
   ['drawing', 'Sketch on drawings', 'Redline the 2D site plan. Every stroke also lands on the 3D model in the same place, so nothing has to be redrawn.', 'Draw on the left half', 'Draw on the plan'],
-  ['navigate', 'Ink to curves, or to Ant', 'Ink stays on its own sketch layer. Turn it into clean Rhino curves yourself, or send it to Ant with one sentence and keep or discard the preview.', 'Sketch panel buttons', 'Press and hold for the ring menu']
+  ['navigate', 'Review panel', 'Click a row to fly back to a sketch. Marks have statuses, “What changed” lists every model change with its own Undo, and AI adds a sketch to the AI context.', 'Click rows, labels or objects', 'Tap rows and labels']
 ];
-$('#guide').innerHTML = GUIDE.map(([m, t, p, mouse, pen]) => `<li><button type="button" class="gbtn" data-guide="${m}">${ICON[m === 'navigate' ? 'ant' : m]}<span>${t}</span></button><p>${p}</p><dl class="how"><dt>Mouse</dt><dd>${mouse}</dd><dt>Pen</dt><dd>${pen}</dd></dl></li>`).join('');
+$('#guide').innerHTML = GUIDE.map(([m, t, p, mouse, pen]) => `<li><button type="button" class="gbtn" data-guide="${m}">${ICON[m === 'navigate' ? 'pen' : m]}<span>${t}</span></button><p>${p}</p><dl class="how"><dt>Mouse</dt><dd>${mouse}</dd><dt>Pen</dt><dd>${pen}</dd></dl></li>`).join('');
 $('#guide').addEventListener('click', (e) => {
   const b = e.target.closest('[data-guide]'); if (!b) return;
   const m = b.dataset.guide;
-  if (m === 'navigate'){ setTab('ant'); } else setMode(m);
+  if (m === 'navigate'){ setTab('sketch'); } else setMode(m);
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   rw.scrollIntoView({ behavior:smooth ? 'smooth' : 'auto', block:'start' });
 });
+
+/* ---------- panel: fly to, select, review ---------- */
+const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const CHEV = SV('<path d="M6 9l6 6 6-6"/>');
+const STATUS_LABEL = { open:'Open', sent:'Sent', preview:'Preview', done:'Done', dismissed:'Dismissed' };
+const KIND_C = { added:'var(--c-add)', changed:'var(--c-chg)', removed:'var(--c-rem)' };
+const KIND_ORDER = ['Open marks', 'Ink', 'Curves', 'Done and dismissed'];
+const strokeList = $('#strokeList');
+let camAnim = null, hoverId = null, chgN = 0;
+const byId = (id) => S.strokes.find((s) => s.id === id) || null;
+const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+
+function snapNow(which){
+  if (which === 'plan') return { view:'plan', t:OV.plan.t.clone(), hh:OV.plan.hh };
+  if (S.view === 'perspective') return { view:'perspective', t:orbit.t.clone(), d:orbit.d, th:orbit.th, ph:orbit.ph };
+  return { view:S.view, t:OV[S.view].t.clone(), hh:OV[S.view].hh };
+}
+function fitSnap(pts, th, ph){
+  const b = new THREE.Box3().setFromPoints(pts), c = b.getCenter(new V3());
+  const r = Math.max(1.6, b.getSize(new V3()).length() / 2);
+  const d = r / Math.sin(THREE.MathUtils.degToRad(persp.fov / 2)) * 1.2;
+  return { view:'perspective', t:c, d:THREE.MathUtils.clamp(d, 5, 300), th:th === undefined ? orbit.th : th, ph:ph === undefined ? orbit.ph : ph };
+}
+function viewName(v){ return v.view === 'plan' ? 'the site plan' : (v.view === 'perspective' ? 'Perspective' : OV[v.view].name); }
+function flyTo(snap){
+  const t0 = performance.now();
+  if (snap.view === 'plan'){
+    if (S.mode !== 'drawing') setMode('drawing');
+    camAnim = { kind:'ortho', v:OV.plan, t0, from:{ t:OV.plan.t.clone(), hh:OV.plan.hh }, to:{ t:snap.t.clone(), hh:snap.hh } };
+  } else if (snap.view === 'perspective'){
+    if (S.view !== 'perspective') setView('perspective', true);
+    camAnim = { kind:'persp', t0, from:{ t:orbit.t.clone(), d:orbit.d, th:orbit.th, ph:orbit.ph }, to:{ t:snap.t.clone(), d:snap.d, th:orbit.th - angDiff(orbit.th, snap.th), ph:snap.ph } };
+  } else {
+    if (S.mode === 'drawing') setMode('object');
+    if (S.view !== snap.view) setView(snap.view, true);
+    const v = OV[snap.view];
+    camAnim = { kind:'ortho', v, t0, from:{ t:v.t.clone(), hh:v.hh }, to:{ t:snap.t.clone(), hh:snap.hh } };
+  }
+  if (reduceMotion) stepCamAnim(t0 + 5000);
+}
+function stepCamAnim(now){
+  if (!camAnim) return;
+  const k = Math.min(1, (now - camAnim.t0) / 650), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  const a = camAnim.from, b = camAnim.to;
+  if (camAnim.kind === 'persp'){ orbit.t.lerpVectors(a.t, b.t, e); orbit.d = a.d + (b.d - a.d) * e; orbit.th = a.th + (b.th - a.th) * e; orbit.ph = a.ph + (b.ph - a.ph) * e; }
+  else { camAnim.v.t.lerpVectors(a.t, b.t, e); camAnim.v.hh = a.hh + (b.hh - a.hh) * e; }
+  if (k >= 1) camAnim = null;
+}
+function isAt(v){
+  if (!v || camAnim) return false;
+  if (v.view === 'plan') return S.mode === 'drawing' && OV.plan.t.distanceTo(v.t) < 0.2 && Math.abs(OV.plan.hh - v.hh) < 0.2;
+  if (v.view === 'perspective') return S.view === 'perspective' && orbit.t.distanceTo(v.t) < 0.15 && Math.abs(orbit.d - v.d) / v.d < 0.03 && Math.abs(angDiff(orbit.th, v.th)) < 0.03 && Math.abs(orbit.ph - v.ph) < 0.03;
+  return S.view === v.view && OV[v.view].t.distanceTo(v.t) < 0.2 && Math.abs(OV[v.view].hh - v.hh) < 0.2;
+}
+function strokePts(s){ const base = (s.made && s.curvePts) ? s.curvePts : s.pts; return base.concat(...(s.extra || []).map((x) => x.pts)); }
+function focusStroke(s, forceFit){
+  if (!forceFit && s.view && !isAt(s.view)){ flyTo(s.view); return 'view'; }
+  const pts = strokePts(s);
+  if (s.view && s.view.view === 'plan'){
+    const b = new THREE.Box3().setFromPoints(pts), c = b.getCenter(new V3()), sz = b.getSize(new V3());
+    c.z = 0; flyTo({ view:'plan', t:c, hh:Math.max(3, Math.max(sz.x, sz.y) * 0.75) }); return 'fit';
+  }
+  flyTo(fitSnap(pts)); return 'fit';
+}
+function fitObjects(objs){
+  const b = new THREE.Box3(); objs.forEach((o) => b.expandByObject(o));
+  if (b.isEmpty()) return;
+  const pts = [b.min, b.max, new V3(b.min.x, b.max.y, b.min.z), new V3(b.max.x, b.min.y, b.max.z)];
+  flyTo(fitSnap(pts));
+}
+function paint(s){
+  if (!s) return;
+  const on = S.sel === s.id || hoverId === s.id;
+  const mat = s.made ? s.curveMat : s.mat;
+  if (mat){ mat.color.set(on ? '#ffd400' : (s.made ? CURVE_COLOR : s.color)); mat.opacity = s.status === 'dismissed' && !on ? 0.4 : 0.96; }
+  if (s.labels) s.labels.forEach((L) => { L.el.classList.toggle('sel', S.sel === s.id); L.el.classList.toggle('hl', hoverId === s.id); });
+}
+function updateSelClasses(){ $$('.srow', strokeList).forEach((li) => li.classList.toggle('sel', +li.dataset.id === S.sel)); }
+function isOpenItem(s){ return s.kind === 'mark' ? (s.status === 'open' || s.status === 'sent' || s.status === 'preview') : !s.made; }
+function selectStroke(s, opts){
+  opts = opts || {};
+  const prev = byId(S.sel); S.sel = s ? s.id : null; paint(prev); if (s) paint(s);
+  if (s && opts.fly){
+    const how = focusStroke(s);
+    log(how === 'view' ? `Back to the view where you drew ${nameOf(s)}.` : `Zoomed to ${nameOf(s)}.`);
+  }
+  if (s && opts.reveal){
+    setTab('sketch'); S.expanded.add(s.id);
+    if (S.openOnly && !isOpenItem(s)){ S.openOnly = false; $('#openOnly').checked = false; }
+    if (S.objFilter && strokeObj(s) !== S.objFilter) S.objFilter = null;
+    refresh();
+    const row = strokeList.querySelector(`.srow[data-id="${s.id}"]`); if (row) row.scrollIntoView({ block:'nearest' });
+  } else updateSelClasses();
+}
+function strokeObj(s){ return s.kind === 'mark' ? s.obj : majorityObj(s); }
+function meaning(s){
+  const obj = s.obj ? s.obj.userData.name : null, f = s.face && s.face !== 'surface' ? `the ${s.face} of ` : '';
+  if (s.kind === 'ink'){
+    if (s.made) return `A Rhino ${s.curveType} ${s.where}.`;
+    if (s.closed){ const r = regionInfo(s.pts, s.nrms, s.planeN); return `A closed outline ${s.where}, about ${fmt(r.w)} × ${fmt(r.h)} m.`; }
+    return `Ink ${s.where}. It is a sketch, not part of the model.`;
+  }
+  switch (s.markType){
+    case 'region': return obj ? `An area on ${f}${obj}, about ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m.` : `An area about ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m.`;
+    case 'arrow': return s.pull === null ? 'An arrow that doesn\'t start on an object, so it has no distance.' : `${s.pull >= 0 ? 'Pull' : 'Push'} ${f}${obj} ${s.pull >= 0 ? 'out' : 'in'} by ${fmt(Math.abs(s.pull))} m.`;
+    case 'cross': return obj ? `Remove ${obj}.` : 'Remove, but it doesn\'t cross out an object.';
+    case 'cut': return obj ? `Split ${obj} along this line.` : 'A cut line in the air.';
+    case 'note': return `Note: “${s.text || 'Note'}”.`;
+  }
+  return '';
+}
+function retype(s, type){
+  if (s.kind !== 'mark' || s.markType === type || s.markType === 'note') return;
+  if (s.surf){ s.pts = s.surf.pts; s.nrms = s.surf.nrms; s.surf = null; s.outOfFace = false; }
+  removeHead(s);
+  s.markType = type; s.color = MARK[type].c;
+  s.obj = s.obj || majorityObj(s) || (s.startHit && s.startHit.object) || null;
+  if (type === 'region'){ s.reg = regionInfo(s.pts, s.nrms); s.face = s.obj ? faceName(s.obj, s.reg.n) : ''; s.title = `Region ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m`; }
+  else if (type === 'arrow'){
+    const h = s.startHit; s.pull = h ? pathLen3(s.pts) : null;
+    if (h){ s.obj = h.object; s.face = faceName(h.object, h.normal); }
+    s.title = s.pull === null ? 'Arrow' : `Pull ${fmt(s.pull)} m`;
+  } else { s.title = MARK[type].name; s.pull = null; }
+  rebuild(s); if (type === 'arrow') addArrowHead(s);
+  paint(s); updateLabel(s);
+  log(`Mark ${s.num} now reads as ${MARK[type].name}.`);
+}
+function setPull(s, d){
+  if (!isFinite(d) || s.pull === null) return;
+  if (Math.abs(d) < 0.1) d = d < 0 ? -0.1 : 0.1;
+  s.pull = d;
+  if (s.outOfFace && s.startHit){
+    const n = s.startHit.normal, p0 = s.pts[0].clone(), nn = s.nrms[0].clone(), w = avg(s.widths);
+    s.pts = []; s.nrms = [];
+    for (let i = 0; i <= 12; i++){ s.pts.push(p0.clone().addScaledVector(n, d * i / 12)); s.nrms.push(nn.clone()); }
+    s.widths = s.pts.map(() => w); rebuild(s); addArrowHead(s);
+  }
+  s.title = d >= 0 ? `Pull ${fmt(d)} m` : `Push ${fmt(-d)} m`;
+  updateLabel(s); log(`Mark ${s.num} distance set to ${fmt(d)} m.`);
+}
+
+/* ---------- what changed ---------- */
+function recordChange(ch, by, src){
+  ch.id = ++chgN; ch.by = by; ch.src = src || null; ch.time = new Date();
+  S.changes.unshift(ch);
+  if (src){
+    (src.thread = src.thread || []).push({ text:'Applied: ' + ch.text });
+    if (src.kind === 'mark'){ src.status = 'done'; updateLabel(src); paint(src); }
+  }
+  log(`Applied: ${ch.text}.`);
+  applyChangeTint(); refresh();
+}
+function undoChange(id){
+  const i = S.changes.findIndex((c) => c.id === id); if (i < 0) return;
+  const ch = S.changes[i]; ch.undo(); S.changes.splice(i, 1);
+  if (ch.src){
+    ch.src.thread.push({ text:'Undid: ' + ch.text });
+    if (ch.src.kind === 'mark' && ch.src.status === 'done'){ ch.src.status = 'open'; updateLabel(ch.src); paint(ch.src); }
+  }
+  log(`Undid: ${ch.text}.`); applyChangeTint(); refresh();
+}
+function applyChangeTint(){
+  modelMeshes.forEach((m) => { m.userData.mat = null; });
+  while (G.changes.children.length){ const c = G.changes.children[0]; G.changes.remove(c); if (!c.userData.shared) c.geometry.dispose(); }
+  if (S.showChanges){
+    S.changes.forEach((ch) => {
+      if (ch.kind === 'added') ch.objects.forEach((o) => { o.userData.mat = M.added; });
+      if (ch.kind === 'changed'){
+        ch.objects.forEach((o) => { o.userData.mat = M.changed; });
+        if (ch.before){
+          const b = ch.before, g = new THREE.BoxGeometry(b.w, b.d, b.h);
+          const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), M.before); g.dispose();
+          e.position.set(b.cx, b.cy, b.z0 + b.h / 2); e.computeLineDistances(); e.renderOrder = 12; G.changes.add(e);
+        }
+      }
+      if (ch.kind === 'removed') ch.objects.forEach((o) => {
+        const g = new THREE.Mesh(o.geometry, M.removed); g.position.copy(o.position); g.quaternion.copy(o.quaternion);
+        g.userData.shared = true; g.renderOrder = 15; G.changes.add(g);
+      });
+    });
+  }
+  modelMeshes.forEach((m) => { m.material = m.userData.mat || M.obj; });
+  $('#chgLegend').hidden = !S.showChanges;
+}
+function srcText(ch){
+  const who = 'by you';
+  return ch.src ? `${ch.src.kind === 'mark' ? 'Mark ' + ch.src.num : nameOf(ch.src)}, ${who}` : who;
+}
+const timeStr = (d) => d.toTimeString().slice(0, 5);
+function renderChanges(){
+  const el = $('#changeList');
+  el.innerHTML = S.changes.length ? S.changes.map((ch) => `<li class="citem" data-chg="${ch.id}" title="Zoom to this change"><span class="k" style="--c:${KIND_C[ch.kind]}"></span><div style="min-width:0"><div class="ct">${esc(ch.text)}</div><div class="cs">${esc(srcText(ch))} · ${timeStr(ch.time)}</div></div><button type="button" class="mini" data-undo="${ch.id}">Undo</button></li>`).join('')
+    : '<li class="cempty">No changes to the model yet. Apply a mark (a pull or a remove) and it shows up here with its own Undo.</li>';
+  const marks = S.strokes.filter((s) => s.kind === 'mark');
+  const open = marks.filter(isOpenItem).length, done = marks.filter((s) => s.status === 'done').length;
+  const loose = S.strokes.filter((s) => s.kind === 'ink' && !s.made).length, curves = S.strokes.filter((s) => s.made).length;
+  const pl = (n, w) => `<b>${n}</b> ${w}${n === 1 ? '' : 's'}`;
+  $('#sCounts').innerHTML = [pl(open, 'open mark'), pl(loose, 'loose sketch').replace('sketchs', 'sketches'), `<b>${done}</b> done`].concat(curves ? [pl(curves, 'curve')] : []).join(' · ');
+}
+function summaryText(){
+  const lines = [`Pavilion.3dm · sketch summary · ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`, '', 'Changes to the model'];
+  if (!S.changes.length) lines.push('- None yet');
+  S.changes.slice().reverse().forEach((ch) => lines.push(`- ${ch.text} (${srcText(ch)})`));
+  const open = S.strokes.filter((s) => s.kind === 'mark' && isOpenItem(s));
+  lines.push('', 'Open marks'); if (!open.length) lines.push('- None');
+  open.forEach((s) => lines.push(`- Mark ${s.num}: ${meaning(s)}`));
+  const ink = S.strokes.filter((s) => s.kind === 'ink');
+  if (ink.length){ lines.push('', 'Sketches'); ink.forEach((s) => lines.push(`- ${nameOf(s)}, ${s.where}${s.made ? ' (now a ' + s.curveType + ')' : ''}`)); }
+  return lines.join('\n');
+}
+function copySummary(){ copyText(summaryText(), $('#copySummary'), 'Summary copied. Paste it into notes or an email.'); }
+function copyText(text, btn, okMsg){
+  const ok = () => { btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); log(okMsg); };
+  const fallback = () => {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); let done = false; try { done = document.execCommand('copy'); } catch (e) {}
+    ta.remove(); if (done) ok(); else log('Copying is blocked here. The text:\n' + text);
+  };
+  let settled = false;
+  const once = (fn) => () => { if (settled) return; settled = true; fn(); };
+  const okOnce = once(ok), fbOnce = once(fallback);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(okOnce, fbOnce); setTimeout(fbOnce, 800); }
+    else fbOnce();
+  } catch (e){ fbOnce(); }
+}
+
+/* ---------- list ---------- */
+function groupKey(s){
+  if (S.group === 'object'){
+    const o = strokeObj(s); if (o) return o.userData.name;
+    if (s.target === 'plane') return s.planeName || 'Plane';
+    if (s.target === 'drawing') return 'Site plan';
+    return s.kind === 'mark' ? 'In the air' : 'CPlane';
+  }
+  if (s.kind === 'mark') return isOpenItem(s) ? 'Open marks' : 'Done and dismissed';
+  return s.made ? 'Curves' : 'Ink';
+}
+function rowHTML(s){
+  const exp = S.expanded.has(s.id), sel = S.sel === s.id;
+  const pill = s.kind === 'mark' ? `<span class="pill ${s.status}">${STATUS_LABEL[s.status]}</span>` : `<span class="pill ink">${s.made ? cap(s.curveType) : 'Ink'}</span>`;
+  const sub = s.kind === 'mark' ? whereMark(s) : s.where + (s.label ? ` · ${s.name}` : '');
+  return `<li class="srow${sel ? ' sel' : ''}${exp ? ' exp' : ''}" data-id="${s.id}"><span class="sw" style="--c:${s.made ? CURVE_COLOR : s.color}"></span><div style="min-width:0"><div class="sn" title="Double-click to rename">${esc(nameOf(s))}</div><div class="ss">${esc(sub)}</div></div>${pill}<button type="button" class="aib" data-act="ai" aria-pressed="${S.ai.has(s.id)}" title="Add to AI context" aria-label="${S.ai.has(s.id) ? 'Remove from' : 'Add to'} AI context">AI</button><button type="button" class="ix chev" data-act="exp" aria-expanded="${exp}" aria-label="${exp ? 'Hide' : 'Show'} details">${CHEV}</button>${exp ? detailHTML(s) : ''}</li>`;
+}
+function detailHTML(s){
+  let h = `<div class="sdet"><p class="means">${esc(meaning(s))}</p>`;
+  const btn = (act, label) => `<button type="button" class="mini" data-act="${act}">${label}</button>`;
+  const aiBtn = btn('ai', S.ai.has(s.id) ? 'Remove from AI context' : 'Add as AI context');
+  if (s.kind === 'mark'){
+    if (s.markType === 'note') h += `<div class="frow"><input type="text" data-f="note" value="${esc(s.text || '')}" placeholder="Note text" aria-label="Note text"></div>`;
+    else {
+      h += `<div class="frow"><label>Reads as <select data-f="type">${['region', 'arrow', 'cross', 'cut'].map((t) => `<option value="${t}"${t === s.markType ? ' selected' : ''}>${MARK[t].name}</option>`).join('')}</select></label>`;
+      if (s.markType === 'arrow' && s.pull !== null) h += `<label>Distance <input type="number" step="0.1" data-f="pull" value="${s.pull.toFixed(1)}"> m</label>`;
+      h += '</div>';
+    }
+    const canApply = s.status !== 'done' && ((s.markType === 'arrow' && s.obj && s.obj.userData.kind === 'box' && s.pull !== null) || (s.markType === 'cross' && s.obj));
+    h += '<div class="frow">';
+    if (canApply) h += btn('apply', 'Apply');
+    h += btn('fit', 'Zoom to fit');
+    if (s.status === 'dismissed') h += btn('reopen', 'Reopen'); else if (s.status !== 'done') h += btn('dismiss', 'Dismiss');
+    h += aiBtn + btn('del', 'Delete');
+    h += '</div>';
+  } else {
+    h += '<div class="frow">';
+    h += btn('fit', 'Zoom to fit') + aiBtn + btn('del', 'Delete') + '</div>';
+  }
+  if (s.thread && s.thread.length) h += `<div class="thread"><p class="muted small">History</p>${s.thread.map((t) => `<p>${esc(t.text)}</p>`).join('')}</div>`;
+  if (s.view) h += `<p class="dv">Drawn in ${viewName(s.view)}. Click the row to go back to that view.</p>`;
+  return h + '</div>';
+}
+function refresh(){
+  renderChanges();
+  $$('#groupSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.group === S.group)));
+  let list = S.strokes.slice();
+  if (S.openOnly) list = list.filter(isOpenItem);
+  if (S.objFilter) list = list.filter((s) => strokeObj(s) === S.objFilter);
+  const of = $('#objFilter');
+  of.hidden = !S.objFilter;
+  if (S.objFilter) of.innerHTML = `<span>Sketches on <b>${esc(S.objFilter.userData.name)}</b></span><button type="button" class="mini" data-act="clearfilter">Show all</button>`;
+  if (!list.length) strokeList.innerHTML = `<p class="empty">${S.strokes.length ? 'Nothing matches. Turn off “Only open” or show all.' : 'Nothing sketched yet. Pick a mode above the viewport and draw.'}</p>`;
+  else if (S.group === 'order') strokeList.innerHTML = `<ul class="slist">${list.map(rowHTML).join('')}</ul>`;
+  else {
+    const groups = new Map();
+    list.forEach((s) => { const k = groupKey(s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+    let keys = Array.from(groups.keys());
+    if (S.group === 'kind') keys.sort((a, b) => KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b));
+    strokeList.innerHTML = keys.map((k) => `<div class="grp"><button type="button" class="gh" data-gkey="${esc(k)}" title="Zoom to ${esc(k)}"><span>${esc(k)}</span><span class="count">${groups.get(k).length}</span></button><ul class="slist">${groups.get(k).map(rowHTML).join('')}</ul></div>`).join('');
+  }
+  refreshAI();
+}
+function pickAt(px, py, which){
+  const s = strokeAtScreen(px, py, which);
+  if (s){ selectStroke(s, { fly:false, reveal:true }); log(`Selected ${nameOf(s)}.`); return; }
+  const h = hitModel(rayAt(px, py, which));
+  if (h){
+    S.objFilter = h.object; setTab('sketch'); selectStroke(null);
+    const n = S.strokes.filter((x) => strokeObj(x) === h.object).length;
+    log(`${h.object.userData.name}: ${n} sketch item${n === 1 ? '' : 's'} on it.`); refresh(); return;
+  }
+  if (S.objFilter || S.sel){ S.objFilter = null; selectStroke(null); refresh(); }
+}
+
+/* ---------- list + summary events ---------- */
+strokeList.addEventListener('mouseover', (e) => {
+  const li = e.target.closest('.srow'), id = li ? +li.dataset.id : null;
+  if (id === hoverId) return;
+  const prev = byId(hoverId); hoverId = id; paint(prev); paint(byId(id));
+});
+strokeList.addEventListener('mouseleave', () => { const prev = byId(hoverId); hoverId = null; paint(prev); });
+strokeList.addEventListener('click', (e) => {
+  const gh = e.target.closest('.gh');
+  if (gh){ const objs = aliveMeshes().filter((m) => m.userData.name === gh.dataset.gkey); const ss = S.strokes.filter((s) => groupKey(s) === gh.dataset.gkey);
+    if (objs.length) fitObjects(objs); else if (ss.length) flyTo(fitSnap([].concat(...ss.map(strokePts)))); return; }
+  const li = e.target.closest('.srow'); if (!li) return;
+  const s = byId(+li.dataset.id); if (!s) return;
+  const b = e.target.closest('[data-act]');
+  if (!b){ if (e.target.closest('input, select, .sdet')) return; selectStroke(s, { fly:true }); return; }
+  switch (b.dataset.act){
+    case 'exp': if (S.expanded.has(s.id)) S.expanded.delete(s.id); else S.expanded.add(s.id); refresh(); break;
+    case 'del': if (hoverId === s.id) hoverId = null; removeStroke(s); log(`Deleted ${nameOf(s)}.`); break;
+    case 'apply': { const a = s.markType === 'arrow' ? actPull(s) : actRemove(s); if (a) recordChange(a.apply(), 'you', s); break; }
+    case 'ai': toggleAI(s); break;
+    case 'fit': { const prev = byId(S.sel); S.sel = s.id; paint(prev); paint(s); focusStroke(s, true); updateSelClasses(); log(`Zoomed to ${nameOf(s)}.`); break; }
+    case 'dismiss': s.status = 'dismissed'; s.thread.push({ text:'Dismissed' }); updateLabel(s); paint(s); log(`Mark ${s.num} dismissed.`); refresh(); break;
+    case 'reopen': s.status = 'open'; s.thread.push({ text:'Reopened' }); updateLabel(s); paint(s); log(`Mark ${s.num} reopened.`); refresh(); break;
+  }
+});
+strokeList.addEventListener('change', (e) => {
+  const f = e.target.dataset.f; if (!f) return;
+  const s = byId(+e.target.closest('.srow').dataset.id); if (!s) return;
+  if (f === 'type') retype(s, e.target.value);
+  if (f === 'pull') setPull(s, parseFloat(e.target.value));
+  if (f === 'note'){ s.text = e.target.value.trim() || 'Note'; updateLabel(s); }
+  refresh();
+});
+strokeList.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input[data-f]')) e.target.blur(); });
+strokeList.addEventListener('dblclick', (e) => {
+  const sn = e.target.closest('.sn'); if (!sn || sn.querySelector('input')) return;
+  const s = byId(+sn.closest('.srow').dataset.id); if (!s) return;
+  const inp = document.createElement('input'); inp.value = s.label || ''; inp.placeholder = nameOf(s); inp.setAttribute('aria-label', 'Name');
+  sn.textContent = ''; sn.appendChild(inp); inp.focus(); inp.select();
+  let done = false;
+  const commit = (save) => { if (done) return; done = true; if (save){ s.label = inp.value.trim() || null; updateLabel(s); log(`Renamed to ${nameOf(s)}.`); } refresh(); };
+  inp.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') commit(true); if (ev.key === 'Escape') commit(false); });
+  inp.addEventListener('blur', () => commit(true));
+});
+$('#changeList').addEventListener('click', (e) => {
+  const u = e.target.closest('[data-undo]'); if (u){ undoChange(+u.dataset.undo); return; }
+  const it = e.target.closest('[data-chg]'); if (!it) return;
+  const ch = S.changes.find((c) => c.id === +it.dataset.chg); if (!ch) return;
+  fitObjects(ch.objects); log(`Zoomed to: ${ch.text}.`);
+});
+$('#showChanges').addEventListener('change', (e) => { S.showChanges = e.target.checked; applyChangeTint(); log(S.showChanges ? 'Showing changes: green = added, blue = changed, red = removed, dashed = before.' : 'Changes no longer tinted.'); });
+$('#copySummary').addEventListener('click', copySummary);
+$('#groupSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-group]'); if (b){ S.group = b.dataset.group; refresh(); } });
+$('#openOnly').addEventListener('change', (e) => { S.openOnly = e.target.checked; refresh(); });
+$('#objFilter').addEventListener('click', (e) => { if (e.target.closest('[data-act="clearfilter"]')){ S.objFilter = null; refresh(); } });
 
 /* ---------- panel + bar bindings ---------- */
 subbar.addEventListener('click', (e) => {
@@ -1777,7 +2046,6 @@ subbar.addEventListener('click', (e) => {
     case 'draw': S.drawTool = val; break;
     case 'follow': S.cplaneFollows = !S.cplaneFollows; syncGrid(); log(S.cplaneFollows ? 'The grid now follows the 3D cursor.' : 'The grid is back on World Top.'); break;
     case 'reset': setCursor(new V3(), ZUP.clone(), 'World origin', 'main', true); logCursor(); break;
-    case 'ant': openAnt(); return;
     case 'eraseall': eraseAll(); return;
   }
   syncAll();
@@ -1788,40 +2056,11 @@ $('#penSw').addEventListener('click', (e) => { const b = e.target.closest('[data
 $('#penWidth').addEventListener('input', (e) => { S.pen.width = +e.target.value; syncAll(); });
 $('#penPressure').addEventListener('change', (e) => { S.pen.pressure = e.target.checked; syncAll(); });
 $('#penSmart').addEventListener('change', (e) => { S.pen.smart = e.target.checked; syncAll(); });
-$('#btnReal').addEventListener('click', makeReal);
-$('#btnAnt').addEventListener('click', () => openAnt());
 $('#btnClear').addEventListener('click', (e) => {
   const b = e.currentTarget;
   if (!S.clearArm){ S.clearArm = true; b.textContent = 'Click again to clear'; setTimeout(() => { S.clearArm = false; b.textContent = 'Clear sketch'; }, 3000); return; }
   S.clearArm = false; b.textContent = 'Clear sketch';
   const n = S.strokes.length; S.strokes.slice().forEach((s) => removeStroke(s)); log(`Cleared ${n} sketch item${n === 1 ? '' : 's'}.`);
-});
-let hlS = null;
-function highlight(s, on){
-  if (!s) return;
-  const c = on ? '#ffd400' : (s.made ? CURVE_COLOR : s.color);
-  (s.made ? s.curveMat : s.mat).color.set(c);
-  if (s.labels) s.labels.forEach((L) => L.el.classList.toggle('hl', on));
-}
-const strokeList = $('#strokeList');
-strokeList.addEventListener('mouseover', (e) => {
-  const li = e.target.closest('.srow'); const s = li ? S.strokes.find((x) => String(x.id) === li.dataset.id) : null;
-  if (s === hlS) return; highlight(hlS, false); hlS = s; highlight(s, true);
-});
-strokeList.addEventListener('mouseleave', () => { highlight(hlS, false); hlS = null; });
-strokeList.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-act]'); if (!b) return;
-  const s = S.strokes.find((x) => String(x.id) === b.closest('.srow').dataset.id); if (!s) return;
-  if (b.dataset.act === 'del'){ if (hlS === s) hlS = null; removeStroke(s); log(`Deleted ${nameOf(s)}.`); return; }
-  if (b.dataset.act === 'apply'){
-    const a = s.markType === 'arrow' ? actPull(s) : actRemove(s);
-    if (a){ const msg = a.apply(); log(`Mark ${s.num} applied: ${msg}.`); refresh(); }
-    return;
-  }
-  if (b.dataset.act === 'ask'){
-    const pre = { region:`Add fins in Region ${s.num}, 400 mm apart`, cut:`Split it along mark ${s.num}`, arrow:'Pull it out', cross:'Remove what I crossed out' }[s.markType] || '';
-    openAnt(pre);
-  }
 });
 $('#layerList').addEventListener('click', (e) => {
   const b = e.target.closest('[data-layer]'); if (!b) return;
@@ -1837,30 +2076,25 @@ $('#alignSeg').addEventListener('click', (e) => { const b = e.target.closest('[d
 }));
 $('#optFollow').addEventListener('change', (e) => { S.cplaneFollows = e.target.checked; syncGrid(); syncAll(); });
 $('#optSnap').addEventListener('change', (e) => { S.snap = e.target.checked; syncAll(); });
-$('#optAnt').addEventListener('change', (e) => { if (e.target.checked) S.antExclude.delete('cursor'); else S.antExclude.add('cursor'); refreshAnt(); });
+$('#optAI').addEventListener('change', (e) => { S.aiCursor = e.target.checked; refreshAI(); log(S.aiCursor ? '3D cursor added to the AI context.' : '3D cursor removed from the AI context.'); });
 $('#optPivot').addEventListener('change', (e) => log(e.target.checked ? 'Rotate, Scale and Mirror will use the 3D cursor as their pivot.' : 'Rotate, Scale and Mirror will ask for a pivot point.'));
 $('#curReset').addEventListener('click', () => { setCursor(new V3(), ZUP.clone(), 'World origin', 'main', true); logCursor(); });
 $('#curMode').addEventListener('click', () => setMode('cursor'));
-
-$('#antChips').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-chip]'); if (!b) return;
-  const id = b.dataset.chip;
-  if (S.antExclude.has(id)) S.antExclude.delete(id); else S.antExclude.add(id);
-  refreshAnt(); syncCursorPane();
+$('#aiChips').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-aichip]'); if (!b) return;
+  if (b.dataset.aichip === 'cursor'){ S.aiCursor = false; syncCursorPane(); refreshAI(); log('3D cursor removed from the AI context.'); return; }
+  const s = byId(+b.dataset.aichip); if (s) toggleAI(s);
 });
-const SUGG = ['Add fins in the region, 400 mm apart', 'Pull it up', 'Turn my outline into a canopy', 'Put a column here', 'Remove what I crossed out'];
-$('#antSugg').innerHTML = SUGG.map((t) => `<button type="button">${esc(t)}</button>`).join('');
-$('#antSugg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b){ $('#antText').value = b.textContent; $('#antText').focus(); } });
-$('#antSend').addEventListener('click', () => { const t = $('#antText'); antSend(t.value); t.value = ''; });
-$('#antText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); $('#antSend').click(); } });
-antLog.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-ant]'); if (!b || !S.pending || !S.pending.el.contains(b)) return;
-  if (b.dataset.ant === 'keep'){
-    const p = S.pending; S.pending = null;
-    const msg = p.apply();
-    p.el.querySelector('.msg-act').innerHTML = '<span class="muted small">Kept. Added to the model.</span>';
-    log(`Ant ${msg}.`); refresh();
-  } else discardPending();
+$('#aiShow').addEventListener('click', (e) => {
+  const pre = $('#aiPre'), open = pre.hidden;
+  pre.hidden = !open; e.currentTarget.setAttribute('aria-expanded', String(open));
+  e.currentTarget.textContent = open ? 'Hide' : 'Show what the AI gets';
+  if (open) pre.textContent = contextText();
+});
+$('#aiCopy').addEventListener('click', (e) => copyText(contextText(), e.currentTarget, 'AI context copied.'));
+$('#aiClear').addEventListener('click', () => {
+  const list = aiItems(); S.ai.clear(); S.aiCursor = false;
+  list.forEach((s) => updateLabel(s)); syncCursorPane(); refresh(); log('AI context cleared.');
 });
 
 /* ---------- command line ---------- */
@@ -1869,8 +2103,9 @@ const CMDS = {
   sketch:() => setMode('object'), onobject:() => setMode('object'), sketchonobject:() => setMode('object'), sketchonplane:() => setMode('plane'),
   marks:() => setMode('marks'), mark:() => setMode('marks'), sketchmarks:() => setMode('marks'), drawing:() => setMode('drawing'), markup:() => setMode('drawing'),
   sketchondrawing:() => setMode('drawing'), eraser:() => setMode('eraser'), erase:() => setMode('eraser'),
-  makereal:makeReal, curves:makeReal, ant:() => openAnt(), undo, perspective:() => setView('perspective'), top:() => setView('top'), front:() => setView('front'), right:() => setView('right'),
-  zoom:() => { orbit.t.set(-1.5, 0, 5); orbit.d = 54; }, zoomextents:() => { orbit.t.set(-1.5, 0, 5); orbit.d = 54; }
+  undo:() => undo(), summary:() => copySummary(), context:() => copyText(contextText(), $('#aiCopy'), 'AI context copied.'),
+  perspective:() => setView('perspective'), top:() => setView('top'), front:() => setView('front'), right:() => setView('right'),
+  zoom:() => flyTo({ view:'perspective', t:new V3(-1.5, 0, 5), d:54, th:-2.2, ph:1.13 }), zoomextents:() => flyTo({ view:'perspective', t:new V3(-1.5, 0, 5), d:54, th:-2.2, ph:1.13 })
 };
 $('#cmdInput').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
@@ -1878,14 +2113,16 @@ $('#cmdInput').addEventListener('keydown', (e) => {
   if (!raw){ log('Command:'); return; }
   const k = raw.replace(/^[_!-]+/, '').toLowerCase().replace(/\s+/g, '');
   log(`Command: ${raw}`);
-  if (CMDS[k]) CMDS[k](); else log(`Unknown command: ${raw}. Try Cursor, Plane, Sketch, Marks, Drawing, MakeReal or Ant.`);
+  if (CMDS[k]) CMDS[k](); else log(`Unknown command: ${raw}. Try Cursor, Plane, Sketch, Marks, Drawing, Summary or Context.`);
 });
 
 /* ---------- sample sketch ---------- */
-function seedStroke(o, pts, nrms, wWorld){
+function seedStroke(o, pts, nrms, wWorld, label, view){
   const s = newStroke(o);
   s.pts = pts; s.nrms = nrms; s.widths = pts.map(() => wWorld); s.done = true;
   if (o.objMesh){ s.hits[o.objMesh.id] = pts.length; s.hitMeshes[o.objMesh.id] = o.objMesh; }
+  if (label) s.label = label;
+  s.view = view || null;
   if (s.kind === 'mark') finalizeMark(s); else finalizeInk(s);
   return s;
 }
@@ -1893,9 +2130,27 @@ const jit = (i, k) => Math.sin(i * 12.9898 + k * 78.233) * 0.5;
 function seed(){
   quiet = true;
   scene.updateMatrixWorld(true);
-  resize(); RECTS = computeRects(); setupCam('main');
+  resize(); RECTS = computeRects(); setupCam('main'); placePersp();
   setCursor(new V3(-3.2, -1.6, 4), ZUP.clone(), 'Main block · top face', 'main', false);
-  // window outline on the curved wall
+  const toward = (p, n) => { const c = persp.position.clone().sub(p).normalize(); return c.addScaledVector(n, -c.dot(n)).normalize(); };
+  // Mark 1: pull the east face of the main block out 2 m (already applied)
+  const e0 = new V3(5, -1.5, 2), X = new V3(1, 0, 0), tE = toward(e0, X);
+  const P1 = []; for (let t = 0; t <= 1.001; t += 0.1) P1.push(new V3(5 + 2 * t, -1.5, 2 + jit(t * 20, 4) * 0.02));
+  const m1 = seedStroke({ kind:'mark', markType:'arrow', target:'object', which:'main', color:MARK.arrow.c, objMesh:mainBlock, forceAlt:true,
+    altPlane:{ o:e0.clone(), n:tE }, startHit:{ point:e0.clone(), normal:X.clone(), object:mainBlock } }, P1, P1.map(() => tE.clone()), 0.13, null,
+    fitSnap(P1.concat([new V3(5, -4, 0), new V3(5, 4, 4)]), -0.75, 1.2));
+  recordChange(actPull(m1).apply(), 'you', m1);
+  // Mark 2: an area on the south face of the main block
+  const P5 = [], N5 = [];
+  for (let t = 0.2; t <= Math.PI * 2 + 0.55; t += 0.07){ P5.push(new V3(-3.2 + 2.1 * Math.cos(t) * (1 + 0.03 * Math.sin(3 * t)), -4, 2.0 + 1.25 * Math.sin(t) * (1 + 0.04 * Math.cos(2 * t)))); N5.push(new V3(0, -1, 0)); }
+  const m2 = seedStroke({ kind:'mark', markType:'region', target:'object', which:'main', color:MARK.region.c, objMesh:mainBlock, obj:mainBlock }, P5, N5, 0.13, null, fitSnap(P5, -1.85, 1.3));
+  // Mark 3: pull the tower roof up 3 m
+  const top = new V3(9, 3, 10), tT = toward(top, ZUP);
+  const P6 = []; for (let t = 0; t <= 1.001; t += 0.1) P6.push(new V3(9 + jit(t * 30, 3) * 0.03, 3, 10 + 3 * t));
+  const m3 = seedStroke({ kind:'mark', markType:'arrow', target:'object', which:'main', color:MARK.arrow.c, objMesh:tower, forceAlt:true,
+    altPlane:{ o:top.clone(), n:tT }, startHit:{ point:top.clone(), normal:ZUP.clone(), object:tower } }, P6, P6.map(() => tT.clone()), 0.13, null,
+    fitSnap(P6.concat([new V3(7, 1, 10), new V3(11, 5, 10)]), -2.45, 1.15));
+  // window idea on the curved wall
   const wp = (th, z) => new V3(CW.cx + CW.r * Math.sin(th), CW.cy - CW.r * Math.cos(th), z);
   const wn = (th) => new V3(Math.sin(th), -Math.cos(th), 0);
   const thc = -0.55, dth = 0.21, zb = 0.7, zs = 2.2, zt = 3.0, P = [], N = [];
@@ -1905,27 +2160,20 @@ function seed(){
   for (let t = 0; t <= 1; t += 0.06) push(thc + dth, zb + (zs - zb) * t, i++);
   for (let a = 0; a <= Math.PI; a += 0.1) push(thc + dth * Math.cos(a), zs + (zt - zs) * Math.sin(a), i++);
   for (let t = 0; t <= 1.001; t += 0.06) push(thc - dth, zs - (zs - zb) * t, i++);
-  seedStroke({ kind:'ink', target:'object', which:'main', color:PEN[0].c, objMesh:curvedWall }, P, N, 0.1);
+  const wallView = fitSnap(P, -2.1, 1.3);
+  seedStroke({ kind:'ink', target:'object', which:'main', color:PEN[0].c, objMesh:curvedWall }, P, N, 0.07, 'Window idea', wallView);
   const P2 = [], N2 = []; for (let t = 0; t <= 1.001; t += 0.05){ P2.push(wp(thc + jit(t * 40, 2) * 0.004, zb + (zt - zb) * t)); N2.push(wn(thc)); }
-  seedStroke({ kind:'ink', target:'object', which:'main', color:PEN[0].c, objMesh:curvedWall }, P2, N2, 0.08);
+  seedStroke({ kind:'ink', target:'object', which:'main', color:PEN[0].c, objMesh:curvedWall }, P2, N2, 0.06, 'Mullion', wallView);
   // canopy outline on the cursor plane
   const P3 = [], N3 = [];
   for (let t = 0.3; t <= Math.PI * 2 + 0.55; t += 0.08){ P3.push(new V3(-3.0 + 2.7 * Math.cos(t) * (1 + 0.03 * Math.sin(3 * t)), 0.6 + 1.7 * Math.sin(t) * (1 + 0.04 * Math.cos(2 * t)), 4)); N3.push(ZUP.clone()); }
-  seedStroke({ kind:'ink', target:'plane', which:'main', color:PEN[1].c, planeO:new V3(-3.2, -1.6, 4), planeN:ZUP.clone(), planeName:'Cursor plane' }, P3, N3, 0.1);
+  seedStroke({ kind:'ink', target:'plane', which:'main', color:PEN[1].c, planeO:new V3(-3.2, -1.6, 4), planeN:ZUP.clone(), planeName:'Cursor plane' }, P3, N3, 0.1, 'Canopy outline', fitSnap(P3, -2.2, 0.7));
   // redline path on the site plan
   const curve = new THREE.CatmullRomCurve3([new V3(-1.5, -4.6, 0), new V3(-0.6, -7, 0), new V3(1.6, -9.8, 0), new V3(3.6, -12, 0), new V3(6.4, -12.4, 0), new V3(9.5, -11, 0)]);
-  const P4 = curve.getPoints(70); seedStroke({ kind:'ink', target:'drawing', which:'plan', color:REDLINE }, P4, P4.map(() => ZUP.clone()), 0.12);
-  S.strokes[S.strokes.length - 1].name = 'Redline 1';
-  // region mark on the south face of the main block
-  const P5 = [], N5 = [];
-  for (let t = 0.2; t <= Math.PI * 2 + 0.55; t += 0.07){ P5.push(new V3(-3.2 + 2.1 * Math.cos(t) * (1 + 0.03 * Math.sin(3 * t)), -4, 2.0 + 1.25 * Math.sin(t) * (1 + 0.04 * Math.cos(2 * t)))); N5.push(new V3(0, -1, 0)); }
-  seedStroke({ kind:'mark', markType:'region', target:'object', which:'main', color:MARK.region.c, objMesh:mainBlock, obj:mainBlock }, P5, N5, 0.13);
-  // pull arrow out of the tower roof
-  placePersp();
-  const top = new V3(9, 3, 10), toward = persp.position.clone().sub(top); toward.z = 0; toward.normalize();
-  const P6 = []; for (let t = 0; t <= 1.001; t += 0.1) P6.push(new V3(9 + jit(t * 30, 3) * 0.03, 3, 10 + 3 * t));
-  seedStroke({ kind:'mark', markType:'arrow', target:'object', which:'main', color:MARK.arrow.c, objMesh:tower, forceAlt:true,
-    altPlane:{ o:top.clone(), n:toward }, startHit:{ point:top.clone(), normal:ZUP.clone(), object:tower } }, P6, P6.map(() => toward.clone()), 0.13);
+  const P4 = curve.getPoints(70);
+  seedStroke({ kind:'ink', target:'drawing', which:'plan', color:REDLINE }, P4, P4.map(() => ZUP.clone()), 0.12, 'Garden path', { view:'plan', t:new V3(3.5, -8.5, 0), hh:7 });
+  S.expanded.add(m2.id);
+  S.ai.add(m2.id); S.ai.add(m3.id); updateLabel(m2); updateLabel(m3);
   quiet = false;
 }
 
@@ -1937,10 +2185,10 @@ seed();
 applyLayers();
 setMode('object');
 setTab('sketch');
-addMsg('ant', '<p>Sketch on the model, then tell me what you mean in one sentence. I read your numbered marks, closed outlines and the 3D cursor.</p><p>Try: “Add fins in the region, 400 mm apart” or “Pull it up”.</p>');
+refresh();
 log('Command: _Open');
 log('Opened Pavilion.3dm: 4 objects, meters.');
-log('Sketch layer is on. Ink stays separate from geometry until you turn it into curves.');
+log('Sketch layer is on. Ink and marks stay separate from the model.');
 log('Command: SketchOnObject');
 requestAnimationFrame(frame);
 })();
