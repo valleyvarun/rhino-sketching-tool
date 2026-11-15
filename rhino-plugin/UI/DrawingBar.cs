@@ -55,7 +55,7 @@ namespace RhinoSketchingTool
             if (current == Part.Pen)
             {
                 specs.AddRange(new[] { new Item { Part=Part.Object, Value="Object" }, new Item { Part=Part.Plane, Value="Plane" },
-                    new Item { Part=Part.Cursor, Value="3D cursor" }, new Item { Part=Part.View, Value=ViewLabel },
+                    new Item { Part=Part.Cursor, Value="3D cursor" },
                     new Item { Part=Part.PickFace, Value=controller.PickingPlane ? "Pick a face…" : controller.HasPickedPlane ? controller.PickedPlaneLabel + " ×" : "Pick a face" },
                     new Item { Part=Part.Color }, new Item { Part=Part.Snap, Value="Shapes" } });
             }
@@ -326,7 +326,6 @@ namespace RhinoSketchingTool
             Redraw();
         }
         static double Clamp(double n) => Math.Max(0, Math.Min(1, n));
-        string ViewLabel => "View: " + (controller.CurrentViewName ?? "Current");
         static double LabelWidth(string label) => Math.Ceiling(Picture.Text(label, 11.5, Wpf.FontWeights.Medium, Ink2).WidthIncludingTrailingWhitespace);
         static Media.Color Hsv(double h, double s, double v)
         {

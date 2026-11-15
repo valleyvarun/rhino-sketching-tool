@@ -129,7 +129,7 @@ try:
     toolbar_type.GetMethod("Click", flags).Invoke(toolbar, System.Array[System.Object]([System.Enum.Parse(part_type,"Views")]))
     check("SaveView" in option_parts() and "SyncViews" in option_parts(), "Camera opens native named-view actions")
     set_property("Tool", enum_value("SketchTool", "Draw"))
-    check(all(p in option_parts() for p in ["Object","Plane","Cursor","View","PickFace","Color","Snap"]), "Pen retains all drawing methods and adds surface picking")
+    check(all(p in option_parts() for p in ["Object","Plane","Cursor","PickFace","Color","Snap"]) and "View" not in option_parts(), "Pen shows compact drawing controls without the View selector")
     set_property("Active", True)
     set_property("Method", enum_value("DrawMethod", "View"))
     set_property("Tool", enum_value("SketchTool", "Draw"))
