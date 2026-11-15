@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent icons</title>
+<link rel="stylesheet" href="../tokens/tokens.css">
+<style>
+*{ box-sizing:border-box; }
+body{ margin:0; background:#eceef1; color:var(--ink); font:13px/1.5 var(--f-ui); padding:32px 20px 80px; }
+body.dark{ background:#0f1114; }
+main{ max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:22px; }
+header{ display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; }
+h1{ margin:0; font-size:22px; letter-spacing:-.015em; }
+.lede{ margin:4px 0 0; color:var(--ink-2); max-width:800px; }
+.lede a{ color:inherit; }
+body.dark h1{ color:#eef0f3; } body.dark .lede{ color:#a9afba; }
+.toggle{ margin-left:auto; height:32px; padding:0 12px; border:0; border-radius:10px; background:var(--soft-sel); color:var(--ink); font:600 12px var(--f-ui); cursor:pointer; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+.card{ position:relative; display:flex; flex-direction:column; gap:12px; padding:16px; border-radius:16px; background:var(--surface-2); box-shadow:var(--shadow-2); }
+.card.pick{ box-shadow:0 0 0 2px var(--accent), var(--shadow-2); }
+.card .nm{ display:flex; align-items:baseline; gap:8px; }
+.card .nm b{ font-size:14px; }
+.card .nm span{ color:var(--muted); font-size:12px; }
+.card .nm em{ margin-left:auto; font-style:normal; font-size:11px; font-weight:700; color:var(--accent); }
+.hero{ display:grid; place-items:center; height:132px; border-radius:12px; background:#fff; }
+.hero svg{ width:84px; height:84px; color:var(--accent); overflow:visible; }
+.sizes{ display:flex; align-items:center; gap:18px; padding:0 4px; color:var(--accent); }
+.sizes svg{ overflow:visible; }
+.sizes small{ margin-left:auto; color:var(--muted); font-size:11px; }
+/* a slice of the real tab bar, at real size */
+.tabs{ display:grid; grid-template-columns:repeat(3, 1fr); padding:4px; border-radius:14px; background:var(--well); }
+.tabs button{ height:30px; display:flex; align-items:center; justify-content:center; gap:7px; border:0; border-radius:11px; background:transparent; color:var(--ink-2); font:600 12.5px var(--f-ui); }
+.tabs button.on{ background:var(--soft-sel); color:var(--ink); }
+.tabs svg{ width:15px; height:15px; flex:none; overflow:visible; }
+.tabs .ag svg{ color:var(--accent); }
+.why{ margin:0; color:var(--ink-2); font-size:12.5px; }
+/* the crayon touch: drawn on again when you hover a card (the same moment plays when the tab is clicked) */
+.cr path{ stroke-dasharray:1 2; }
+.card:hover .cr path{ animation:draw .45s cubic-bezier(.3,0,.2,1) both; }
+.card:hover .cr path + path{ animation-delay:.05s; }
+@keyframes draw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+/* dark: the panel's own dark colours */
+body.dark .card{ background:#1b1e23; box-shadow:0 1px 0 rgba(255,255,255,.04) inset; }
+body.dark .hero{ background:#23272d; }
+body.dark .tabs{ background:#24282e; }
+body.dark .tabs button{ color:#a9afba; }
+body.dark .tabs button.on{ background:#353a42; color:#eef0f3; }
+body.dark .card .nm b{ color:#eef0f3; } body.dark .why{ color:#a9afba; }
+body.dark .hero svg, body.dark .sizes, body.dark .tabs .ag svg{ color:#c47ad6; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Agent icon, round 2: sleek, with one crayon touch</h1>
+      <p class="lede">Clean line icons that sit with the rest of the set (same grid, same rounded strokes), each with <b>one hand-drawn crayon detail</b>, like the tick in <i>Snap shapes</i>: a smile, a scribble, a sparkle. Hover a card to see that detail draw itself on (it would play when you click the Agent tab). Round 1, the full doodles, is in <a href="agent-icons-doodles.html">agent-icons-doodles.html</a>.</p>
+    </div>
+    <button class="toggle" id="dark" type="button">Dark panel</button>
+  </header>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const dot = (x, y, r = 1.15) => `<circle cx="${x}" cy="${y}" r="${r}" fill="currentColor" stroke="none"/>`;
+const BUBBLE = '<path d="M20.5 11.5c0 4.2-3.8 7.5-8.5 7.5-1.2 0-2.4-.2-3.4-.6L4 20l1.3-3.6C4.2 15 3.5 13.3 3.5 11.5 3.5 7.4 7.3 4 12 4s8.5 3.4 8.5 7.5z"/>';
+// clean: geometric line work · cr: the hand-drawn crayon detail (heavier, a little wobbly, with a faint second pass)
+const ICONS = [
+  { id:'A', name:'Bot', sub:'a robot with a drawn smile', pick:true, why:'Reads as "agent" at any size and never as a tool. The smile is the only hand-drawn line: friendly, not childish.',
+    clean:'<rect x="4.5" y="8.2" width="15" height="11.6" rx="3.6"/><path d="M12 8.2V5.6"/>' + dot(12, 4.3, 1.25) + dot(9.3, 12.8) + dot(14.7, 12.8),
+    cr:['M9 16.1c1.7 1.5 4.3 1.5 6-.2'] },
+  { id:'B', name:'Buddy', sub:'a soft square face', why:'The simplest friendly face, shaped like an app tile but drawn as a line. Calm and very legible.',
+    clean:'<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="6.4"/>' + dot(9.2, 10.3) + dot(14.8, 10.3),
+    cr:['M8.5 14.1c2 2.3 5.3 2.4 7.2-.1'] },
+  { id:'C', name:'Chatty', sub:'a speech bubble with a face', why:'Says "talk to me". The round bubble and the face keep it apart from the Comments icon.',
+    clean:BUBBLE + dot(9.4, 10.5) + dot(14.6, 10.5),
+    cr:['M9.2 13.5c1.5 1.6 4.1 1.6 5.5 0'] },
+  { id:'D', name:'Scribble bubble', sub:'you talk to it by drawing', why:'Varun\'s idea in one icon: a conversation whose language is a sketch. The scribble is crayon.',
+    clean:BUBBLE,
+    cr:['M7.4 12.6c.9-2 1.7-2 2.3-.4s1.4 1.8 2.3-.1 1.6-1.9 2.2-.4 1.3 1.4 2.3-.3'] },
+  { id:'E', name:'Crayon C', sub:'the logo\'s C with a spark', why:'The brand C, drawn as one crayon stroke, with a clean spark in its opening: Crayon, thinking. At 16 px it can read as a refresh arrow.',
+    clean:'<path d="M18.6 9.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" fill="currentColor" fill-opacity=".2"/>',
+    cr:['M17 6.9c-1.3-1.4-3.1-2.3-5.1-2.2-4 .1-7.2 3.4-7.1 7.4.1 3.9 3.3 7.1 7.3 7.1 2 0 3.8-.9 5-2.3'] },
+  { id:'F', name:'Peek', sub:'two eyes and a small smile', why:'Minimal: the agent is the one looking at your sketch. Sleek pills, a hand-drawn smile.',
+    clean:'<rect x="5.2" y="4.6" width="5.6" height="10.6" rx="2.8"/><rect x="13.2" y="4.6" width="5.6" height="10.6" rx="2.8"/>' + dot(8.4, 10.8, 1.3) + dot(16.4, 10.8, 1.3),
+    cr:['M8.8 18.8c2.1 1.1 4.4 1.1 6.4 0'] },
+  { id:'G', name:'Smiling spark', sub:'the sparkle, with a face', why:'Keeps the AI sparkle everyone recognises, but gives it a face so it is a helper, not the Sketch to 3D skill.',
+    clean:'<path d="M12 2.8c.6 4.6 3.4 7.6 8.2 8.4-4.8.8-7.6 3.8-8.2 8.4-.6-4.6-3.4-7.6-8.2-8.4 4.8-.8 7.6-3.8 8.2-8.4z"/>' + dot(10.5, 10.4, .9) + dot(13.5, 10.4, .9),
+    cr:['M10.4 12.9c.9 1 2.3 1 3.2 0'] },
+  { id:'H', name:'Round bot', sub:'A, softer', why:'The same robot with a round head and little ears: a touch friendlier, still clearly an agent.',
+    clean:'<circle cx="12" cy="13.2" r="7.2"/><path d="M12 6V4.4"/>' + dot(12, 3.4, 1.15) + '<path d="M3.4 12.2v2M20.6 12.2v2"/>' + dot(9.4, 12, 1.1) + dot(14.6, 12, 1.1),
+    cr:['M9.3 15.2c1.6 1.5 3.9 1.5 5.4-.1'] },
+  { id:'I', name:'Assistant', sub:'a person with a spark', why:'"Someone who works for you". The figure is clean; the little spark beside it is hand-drawn.',
+    clean:'<circle cx="10" cy="8.4" r="3.6"/><path d="M3.6 20.2c.7-3.7 3.2-5.8 6.4-5.8s5.7 2.1 6.4 5.8"/>',
+    cr:['M18.6 3.3c.3 1.6 1.1 2.4 2.6 2.7-1.5.3-2.3 1.1-2.6 2.7-.3-1.6-1.1-2.4-2.6-2.7 1.5-.3 2.3-1.1 2.6-2.7z'] },
+  { id:'J', name:'Thinking loop', sub:'a dot and a scribbled orbit', why:'Abstract and calm: a point of attention circled by a quick crayon loop. The most "logo-like".',
+    clean:dot(12, 12, 2.1),
+    cr:['M5.4 14.4C4.1 10.3 7 6 11.5 5.2c4.6-.8 8.3 2 8.3 5.7 0 4.2-4.2 7.9-8.8 8.1-3.5.2-6-1.6-5.4-4.3.5-2.4 3.4-4.2 6.4-4.1'] },
+];
+function svg(ic, size){
+  const cr = ic.cr.map((d) => `<path d="${d}" pathLength="1"/>`).join('');
+  const echo = ic.cr.map((d) => `<path d="${d}"/>`).join('');
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic.clean}`
+    + `<g class="cr" stroke-width="2.1">${cr}</g><g stroke-width="1" opacity=".3" transform="translate(.45 .4)">${echo}</g></svg>`;
+}
+const PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 4.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9.4 18.6 5 19.9l1.3-4.4z"/><path d="M13.6 6.4l4 4"/><path d="M2.5 21.3c2-1.4 3.6-1.4 5 0s3.2 1.4 5 0"/></svg>';
+const LAYERS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>';
+document.getElementById('grid').innerHTML = ICONS.map((ic) => `<section class="card${ic.pick ? ' pick' : ''}">
+  <div class="nm"><b>${ic.id} · ${ic.name}</b><span>${ic.sub}</span>${ic.pick ? '<em>My pick</em>' : ''}</div>
+  <div class="hero">${svg(ic, 84)}</div>
+  <div class="sizes">${svg(ic, 32)}${svg(ic, 24)}${svg(ic, 16)}<small>32 · 24 · 16 px</small></div>
+  <div class="tabs"><button>${PEN}Sketch</button><button>${LAYERS}Layers</button><button class="on ag">${svg(ic, 15)}Agent</button></div>
+  <p class="why">${ic.why}</p>
+</section>`).join('');
+document.getElementById('dark').addEventListener('click', (e) => { const on = document.body.classList.toggle('dark'); e.target.textContent = on ? 'Light panel' : 'Dark panel'; });
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crayon logo concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap">
+<style>
+:root{ --ink:#1d2025; --paper:#f6f3ec; --cobalt:#3d6bff; --line:rgba(16,20,28,.08); }
+*{ box-sizing:border-box; }
+body{ margin:0; background:#eceae4; color:var(--ink); font:14px/1.5 "Inter Tight", system-ui, sans-serif; padding:30px 16px 70px; }
+main{ max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
+h1{ margin:0; font-size:26px; letter-spacing:-.02em; }
+.lede{ margin:6px 0 0; color:#5c6270; max-width:760px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:14px; }
+.card{ background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 0 0 1px var(--line); display:flex; flex-direction:column; }
+.card.rec{ box-shadow:0 0 0 2px var(--cobalt); }
+.hero{ position:relative; height:200px; background:var(--paper); display:grid; place-items:center; background-image:radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px); background-size:6px 6px; }
+.hero svg{ width:130px; height:130px; }
+.hero .num{ position:absolute; top:12px; left:14px; font:700 11px ui-monospace,Menlo,monospace; color:#9a958a; }
+.hero .pick{ position:absolute; top:11px; right:14px; font:700 10px "Inter Tight"; text-transform:uppercase; letter-spacing:.07em; color:var(--cobalt); }
+.body{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:12px; }
+.title{ font-weight:700; font-size:16px; }
+.why{ margin:0; color:#5c6270; font-size:13px; }
+.lock{ display:flex; align-items:center; gap:10px; height:58px; padding:0 16px; border-radius:12px; }
+.lock svg{ width:34px; height:34px; flex:none; }
+.lock.light{ background:#fff; box-shadow:0 0 0 1px var(--line); }
+.lock.dark{ background:#17181c; }
+.word{ font-size:25px; line-height:1; color:var(--ink); }
+.dark .word{ color:#f3f1ec; }
+.w-sans{ font-family:"Inter Tight", system-ui; font-weight:650; letter-spacing:-.035em; }
+.w-lower{ font-family:"Inter Tight", system-ui; font-weight:700; letter-spacing:-.05em; }
+.w-serif{ font-family:"Fraunces", Georgia, serif; font-weight:600; letter-spacing:-.02em; font-variation-settings:"opsz" 72; }
+.uses{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.app{ width:52px; height:52px; border-radius:13px; display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+.app svg{ width:36px; height:36px; }
+.app.paper{ background:var(--paper); } .app.inkbg{ background:#17181c; } .app.blue{ background:var(--cobalt); }
+.hdr{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; background:#f6f7f9; font:600 13px "Inter Tight"; }
+.hdr svg{ width:20px; height:20px; }
+.hdr small{ font-weight:500; color:#878d99; font-size:11px; }
+.tiny{ display:flex; align-items:center; gap:6px; color:#878d99; font-size:11px; }
+.tiny svg{ width:16px; height:16px; }
+.note{ font-size:12.5px; color:#5c6270; max-width:760px; }
+</style>
+</head>
+<body>
+<!-- Wax-crayon texture: roughens the edge and leaves small gaps in the stroke, like crayon on paper. Used on the large marks only;
+     small sizes (app header, favicon) use the clean version, which is how a professional logo system works. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="wax" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.1" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency="1.3" numOctaves="2" seed="11" result="g"/>
+      <!-- mostly solid wax, with a few paper-grain gaps where the noise is high -->
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.6 2.45" result="m"/>
+      <feComposite in="d" in2="m" operator="in"/>
+    </filter>
+  </defs>
+</svg>
+<main>
+  <header>
+    <h1>Crayon: logo concepts</h1>
+    <p class="lede">Six directions. All use graphite ink, warm paper and our cobalt. Nothing orange, no starbursts, nothing that reads as Claude. The large marks carry a real wax-crayon texture for the human feel; the small sizes are clean so they stay crisp in Rhino's panel tab.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+  <p class="note">Each concept: the textured mark on paper, the lockup with the wordmark on light and dark, app icons on paper, ink and cobalt, the Rhino panel header at 20 px, and a 16 px tab icon.</p>
+</main>
+<script>
+// Each mark is drawn in a 64-unit square. tex = crayon texture on the hand-drawn parts. c = colours.
+const MARKS = [
+  { name:'Sketch to block', font:'w-sans', rec:true,
+    why:'A loose crayon line turns into a crisp block: the human sketch on the left, the precise model on the right. The whole product in one mark.',
+    draw:(c, tex) => `<path d="M6 47c4-3.2 7-1.2 10.6-4.8S21.4 34 26.5 35" stroke="${c.acc}" stroke-width="5" ${tex}/>`
+      + `<path d="M31 25l12.5-6.5L56 25v15l-12.5 6.5L31 40z M31 25l12.5 6.5L56 25 M43.5 31.5v15" fill="none" stroke="${c.ink}" stroke-width="3.2" stroke-linejoin="round"/>` },
+  { name:'The stroke C', font:'w-sans',
+    why:'One confident crayon stroke that makes the C. Simple, bold, and clearly made by a hand, not a machine.',
+    draw:(c, tex) => `<path d="M47 19.5c-4.2-4-9.8-6.2-15.6-5.7C20.6 14.7 13 23.3 13.5 33.6c.6 10.9 9.8 18.5 20.6 17.9 5.6-.3 10.3-2.7 13.9-6.6" stroke="${c.acc}" stroke-width="7.5" ${tex}/>` },
+  { name:'Chisel c', font:'w-lower', lower:true,
+    why:'A heavy lowercase c with flat, chiselled ends like a crayon tip, plus one crayon dot. The most corporate and professional option.',
+    draw:(c, tex) => `<path d="M45 22.5c-3.4-3.3-7.8-5.2-12.8-5.2-9.6 0-16.4 6.9-16.4 15.7s6.8 15.7 16.4 15.7c5 0 9.4-1.9 12.8-5.2" fill="none" stroke="${c.ink}" stroke-width="10" stroke-linecap="butt"/>`
+      + `<circle cx="50.5" cy="47.5" r="4" fill="${c.acc}" ${tex.replace('stroke-linecap="round"', '')}/>` },
+  { name:'The crayon', font:'w-serif',
+    why:'The tool itself, simplified: an ink crayon with a cobalt tip that has just drawn a line. Friendly and immediately readable.',
+    draw:(c, tex) => `<path d="M41 9l14 14-24 24-14-14z" fill="${c.ink}"/><path d="M34.5 15.5l14 14" stroke="${c.bg}" stroke-width="2.6"/>`
+      + `<path d="M17 33l14 14-17 6z" fill="${c.acc}"/><path d="M7 57.5c5-1.6 9 .4 14.5-1.2" stroke="${c.acc}" stroke-width="3.6" ${tex}/>` },
+  { name:'Folded sheet', font:'w-serif',
+    why:'A sheet of paper with its corner folded up into 3D and a crayon stroke across it: paper becoming volume.',
+    draw:(c, tex) => `<path d="M11 13h29l13 13v25H11z" stroke="${c.ink}" stroke-width="3" stroke-linejoin="round" fill="${c.bg}"/><path d="M40 13v13h13z" stroke="${c.ink}" stroke-width="3" stroke-linejoin="round" fill="${c.fold}"/>`
+      + `<path d="M17 41c5-6 10-6 14-1.5s8 4 13-2" stroke="${c.acc}" stroke-width="4.6" ${tex}/>` },
+  { name:'Scribble loop', font:'w-sans', loopWord:true,
+    why:'A quick hand-drawn loop that overshoots, the way you circle something on a drawing. It also stands in for the “o” in the wordmark.',
+    draw:(c, tex) => `<path d="M45 20c-3.4-3.6-8.4-5.6-13.8-5.2C22.4 15.4 15.6 22.8 16 31.8s8 16.4 17.2 15.8c8.9-.6 15.2-8.2 14.6-16.8-.4-6.4-4-11.4-9.4-13.6-4.2-1.7-9-1.2-13.4 1.6" stroke="${c.acc}" stroke-width="4.6" ${tex}/>` }
+];
+const TEX = 'fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#wax)"';
+const CLEAN = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
+const svg = (m, c, tex) => `<svg viewBox="0 0 64 64" aria-hidden="true">${m.draw(c, tex ? TEX : CLEAN)}</svg>`;
+const PAPER = { ink:'#1d2025', acc:'#3d6bff', bg:'#f6f3ec', fold:'#e6e0d2' };
+const DARK = { ink:'#f3f1ec', acc:'#6f8fff', bg:'#17181c', fold:'#2a2c32' };
+const BLUE = { ink:'#ffffff', acc:'#ffffff', bg:'#3d6bff', fold:'#5a82ff' };
+const WHITE = Object.assign({}, PAPER, { bg:'#ffffff' });
+const word = (m, c) => m.loopWord
+  ? `<span class="word ${m.font}">cray<span style="display:inline-block;width:.8em;height:.8em;margin:0 -.04em;vertical-align:-.13em">${svg(m, c, true).replace('<svg', '<svg style="width:100%;height:100%"')}</span>n</span>`
+  : `<span class="word ${m.font}">${m.lower ? 'crayon' : 'Crayon'}</span>`;
+document.getElementById('grid').innerHTML = MARKS.map((m, i) => `
+  <article class="card${m.rec ? ' rec' : ''}">
+    <div class="hero"><span class="num">${i + 1}</span>${m.rec ? '<span class="pick">my pick</span>' : ''}${svg(m, PAPER, true)}</div>
+    <div class="body">
+      <div class="title">${m.name}</div>
+      <p class="why">${m.why}</p>
+      <div class="lock light">${m.loopWord ? '' : svg(m, WHITE, true)}${word(m, WHITE)}</div>
+      <div class="lock dark">${m.loopWord ? '' : svg(m, DARK, true)}${word(m, DARK)}</div>
+      <div class="uses">
+        <span class="app paper">${svg(m, PAPER, false)}</span><span class="app inkbg">${svg(m, DARK, false)}</span><span class="app blue">${svg(m, BLUE, false)}</span>
+        <span class="hdr">${svg(m, WHITE, false)}Crayon <small>· Model ready</small></span>
+        <span class="tiny">${svg(m, WHITE, false)}16 px</span>
+      </div>
+    </div>
+  </article>`).join('');
+</script>
+</body>
+</html>

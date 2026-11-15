@@ -1,0 +1,58 @@
+/* Crayon design tokens. Generated from design/prototype/index.html by design/tools/export.mjs. */
+:root{
+  /* text */
+  --ink:#15171c; /* Main text and icons */
+  --ink-2:#4a505d; /* Secondary text */
+  --muted:#878d99; /* Hints, captions, inactive labels */
+  /* surface */
+  --surface:#ffffff; /* Floating bars and cards */
+  --surface-2:#f6f7f9; /* Side panel background */
+  --glass:#ffffff; /* Toolbar and option row background */
+  --glass-strong:#ffffff; /* Pop-ups */
+  --well:#f1f2f5; /* Resting button fill */
+  --field:#ffffff; /* Text fields */
+  --hover:rgba(16,20,28,.045); /* Hover overlay */
+  --press:rgba(16,20,28,.08); /* Pressed overlay */
+  --soft-sel:#d9dde4; /* Selected state: always this soft grey, never the accent */
+  --soft-sel-hover:#ccd1d9; /* Selected + hover */
+  --line:rgba(16,20,28,.08); /* Hairline borders */
+  --line-2:rgba(16,20,28,.14); /* Stronger borders */
+  /* accent */
+  --accent:#9731b0; /* Violet from the Drawing Intelligence presentation. Only for state: active dot, comments, checks, switches, AI tags */
+  --accent-hi:#9731b0; /* Accent, highlight end */
+  --accent-ink:#ffffff; /* Text on the accent */
+  --accent-soft:rgba(151,49,176,.10); /* Accent tint behind accent text */
+  --accent-ring:rgba(151,49,176,.30); /* Focus ring / accent glow */
+  /* status */
+  --danger:#e5484d; /* Destructive actions */
+  --sel:#f2c200; /* Selected object outline in the viewport */
+  /* logo */
+  --logo:#9731b0; /* Logo: the C and the crayon tip */
+  --logo-deep:#6d237f; /* Logo: shadow side of the tip */
+  --logo-body:#1d2025; /* Logo: crayon wrapper */
+  /* viewport */
+  --vp-bg:#c9ccd0; /* Viewport background (mock only: Rhino draws this) */
+  --vp-grid:#bcbfc3; /* Grid (mock only) */
+  --vp-grid-major:#a9acb1; /* Grid major lines (mock only) */
+  --vp-obj:#eeeeec; /* Model fill (mock only) */
+  --vp-edge:#141414; /* Model edges (mock only) */
+  /* type */
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --f-wordmark:"Instrument Sans", sans-serif;
+  /* shape */
+  --r-sm:8px;
+  --r-md:11px;
+  --r-lg:14px;
+  --r-xl:18px;
+  --r-dock:16px; --r-option-row:15px; --r-segment:12px; --r-button:10px; --r-checkbox:4px;
+  /* elevation */
+  --shadow-1:0 0 0 1px rgba(16,20,28,.07);
+  --shadow-2:0 12px 26px -16px rgba(16,20,28,.32), 0 0 0 1px rgba(16,20,28,.08);
+  --shadow-3:0 22px 50px -24px rgba(16,20,28,.35), 0 0 0 1px rgba(16,20,28,.08);
+  /* motion */
+  --ease:cubic-bezier(.22,.8,.24,1); --spring:cubic-bezier(.3,0,.2,1); /* no overshoot: nothing bounces */
+  --t-fast:.14s; --t-med:.26s; --t-slow:.42s;
+  /* sizes */
+  --tool-icon:20px; --tool-button:40px; --row-icon:15px; --row-control:30px; --gap-bars:8px; --edge-inset:14px;
+}

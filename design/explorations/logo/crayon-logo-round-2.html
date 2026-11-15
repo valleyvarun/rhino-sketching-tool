@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crayon logos, round 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Inter+Tight:wght@400..800&family=Instrument+Sans:wght@400..700&family=Manrope:wght@400..800&family=Fraunces:opsz,wght@9..144,400..700&display=swap">
+<style>
+:root{ --ink:#1d2025; --cobalt:#3d6bff; --muted:#6a707c; --line:rgba(16,20,28,.08);
+  --wf:"Inter Tight"; --ww:640; --wt:-.035em; }
+*{ box-sizing:border-box; }
+body{ margin:0; background:#f2f2f0; color:var(--ink); font:14px/1.5 "Inter Tight", system-ui, sans-serif; padding:28px 16px 70px; }
+main{ max-width:1200px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+h1{ margin:0; font-size:26px; letter-spacing:-.02em; }
+.lede{ margin:6px 0 0; color:var(--muted); max-width:780px; }
+
+/* controls */
+.controls{ display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; }
+.ctl{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); font-weight:600; }
+.seg{ display:flex; background:#e6e6e3; border-radius:10px; padding:3px; gap:2px; }
+.seg button{ border:0; background:transparent; font:600 12px "Inter Tight"; color:#4a505c; padding:6px 10px; border-radius:7px; cursor:pointer; }
+.seg button[aria-pressed="true"]{ background:#fff; color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.08); }
+
+.grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(370px, 1fr)); gap:14px; }
+.card{ background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 0 0 1px var(--line); display:flex; flex-direction:column; }
+.card.rec{ box-shadow:0 0 0 2px var(--cobalt); }
+.hero{ position:relative; height:220px; display:grid; place-items:center; border-bottom:1px solid var(--line); }
+.hero .stage{ position:relative; width:160px; height:160px; }
+.hero .stage > svg{ position:absolute; inset:0; width:100%; height:100%; }
+.keys{ stroke:rgba(61,107,255,.2); fill:none; stroke-width:1; vector-effect:non-scaling-stroke; }
+.keys *{ vector-effect:non-scaling-stroke; }
+body:not(.show-grid) .keys{ display:none; }
+.tag{ position:absolute; top:12px; font:700 10.5px "Inter Tight"; letter-spacing:.06em; text-transform:uppercase; }
+.tag.num{ left:14px; color:#a3a7b0; }
+.tag.pick{ right:14px; color:var(--cobalt); }
+.body{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:12px; }
+.head{ display:flex; align-items:baseline; gap:8px; }
+.head b{ font-size:16px; }
+.head small{ color:#9aa0aa; font-size:12px; font-weight:600; }
+.why{ margin:0; color:var(--muted); font-size:13px; }
+.lock{ display:flex; align-items:center; gap:11px; height:62px; padding:0 18px; border-radius:12px; }
+.lock > svg{ width:36px; height:36px; flex:none; }
+.lock.light{ background:#fff; box-shadow:0 0 0 1px var(--line); }
+.lock.dark{ background:#16171b; }
+.word{ font-family:var(--wf), system-ui, sans-serif; font-weight:var(--ww); letter-spacing:var(--wt); font-size:27px; line-height:1; color:var(--ink); white-space:nowrap; font-variation-settings:"opsz" 72; }
+.dark .word{ color:#f2f1ed; }
+.word .o{ display:inline-block; width:.62em; height:.62em; margin:0 .01em; vertical-align:-.04em; }
+.word .o svg{ width:100%; height:100%; overflow:visible; }
+.uses{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.app{ width:52px; height:52px; border-radius:13px; display:grid; place-items:center; flex:none; overflow:hidden; }
+.app svg{ width:34px; height:34px; }
+.app.full svg{ width:52px; height:52px; }
+.app.w{ background:#fff; box-shadow:inset 0 0 0 1px var(--line); }
+.app.k{ background:#1d2025; } .app.b{ background:#3d6bff; }
+.sizes{ display:flex; align-items:flex-end; gap:9px; padding:0 4px 0 6px; margin-left:auto; }
+.sizes span{ display:flex; flex-direction:column; align-items:center; gap:3px; font-size:9.5px; color:#a3a7b0; font-weight:600; }
+.hdr{ display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:10px; background:#f6f7f9; font:600 13px "Inter"; width:100%; }
+.hdr svg{ width:18px; height:18px; flex:none; }
+.hdr small{ font-weight:500; color:#878d99; font-size:11.5px; }
+.hdr .x{ margin-left:auto; color:#a3a7b0; font-weight:500; font-size:11px; }
+.note{ font-size:12.5px; color:var(--muted); max-width:780px; }
+</style>
+</head>
+<body class="show-grid">
+<main>
+  <header>
+    <h1>Crayon: round 2, professional</h1>
+    <p class="lede">The same ideas, redrawn the way a brand studio would: built on a grid, crisp edges, one consistent weight system, no rough texture. The human feel now comes from one drawn stroke with real pressure (thin where the hand starts, full where it presses), not from noise.</p>
+  </header>
+  <div class="controls">
+    <div class="ctl">Wordmark <div class="seg" id="font">
+      <button data-f="Inter Tight" data-w="640" data-t="-.035em" aria-pressed="true">Inter Tight</button>
+      <button data-f="Instrument Sans" data-w="600" data-t="-.03em">Instrument</button>
+      <button data-f="Manrope" data-w="700" data-t="-.04em">Manrope</button>
+      <button data-f="Fraunces" data-w="560" data-t="-.02em">Fraunces</button></div></div>
+    <div class="ctl">Case <div class="seg" id="case"><button data-c="Crayon" aria-pressed="true">Crayon</button><button data-c="crayon">crayon</button></div></div>
+    <div class="ctl">Grid <div class="seg" id="gridt"><button data-g="1" aria-pressed="true">On</button><button data-g="0">Off</button></div></div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <p class="note">Each card: the mark on its construction grid, the lockup on white and on dark, app icons on white, ink and cobalt, the Rhino panel header, and the mark at 32, 24 and 16 px plus a one-colour version.</p>
+</main>
+<script>
+/* ---------- geometry helpers (everything lives in a 64-unit square) ---------- */
+const R2 = (n) => Math.round(n * 100) / 100;
+const pt = (q) => R2(q[0]) + ' ' + R2(q[1]);
+const poly = (...p) => 'M' + p.map(pt).join('L') + 'Z';
+const hex = (cx, cy, R) => { const h = R * Math.sqrt(3) / 2;
+  return { top:[cx, cy - R], ur:[cx + h, cy - R / 2], lr:[cx + h, cy + R / 2], bot:[cx, cy + R], ll:[cx - h, cy + R / 2], ul:[cx - h, cy - R / 2], c:[cx, cy] }; };
+// a chain of cubic curves → point at t
+const bez = (...segs) => (t) => { const n = segs.length, i = Math.min(n - 1, Math.floor(t * n)), u = t * n - i, v = 1 - u, [a, b, c, d] = segs[i];
+  return [0, 1].map((k) => v*v*v*a[k] + 3*v*v*u*b[k] + 3*v*u*u*c[k] + u*u*u*d[k]); };
+// an (optionally tilted, slowly shrinking) elliptical arc → point at t; angles in degrees
+const arc = (cx, cy, rx, ry, a0, a1, tilt = 0, shrink = 0) => (t) => { const a = (a0 + (a1 - a0) * t) * Math.PI / 180, k = 1 - shrink * t, r = tilt * Math.PI / 180;
+  const x = rx * k * Math.cos(a), y = ry * k * Math.sin(a); return [cx + x * Math.cos(r) - y * Math.sin(r), cy + x * Math.sin(r) + y * Math.cos(r)]; };
+// width profile through evenly spaced values, eased
+const ease = (x) => x * x * (3 - 2 * x);
+const prof = (...w) => (t) => { const n = w.length - 1, i = Math.min(n - 1, Math.floor(t * n)), u = t * n - i; return w[i] + (w[i + 1] - w[i]) * ease(u); };
+// A pressure stroke: the outline of a line whose width follows wf(t), with round ends. Returns path data.
+function stroke(f, wf, n = 160){
+  const p = []; for (let i = 0; i <= n; i++) p.push(f(i / n));
+  const L = [0]; for (let i = 1; i <= n; i++) L.push(L[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+  const left = [], right = [], tan = [], wid = [];
+  for (let i = 0; i <= n; i++){
+    const a = p[Math.max(0, i - 1)], b = p[Math.min(n, i + 1)]; let dx = b[0] - a[0], dy = b[1] - a[1]; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+    const w = wf(L[i] / L[n]) / 2; tan.push([dx, dy]); wid.push(w);
+    left.push([p[i][0] - dy * w, p[i][1] + dx * w]); right.push([p[i][0] + dy * w, p[i][1] - dx * w]);
+  }
+  const cap = (c, t, w, s) => { const out = [], nl = [-t[1], t[0]];
+    for (let k = 1; k < 14; k++){ const ph = Math.PI * k / 14; out.push([c[0] + s * w * (Math.cos(ph) * nl[0] + Math.sin(ph) * t[0]), c[1] + s * w * (Math.cos(ph) * nl[1] + Math.sin(ph) * t[1])]); }
+    return out; };
+  const ring = [...left, ...cap(p[n], tan[n], wid[n], 1), ...right.reverse(), ...cap(p[0], tan[0], wid[0], -1)];
+  return 'M' + ring.map(pt).join('L') + 'Z';
+}
+
+/* ---------- colourways ---------- */
+const PAL = {
+  light:{ ink:'#1d2025', acc:'#3d6bff', tint:'#adc0ff', bg:'#ffffff', tile:'#1d2025', tileInk:'#ffffff', dot:'#3d6bff' },
+  dark: { ink:'#f2f1ed', acc:'#7896ff', tint:'#c9d5ff', bg:'#16171b', tile:'#f2f1ed', tileInk:'#16171b', dot:'#7896ff' },
+  inkbg:{ ink:'#f2f1ed', acc:'#7896ff', tint:'#c9d5ff', bg:'#1d2025', tile:'#f2f1ed', tileInk:'#1d2025', dot:'#7896ff' },
+  blue: { ink:'#ffffff', acc:'#ffffff', tint:'rgba(255,255,255,.55)', bg:'#3d6bff', tile:'#ffffff', tileInk:'#3d6bff', dot:'#1d2025' },
+  mono: { ink:'#1d2025', acc:'#1d2025', tint:'#1d2025', bg:'#ffffff', tile:'#1d2025', tileInk:'#ffffff', dot:'#1d2025' },
+};
+
+/* ---------- the marks ---------- */
+const MARKS = [
+  { name:'Half-drawn block', from:'refines 1, Sketch to block', rec:true,
+    why:'One block, two states: the left side is still two drawn lines that cross at the corner, the way architects sketch; the rest is already solid. Sketch becoming model.',
+    draw:(c) => { const H = hex(32, 32, 20);
+      // two pressure lines that overshoot each other at the bottom-left corner, like an architect's sketch
+      const a = stroke(bez([[14.8,20.4],[14.5,28],[14.9,37],[14.6,45.4]]), prof(2.4, 4, 4.1, 3.4));
+      const b = stroke(bez([[12.1,40.5],[18,44.2],[25,47.9],[31.4,51.7]]), prof(2.6, 4, 4.1, 4.2));
+      return `<g stroke="${c.bg}" stroke-width="1.8" stroke-linejoin="round"><path d="${poly(H.top, H.ur, H.c, H.ul)}" fill="${c.acc}"/><path d="${poly(H.c, H.ur, H.lr, H.bot)}" fill="${c.ink}"/></g>`
+        + `<path d="${a}" fill="${c.acc}"/><path d="${b}" fill="${c.acc}"/>`; } },
+  { name:'Block C', from:'new: the C and the block in one',
+    why:'A cube drawn as a C: one edge is left open, and the top face is coloured in. Reads as a letter and as 3D at any size.',
+    draw:(c) => { const H = hex(32, 32, 21);
+      return `<path d="${poly(H.top, H.ur, H.c, H.ul)}" fill="${c.acc}"/>`
+        + `<path d="M${pt(H.ur)}L${pt(H.top)}L${pt(H.ul)}L${pt(H.ll)}L${pt(H.bot)}L${pt(H.lr)}M${pt(H.ul)}L${pt(H.c)}L${pt(H.bot)}" fill="none" stroke="${c.ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`; } },
+  { name:'Brush C', from:'refines 2, The stroke C',
+    why:'One C drawn with a real pressure curve: light at the start, full on the left, lifting off at the end. Like a type designer drew it.',
+    draw:(c) => `<path d="${stroke(arc(32.5, 32, 18.5, 18, -40, -318, -6, .03), prof(3.2, 6.6, 7.6, 7, 4.4))}" fill="${c.acc}"/>` },
+  { name:'Monogram', from:'refines 3, Chisel c', tile:true,
+    why:'A heavy lowercase c with chiselled ends and one blue dot, on an ink tile. The most corporate: the tile is the app icon.',
+    draw:(c) => `<rect x="6" y="6" width="52" height="52" rx="14" fill="${c.tile}"/>`
+      + `<path d="M38.19 23.45A11.5 11.5 0 1 0 38.19 40.55" fill="none" stroke="${c.tileInk}" stroke-width="7.6"/><circle cx="45" cy="41.4" r="3.9" fill="${c.dot}"/>` },
+  { name:'Crayon tip', from:'refines 4, The crayon',
+    why:'The tool, reduced to two shapes: a blue tip on an ink body, leaving one pressure line behind it. Friendly, still precise.',
+    draw:(c) => `<g transform="rotate(225 36 27)"><path d="M29.5 21L34 10Q36 8.6 38 10L42.5 21Z" fill="${c.acc}"/><path d="M29 23H43V44a3 3 0 0 1-3 3H32a3 3 0 0 1-3-3Z" fill="${c.ink}"/></g>`
+      + `<path d="${stroke(bez([[21.5,43],[28,49.5],[34,41],[41,46]], [[41,46],[46,49.5],[51,49],[56,45.5]]), prof(4.4, 3.6, 2.4, .6))}" fill="${c.acc}"/>` },
+  { name:'Fold', from:'refines 5, Folded sheet',
+    why:'A sheet with one corner folded up: the flat drawing starting to become an object. A white pressure stroke sits on the page.',
+    draw:(c) => `<path d="M17 12H36L52 28V47a5 5 0 0 1-5 5H17a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5Z" fill="${c.ink}"/>`
+      + `<path d="M36 12L52 28H39.5a3.5 3.5 0 0 1-3.5-3.5Z" fill="${c.acc}" stroke="${c.bg}" stroke-width="1.6" stroke-linejoin="round"/>`
+      + `<path d="${stroke(bez([[19.5,42],[24,35.5],[28.5,46],[33.5,40.5]], [[33.5,40.5],[36.5,37.5],[40.5,36.5],[44.5,38]]), prof(1, 4, 3.6, 2))}" fill="${c.bg}"/>` },
+  { name:'Loop', from:'refines 6, Scribble loop', loopWord:true,
+    why:'One quick loop that overshoots, the way you circle an idea on paper. It also becomes the “o” in the wordmark.',
+    draw:(c) => `<path d="${stroke(arc(32.5, 32.5, 17, 15.5, -18, -455, -14, .24), prof(1, 4.6, 6, 5.8, 4.4, 1.4))}" fill="${c.acc}"/>` },
+  { name:'Extruded C', from:'new: 2D to 3D, literally',
+    why:'A flat blue C pulled back into depth. The plainest way to say: what you draw becomes a solid.',
+    draw:(c) => { const d = 'M38.7 24.22A14.5 14.5 0 1 0 38.7 45.78'; let s = '';
+      for (let k = 14; k >= 1; k--) s += `<path d="${d}" transform="translate(${R2(k * .45)} ${R2(-k * .45)})" fill="none" stroke="${c.ink}" stroke-width="8.5"/>`;
+      return s + `<path d="${d}" fill="none" stroke="${c.acc}" stroke-width="8.5"/>`; } },
+];
+
+const svg = (m, c, extra = '') => `<svg viewBox="${m.tile && extra === 'full' ? '6 6 52 52' : '0 0 64 64'}" aria-hidden="true">${m.draw(c)}</svg>`;
+const KEYS = (() => { let s = '<svg class="keys" viewBox="0 0 64 64" aria-hidden="true">';
+  for (let i = 8; i < 64; i += 8) s += `<path d="M${i} 0V64M0 ${i}H64" stroke-opacity="${i % 32 ? .45 : 1}"/>`;
+  return s + '<circle cx="32" cy="32" r="24"/><rect x="10" y="10" width="44" height="44" rx="7"/><path d="M0 0L64 64M64 0L0 64" stroke-opacity=".45"/></svg>'; })();
+
+let CASE = 'Crayon';
+const word = (m, c) => {
+  if (!m.loopWord) return `<span class="word">${CASE}</span>`;
+  const o = `<span class="o">${svg(m, c).replace('viewBox="0 0 64 64"', 'viewBox="12 13 40 40"')}</span>`;
+  return `<span class="word">${CASE.slice(0, 4)}${o}n</span>`;
+};
+const TILEVAR = [Object.assign({}, PAL.light), Object.assign({}, PAL.light, { tile:'#3d6bff', dot:'#ffffff' }), Object.assign({}, PAL.light, { tile:'#ffffff', tileInk:'#1d2025' })];
+
+function render(){
+  document.getElementById('grid').innerHTML = MARKS.map((m, i) => {
+    const apps = m.tile
+      ? TILEVAR.map((p, j) => `<span class="app full${j === 2 ? ' w' : ''}">${svg(m, p, 'full')}</span>`).join('')
+      : `<span class="app w">${svg(m, PAL.light)}</span><span class="app k">${svg(m, PAL.inkbg)}</span><span class="app b">${svg(m, PAL.blue)}</span>`;
+    return `<article class="card${m.rec ? ' rec' : ''}">
+      <div class="hero"><span class="tag num">${String(i + 1).padStart(2, '0')}</span>${m.rec ? '<span class="tag pick">My pick</span>' : ''}<div class="stage">${KEYS}${svg(m, PAL.light)}</div></div>
+      <div class="body">
+        <div class="head"><b>${m.name}</b><small>${m.from}</small></div>
+        <p class="why">${m.why}</p>
+        <div class="lock light">${m.loopWord ? '' : svg(m, PAL.light)}${word(m, PAL.light)}</div>
+        <div class="lock dark">${m.loopWord ? '' : svg(m, PAL.dark)}${word(m, PAL.dark)}</div>
+        <div class="uses">${apps}
+          <span class="sizes"><span><svg width="32" height="32" viewBox="0 0 64 64">${m.draw(PAL.light)}</svg>32</span><span><svg width="24" height="24" viewBox="0 0 64 64">${m.draw(PAL.light)}</svg>24</span><span><svg width="16" height="16" viewBox="0 0 64 64">${m.draw(PAL.light)}</svg>16</span><span><svg width="32" height="32" viewBox="0 0 64 64">${m.draw(PAL.mono)}</svg>1 colour</span></span>
+        </div>
+        <div class="hdr">${svg(m, PAL.light)}Crayon <small>· Model ready</small><span class="x">Rhino panel</span></div>
+      </div>
+    </article>`; }).join('');
+}
+render();
+
+/* ---------- controls ---------- */
+const pick = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return;
+  b.parentNode.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b)); fn(b.dataset); });
+pick('font', (d) => { const r = document.documentElement.style; r.setProperty('--wf', `"${d.f}"`); r.setProperty('--ww', d.w); r.setProperty('--wt', d.t); });
+pick('case', (d) => { CASE = d.c; render(); });
+pick('gridt', (d) => document.body.classList.toggle('show-grid', d.g === '1'));
+</script>
+</body>
+</html>

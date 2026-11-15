@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crayon design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500..700&display=swap">
+<link rel="stylesheet" href="tokens/tokens.css">
+<style>
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--surface-2); color:var(--ink); font:14px/1.55 var(--f-ui); padding:40px 20px 90px; }
+main{ max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:30px; }
+header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+header img{ width:46px; height:46px; }
+header b{ font:600 34px/1 var(--f-wordmark); letter-spacing:-.03em; }
+header span{ margin-left:auto; color:var(--muted); font-size:13px; }
+.lede{ margin:-12px 0 0; max-width:720px; color:var(--ink-2); }
+h2{ margin:0 0 12px; font-size:15px; font-weight:600; }
+.card{ background:var(--surface); border-radius:var(--r-lg); box-shadow:var(--shadow-1); padding:20px; }
+.hero{ display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; }
+.hero a{ position:relative; display:flex; flex-direction:column; gap:4px; padding:20px 20px 18px; border-radius:var(--r-lg); background:var(--surface); box-shadow:var(--shadow-1); color:inherit; text-decoration:none; transition:box-shadow var(--t-fast); }
+.hero a:hover{ box-shadow:0 0 0 1.5px var(--accent), var(--shadow-1); }
+.hero b{ font-size:17px; }
+.hero small{ color:var(--ink-2); font-size:13px; }
+.hero a::after{ content:"→"; position:absolute; top:18px; right:20px; color:var(--accent); font-size:18px; }
+.links{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+.links a{ display:block; padding:14px 16px; border-radius:var(--r-md); background:var(--surface); box-shadow:var(--shadow-1); color:inherit; text-decoration:none; transition:box-shadow var(--t-fast); }
+.links a:hover{ box-shadow:0 0 0 1.5px var(--accent), var(--shadow-1); }
+.links b{ display:block; font-size:14px; }
+.links small{ color:var(--muted); font-size:12.5px; }
+.links code{ font:500 11.5px var(--f-mono); color:var(--ink-2); }
+.sw{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+.sw div{ border-radius:var(--r-md); overflow:hidden; box-shadow:var(--shadow-1); background:var(--surface); font-size:12px; }
+.sw i{ display:block; height:54px; background:var(--c); }
+.sw p{ margin:0; padding:8px 10px; }
+.sw code{ color:var(--muted); font:500 11px var(--f-mono); }
+.marks{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.marks figure{ margin:0; padding:16px; border-radius:var(--r-md); background:var(--surface-2); display:flex; flex-direction:column; align-items:center; gap:8px; }
+.marks figure.dk{ background:#16171b; }
+.marks figure.vi{ background:var(--accent); }
+.marks img{ height:64px; }
+.marks figcaption{ font:500 11px var(--f-mono); color:var(--muted); }
+.icons{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:10px; }
+.icons figure{ margin:0; padding:14px 8px 10px; border-radius:var(--r-md); background:var(--surface-2); display:flex; flex-direction:column; align-items:center; gap:8px; }
+.icons img{ width:24px; height:24px; }
+.icons figure.acc img{ filter:invert(25%) sepia(64%) saturate(2600%) hue-rotate(274deg) brightness(88%); }
+.icons figcaption{ font:500 10.5px var(--f-mono); color:var(--muted); text-align:center; }
+.rules{ margin:0; padding-left:18px; color:var(--ink-2); columns:2 300px; column-gap:32px; }
+.rules li{ margin:0 0 6px; break-inside:avoid; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="brand/crayon-mark.svg" alt=""><b>crayon</b><span>Design for the Rhino 8 sketching plug-in · 15 November 2026</span></header>
+  <p class="lede">Sketch in Rhino and talk to an agent with your drawings. Everything here comes from one working prototype; the tokens, icons and logo files are exported from it.</p>
+
+  <section class="hero">
+    <a href="prototype/index.html"><b>Open the prototype</b><small>The working interface: toolbar, option rows, the side panel (Sketch, Layers, Agent), comments, saved views, the 3D cursor.</small></a>
+    <a href="prototype/index.html?frame=rhino"><b>See it inside Rhino</b><small>The same prototype in a Rhino 8-style window: the toolbar over the viewport, the panel docked next to Properties and Layers.</small></a>
+  </section>
+
+  <section>
+    <h2>Build it</h2>
+    <div class="links">
+      <a href="specs/README.md"><b>Build guide</b><small>Reading order, where each piece lives in Rhino, build order, pitfalls</small></a>
+      <a href="specs/components.json"><b>Components</b><small>Every component: sizes, tokens, states, motion · <code>components.json</code></small></a>
+      <a href="tokens/tokens.json"><b>Tokens</b><small>Colour, type, shape, motion · <code>tokens.json</code> and <code>tokens.css</code></small></a>
+      <a href="docs/behaviour.md"><b>Behaviour</b><small>How every tool, panel tab and Rhino command works; the agent hook</small></a>
+      <a href="docs/design-system.md"><b>Design system</b><small>The rules behind the look</small></a>
+      <a href="docs/decisions.md"><b>Decisions</b><small>What we decided and why</small></a>
+      <a href="README.md#open-questions"><b>Open question</b><small>Turn into curves: for Varun to decide before building</small></a>
+      <a href="brand/logo-sheet.html"><b>Logo sheet</b><small>The mark at every size and colour</small></a>
+    </div>
+  </section>
+
+  <section class="card"><h2>The rules in one glance</h2>
+    <ul class="rules">
+      <li>Violet is for state only; selected things are soft grey.</li>
+      <li>No blue or black filled buttons.</li>
+      <li>Corners slightly filleted, never pills; nothing bounces.</li>
+      <li>Hand-drawn ticks, not iOS switches.</li>
+      <li>No keyboard shortcuts: they clash with Rhino.</li>
+      <li>The agent only gets what you send it (AI or Send to agent).</li>
+      <li>A pen stroke is a <i>sketch</i>, never <i>ink</i>.</li>
+      <li>No explanation text under buttons, no black hint bars.</li>
+      <li>Hover shows the Rhino layer name, never an invented one.</li>
+      <li>Light / dark changes Crayon only, never Rhino.</li>
+    </ul>
+  </section>
+
+  <section class="card"><h2>Colour</h2><div class="sw" id="sw"></div></section>
+  <section class="card"><h2>Logo</h2><div class="marks">
+    <figure><img src="brand/crayon-lockup.svg" alt="crayon lockup"><figcaption>crayon-lockup.svg</figcaption></figure>
+    <figure class="dk"><img src="brand/crayon-lockup-on-dark.svg" alt="crayon lockup on dark"><figcaption>…-on-dark.svg</figcaption></figure>
+    <figure><img src="brand/crayon-mark.svg" alt=""><figcaption>crayon-mark.svg</figcaption></figure>
+    <figure class="vi"><img src="brand/crayon-mark-white.svg" alt=""><figcaption style="color:#fff">…-white.svg</figcaption></figure>
+    <figure><img src="brand/crayon-c.svg" alt="" style="height:24px"><figcaption>crayon-c.svg · 16–24 px</figcaption></figure>
+  </div></section>
+  <section class="card"><h2>Icons</h2><div class="icons" id="icons"></div></section>
+
+  <section>
+    <h2>Explorations</h2>
+    <div class="links">
+      <a href="explorations/agent-icons.html"><b>Agent icons</b><small>Ten sleek options; J, the Thinking loop, was chosen</small></a>
+      <a href="explorations/section-headers.html"><b>Section headers</b><small>Six options; E, fold-out sections, was chosen</small></a>
+      <a href="explorations/agent-icons-doodles.html"><b>Agent doodles</b><small>The first, too-childish round</small></a>
+      <a href="explorations/icon-options.html"><b>Tool icons</b><small>Earlier icon rounds</small></a>
+      <a href="explorations/agent-panel.html"><b>Agent panel</b><small>The first agent chat study</small></a>
+      <a href="explorations/names.html"><b>Names</b><small>How the name Crayon came about</small></a>
+    </div>
+  </section>
+</main>
+<script>
+const SW = [['accent', 'Accent (state only)'], ['ink', 'Text'], ['ink-2', 'Secondary text'], ['muted', 'Muted'], ['surface', 'Bars and cards'], ['surface-2', 'Panel'], ['well', 'Button fill'], ['soft-sel', 'Selected'], ['danger', 'Destructive'], ['logo-deep', 'Logo shadow']];
+const cs = getComputedStyle(document.documentElement);
+document.getElementById('sw').innerHTML = SW.map(([n, l]) => `<div><i style="--c:var(--${n})"></i><p>${l}<br><code>--${n} ${cs.getPropertyValue('--' + n).trim()}</code></p></div>`).join('');
+const IC = ['tool-select', 'tool-pen', 'tool-eraser', 'tool-marks', 'tool-saved-views', 'tab-layers', 'tab-agent', 'pen-object', 'pen-plane', 'pick-a-face', 'check-tick', 'plus', 'sync', 'rename', 'close', 'chevron', 'eye', 'trash'];
+document.getElementById('icons').innerHTML = IC.map((n) => `<figure class="${n === 'tab-agent' ? 'acc' : ''}"><img src="icons/${n}.svg" alt=""><figcaption>${n}.svg</figcaption></figure>`).join('');
+</script>
+</body>
+</html>
