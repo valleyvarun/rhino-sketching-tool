@@ -2,6 +2,13 @@
 
 // Play videos on the visible slide and pause them when another slide is shown.
 const slides = document.querySelectorAll(".slide");
+document.querySelectorAll("video[data-playback-rate]").forEach((video) => {
+  const rate = Number(video.dataset.playbackRate);
+  if (Number.isFinite(rate) && rate > 0) {
+    video.defaultPlaybackRate = rate;
+    video.playbackRate = rate;
+  }
+});
 const slideObserver = new IntersectionObserver((entries) => {
   for (const entry of entries) {
     for (const video of entry.target.querySelectorAll("video")) {
