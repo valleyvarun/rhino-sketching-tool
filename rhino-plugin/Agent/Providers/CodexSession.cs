@@ -136,11 +136,33 @@ namespace RhinoSketchingTool
                     ? new JsonMap { ["type"] = "workspaceWrite", ["writableRoots"] = new List<object> { launch.Folder }, ["networkAccess"] = false, ["excludeTmpdirEnvVar"] = false, ["excludeSlashTmp"] = false }
                     : new JsonMap { ["type"] = "readOnly", ["networkAccess"] = false },
             };
-            if (launch.Model.Length > 0) parameters["model"] = launch.Model;
-            string effort = EffortLevels.ForTurn(Models, launch.Model, Model, launch.Effort);
+            string model = ChosenModel();
+            if (model.Length > 0) parameters["model"] = model;
+            string effort = EffortLevels.ForTurn(Models, model, Model, launch.Effort);
             if (effort.Length > 0) parameters["effort"] = effort;
             Request("turn/start", parameters);
             // Keep pendingInput until the turn response so Send cannot race another turn.
+        }
+
+        bool toldFallback;
+
+        // "Default" is whatever Codex's own settings (~/.codex/config.toml) name. If that is a
+        // model this account is not offered (it is missing from the account's model list,
+        // e.g. a model a ChatGPT plan cannot use), every message would fail; use the account's
+        // own default model instead, and say so once.
+        string ChosenModel()
+        {
+            if (launch.Model.Length > 0) return launch.Model;
+            var offered = Models.Where(m => m.Value != "default").ToList();
+            if (offered.Count == 0 || Model.Length == 0 || offered.Any(m => m.Value == Model)) return "";
+            ModelChoice fallback = offered.FirstOrDefault(m => m.IsDefault) ?? offered[0];
+            if (!toldFallback)
+            {
+                toldFallback = true;
+                Transcript.AddNotice("Your Codex settings ask for " + Model + ", which this account can't use, so " + fallback.Label + " answers instead. Pick a model from the menu to change it.");
+            }
+            Model = fallback.Value;
+            return fallback.Value;
         }
 
         public void Interrupt()

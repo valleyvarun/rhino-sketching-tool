@@ -138,6 +138,9 @@ svg{ display:block; }
 .ag-ib:disabled{ opacity:.45; cursor:default; background:transparent; }
 .ag-ib svg{ width:17px; height:17px; }
 .ag-tools{ position:relative; min-width:0; }
+/* a narrow panel: the model keeps its name; the permission mode steps aside (it stays as it was set) */
+@media (max-width:240px){ .ag-modes{ display:none; } .ag-models{ flex:1; } .ag-models .ag-tool{ max-width:100%; } }
+@media (max-width:180px){ .ag-composer{ margin:0 8px 8px; padding:10px 10px 8px; } .ag-tool .chev{ display:none; } .ag-scroll{ padding:4px 10px 12px; } }
 .ag-tool{ height:30px; max-width:100%; display:inline-flex; align-items:center; gap:6px; padding:0 8px; border:0; border-radius:9px; background:transparent; color:var(--ink-2); font:500 12.5px var(--f-ui); white-space:nowrap; cursor:pointer; }
 .ag-tool > span:first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .ag-tool:hover, .ag-tool[aria-expanded="true"]{ background:var(--hover); color:var(--ink); }

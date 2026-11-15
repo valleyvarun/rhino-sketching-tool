@@ -138,6 +138,11 @@ try {
   assert.equal(await evaluate('document.querySelector("#chatText").value'), '', 'a sent message leaves the box');
   await call('Emulation.setDeviceMetricsOverride', { width: 260, height: 680, deviceScaleFactor: 1, mobile: false });
   assert(await evaluate('document.documentElement.scrollWidth <= innerWidth'), 'chat overflows narrow sidebar');
+  for (const width of [150, 200, 260]) {
+    await call('Emulation.setDeviceMetricsOverride', { width, height: 680, deviceScaleFactor: 1, mobile: false });
+    assert(await evaluate('document.querySelector("#modelLabel").getBoundingClientRect().width >= 24'), 'the model name is readable at ' + width + ' px');
+  }
+  await call('Emulation.setDeviceMetricsOverride', { width: 260, height: 680, deviceScaleFactor: 1, mobile: false });
   await evaluate('crayon.state({reset:true, status:"working", thinking:true, ids:[90,91],entries:[{id:90,kind:"user",text:"Make ten boxes",chips:[{kind:"sketch",label:"Group 2"}]},{id:91,kind:"ask",name:"run_command",text:"Create ten boxes in Rhino",status:"pending",request:"mcp-request"}]});');
   assert.equal(await evaluate('document.querySelector(".ag-user .ag-file.sk span").textContent'), 'Group 2', 'a message shows the groups it took along');
   assert.equal(await evaluate('document.querySelector(".ag-ai").classList.contains("thinking")'), true, 'the loop runs while the agent works');

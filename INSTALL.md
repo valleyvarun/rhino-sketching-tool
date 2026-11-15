@@ -17,6 +17,8 @@
 - **Layers**: the checkbox sends a group to the agent; the violet live tick is the group you draw in.
   + adds a group, the pencil renames, the bin deletes (two clicks).
 - **Agent**: New chat and History in the panel header; earlier chats reopen and continue.
+  With Codex on "Default", if `~/.codex/config.toml` names a model the account can't use,
+  Crayon uses the account's own default model and says so in the chat.
 - Light / dark in the panel header changes Crayon only (panel, agent, toolbar).
 
 ## Build
