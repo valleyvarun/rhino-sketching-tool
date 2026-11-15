@@ -14,6 +14,8 @@ namespace RhinoSketchingTool
     public enum SketchTool { Draw, Erase, Select, Comment, Views }
     public enum DrawMethod { Surface, Plane, Cursor, View }
     public enum EraseMode { Stroke, Part }
+    /// <summary>A one-click pick armed from the pen's option row: a face to draw on, or where the 3D cursor goes.</summary>
+    public enum PickMode { None, Face, Cursor }
 
     /// <summary>
     /// The sketching tools. Left-drag in a viewport draws a freehand stroke or erases,
@@ -25,8 +27,9 @@ namespace RhinoSketchingTool
     ///   Plane    on the viewport's construction plane
     ///   Cursor   on a plane through the 3D cursor, facing the camera
     ///
-    /// Shift + Ctrl + click on a surface moves the construction plane onto it (on empty
-    /// space it puts the plane back), and Shift + click moves the 3D cursor.
+    /// "Pick a face" in the pen's option row, then a click on a surface, moves the
+    /// construction plane onto it (on empty space it puts the plane back); "Place cursor",
+    /// then a click, moves the 3D cursor. No modifier keys: they belong to Rhino.
     ///
     /// Moving the plane onto a surface is the one thing here that changes Rhino's
     /// construction plane, and it is only a loan: the plane goes back to where it was as
@@ -208,6 +211,7 @@ namespace RhinoSketchingTool
             if (tool == value) return;
             editor?.Commit(); // a comment being written is kept as it stands
             aim = null;
+            picking = PickMode.None;
             tool = value;
             ShowOrHideStrokes();
         }
@@ -232,6 +236,7 @@ namespace RhinoSketchingTool
         {
             if (method == DrawMethod.Plane && value != DrawMethod.Plane) ReturnPlanes();
             method = value == DrawMethod.View ? DrawMethod.Plane : value;
+            picking = PickMode.None;
         }
 
         public EraseMode Erase
@@ -241,6 +246,35 @@ namespace RhinoSketchingTool
         }
 
         public Point3d Cursor => cursor;
+
+        PickMode picking;
+
+        /// <summary>
+        /// Armed from the option row under the pen ("Pick a face", "Place cursor"): the next
+        /// click in a viewport does it, instead of drawing. Changing tool or method disarms it.
+        /// </summary>
+        public PickMode Picking
+        {
+            get => picking;
+            set { if (picking != value) { EndDrag(); picking = value; Refresh(); } }
+        }
+
+        /// <summary>The active viewport draws on a face picked with "Pick a face".</summary>
+        public bool OnPickedFace
+        {
+            get
+            {
+                var viewport = RhinoDoc.ActiveDoc?.Views.ActiveView?.ActiveViewport;
+                return viewport != null && borrowed.ContainsKey(viewport.Id);
+            }
+        }
+
+        /// <summary>Back from a picked face to the viewport's own construction plane.</summary>
+        public void BackToGrid()
+        {
+            var viewport = RhinoDoc.ActiveDoc?.Views.ActiveView?.ActiveViewport;
+            if (viewport != null && ReturnPlane(viewport)) Refresh();
+        }
 
         /// <summary>The 3D cursor is only drawn while it is the thing being drawn on.</summary>
         public bool CursorVisible => active && tool == SketchTool.Draw && method == DrawMethod.Cursor;
@@ -280,20 +314,19 @@ namespace RhinoSketchingTool
                 CommentClick(view, point);
                 return true;
             }
-            if (shift && ctrl && method != DrawMethod.View)
+            if (picking != PickMode.None)
             {
-                PickDrawPlane(view, point);
+                // "Pick a face" or "Place cursor" was armed: this click does that, once.
+                PickMode pick = picking;
+                picking = PickMode.None;
+                if (pick == PickMode.Face) PickDrawPlane(view, point);
+                else { MoveCursor(view, point); Refresh(); }
                 return true;
             }
             if (tool == SketchTool.Erase)
             {
                 erasing = new EraseDrag { View = view, Strokes = CollectStrokes(view.Document, view.ActiveViewport) };
                 EraseAt(point);
-                return true;
-            }
-            if (method == DrawMethod.Cursor && shift)
-            {
-                MoveCursor(view, point);
                 return true;
             }
 
@@ -706,7 +739,7 @@ namespace RhinoSketchingTool
 
         // ------------------------------------------- drawing plane and 3D cursor
 
-        // Shift + Ctrl + click: put the viewport's construction plane on the surface under
+        // "Pick a face", then a click: put the viewport's construction plane on the surface under
         // the pointer (tangent at the clicked point), or back where it was on empty space.
         void PickDrawPlane(RhinoView view, ScreenPoint point)
         {
@@ -835,7 +868,7 @@ namespace RhinoSketchingTool
             return Plane.WorldXY;
         }
 
-        // Shift + click (3D cursor method): move the cursor to the surface under the
+        // "Place cursor", then a click: move the 3D cursor to the surface under the
         // pointer. Where there is none, a perspective view puts it on the construction
         // plane; a parallel view slides it across the screen, keeping its depth.
         void MoveCursor(RhinoView view, ScreenPoint point)

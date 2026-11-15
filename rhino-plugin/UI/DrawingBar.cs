@@ -56,7 +56,10 @@ namespace RhinoSketchingTool
             switch (controller.Tool)
             {
                 case SketchTool.Draw:
-                    groups.Add(new Group { Seg = true, Parts = { Part.Object, Part.Plane } });
+                    groups.Add(new Group { Seg = true, Parts = { Part.Object, Part.Plane, Part.Cursor } });
+                    // Plane: pick a face to draw on (then a chip to go back); 3D cursor: place it.
+                    if (controller.Method == DrawMethod.Plane) groups.Add(new Group { Parts = { controller.OnPickedFace ? Part.FaceChip : Part.PickFace } });
+                    if (controller.Method == DrawMethod.Cursor) groups.Add(new Group { Parts = { Part.PlaceCursor } });
                     groups.Add(new Group { Parts = { Part.Color } });
                     groups.Add(new Group { Parts = { Part.Snap } });
                     break;
@@ -79,6 +82,8 @@ namespace RhinoSketchingTool
         }
 
         string HintText => "Click anywhere to comment";
+        string PickFaceLabel => controller.Picking == PickMode.Face ? "Click a face" : "Pick a face";
+        string PlaceCursorLabel => controller.Picking == PickMode.Cursor ? "Click to place" : "Place cursor";
 
         // Up to eight chips; with more views, seven a page and a "More" chip that turns the page.
         static int ChipsPerPage(IReadOnlyList<string> views) => views.Count > MaxChips ? (int)MaxChips - 1 : (int)MaxChips;
@@ -95,6 +100,10 @@ namespace RhinoSketchingTool
             {
                 case Part.Object: return 9 + 16 + 6 + LabelWidth("Object") + 11;
                 case Part.Plane: return 9 + 16 + 6 + LabelWidth("Plane") + 11;
+                case Part.Cursor: return 9 + 16 + 6 + LabelWidth("3D cursor") + 11;
+                case Part.PickFace: return 11 + 15 + 6 + LabelWidth(PickFaceLabel) + 11;
+                case Part.FaceChip: return 10 + LabelWidth("On a face") + 6 + 18 + 4;
+                case Part.PlaceCursor: return 11 + 15 + 6 + LabelWidth(PlaceCursorLabel) + 11;
                 case Part.EraseWhole: return 11 + LabelWidth("Whole sketch") + 11;
                 case Part.ErasePart: return 11 + LabelWidth("Part") + 11;
                 case Part.Color: return 30;
@@ -280,6 +289,10 @@ namespace RhinoSketchingTool
             {
                 case Part.Object: SetDrawMethod(DrawMethod.Surface); break;
                 case Part.Plane: SetDrawMethod(DrawMethod.Plane); break;
+                case Part.Cursor: SetDrawMethod(DrawMethod.Cursor); break;
+                case Part.PickFace: controller.Picking = controller.Picking == PickMode.Face ? PickMode.None : PickMode.Face; break;
+                case Part.FaceChip: controller.BackToGrid(); break;
+                case Part.PlaceCursor: controller.Picking = controller.Picking == PickMode.Cursor ? PickMode.None : PickMode.Cursor; break;
                 case Part.EraseWhole: controller.Erase = EraseMode.Stroke; break;
                 case Part.ErasePart: controller.Erase = EraseMode.Part; break;
                 case Part.Snap: controller.SnapShapes = !controller.SnapShapes; break;
@@ -388,7 +401,7 @@ namespace RhinoSketchingTool
             if (collapsed || !f.HasOptions) return;
             if (optionsPopup == OptionsPopup.Colors && pickerArgb != controller.StrokeColor.ToArgb()) ReadColor();
             if (armedChip >= 0 && unchecked(Environment.TickCount - armedAt) > 2500) armedChip = -1;
-            string signature = f.OptionsSize + "|" + f.Scale + "|" + chipPage + "|" + armedChip + "|" + controller.Tool + "|" + controller.Method + "|" + controller.Erase + "|" + controller.CurrentViewName + "|" + Hex + "|" + controller.SnapShapes + "|" + hover + "|" + pressed + "|" + Theme.Dark + "|" + string.Join("\n", f.Views);
+            string signature = f.OptionsSize + "|" + f.Scale + "|" + chipPage + "|" + armedChip + "|" + controller.Tool + "|" + controller.Method + "|" + controller.Picking + "|" + controller.OnPickedFace + "|" + controller.Erase + "|" + controller.CurrentViewName + "|" + Hex + "|" + controller.SnapShapes + "|" + hover + "|" + pressed + "|" + Theme.Dark + "|" + string.Join("\n", f.Views);
             if (optionsPicture == null || signature != optionsSignature)
             {
                 optionsPicture?.Dispose();
@@ -449,7 +462,8 @@ namespace RhinoSketchingTool
             switch (part)
             {
                 case Part.Object: return controller.Method == DrawMethod.Surface;
-                case Part.Plane: return controller.Method != DrawMethod.Surface;
+                case Part.Plane: return controller.Method == DrawMethod.Plane;
+                case Part.Cursor: return controller.Method == DrawMethod.Cursor;
                 case Part.EraseWhole: return controller.Erase == EraseMode.Stroke;
                 case Part.ErasePart: return controller.Erase == EraseMode.Part;
                 default: return false;
@@ -478,8 +492,29 @@ namespace RhinoSketchingTool
                 return;
             }
 
-            bool seg = part == Part.Object || part == Part.Plane || part == Part.EraseWhole || part == Part.ErasePart;
+            bool seg = part == Part.Object || part == Part.Plane || part == Part.Cursor || part == Part.EraseWhole || part == Part.ErasePart;
             bool chip = part >= Part.Chip0 && part <= Part.Chip7;
+            if (part == Part.FaceChip)
+            {
+                // The prototype's .pchip: "On a face" in the accent, with an x that goes back to the grid.
+                c.DrawRoundedRectangle(Fill(Accent, Theme.Dark ? 0.2 : 0.1), null, box, 10, 10);
+                if (over) c.DrawRoundedRectangle(Fill(Accent, 0.08), null, box, 10, 10);
+                var on = Picture.Text("On a face", 12, Wpf.FontWeights.SemiBold, Accent);
+                c.DrawText(on, new Wpf.Point(box.X + 10, mid.Y - on.Height / 2));
+                PaintIcon(c, Icons.Close, new Wpf.Point(box.Right - 4 - 9, mid.Y), 13, Accent, 1, 0);
+                return;
+            }
+            if (part == Part.PickFace || part == Part.PlaceCursor)
+            {
+                // A well button; armed (waiting for the click in the model) it is soft grey, as anything selected.
+                bool waiting = part == Part.PickFace ? controller.Picking == PickMode.Face : controller.Picking == PickMode.Cursor;
+                c.DrawRoundedRectangle(Fill(waiting ? SoftSel : Well), null, box, 10, 10);
+                if (over) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
+                PaintIcon(c, part == Part.PickFace ? Icons.PickFace : Icons.CursorMark, new Wpf.Point(box.X + 11 + 7.5, mid.Y), 15, waiting ? Accent : Ink, 1, 0);
+                var t = Picture.Text(part == Part.PickFace ? PickFaceLabel : PlaceCursorLabel, 12, Wpf.FontWeights.Medium, Ink);
+                c.DrawText(t, new Wpf.Point(box.X + 11 + 15 + 6, mid.Y - t.Height / 2));
+                return;
+            }
             if (part == Part.ChipMore)
             {
                 c.DrawRoundedRectangle(Fill(Well), null, box, 10, 10);
@@ -495,12 +530,12 @@ namespace RhinoSketchingTool
                 else if (down) c.DrawRoundedRectangle(Fill(Shade, PressShade), null, box, 9, 9);
                 var colour = Selected(part) || over ? Ink : Ink2;
                 double tx = box.X + 11;
-                if (part == Part.Object || part == Part.Plane)
+                if (part == Part.Object || part == Part.Plane || part == Part.Cursor)
                 {
-                    PaintIcon(c, part == Part.Object ? Icons.OnObject : Icons.OnPlane, new Wpf.Point(box.X + 9 + 8, mid.Y), 16, colour, 1, 0);
+                    PaintIcon(c, part == Part.Object ? Icons.OnObject : part == Part.Plane ? Icons.OnPlane : Icons.CursorMark, new Wpf.Point(box.X + 9 + 8, mid.Y), 16, colour, 1, 0);
                     tx = box.X + 9 + 16 + 6;
                 }
-                string label = part == Part.Object ? "Object" : part == Part.Plane ? "Plane" : part == Part.EraseWhole ? "Whole sketch" : "Part";
+                string label = part == Part.Object ? "Object" : part == Part.Plane ? "Plane" : part == Part.Cursor ? "3D cursor" : part == Part.EraseWhole ? "Whole sketch" : "Part";
                 var text = Picture.Text(label, 12, Wpf.FontWeights.Medium, colour);
                 c.DrawText(text, new Wpf.Point(tx, mid.Y - text.Height / 2));
                 return;

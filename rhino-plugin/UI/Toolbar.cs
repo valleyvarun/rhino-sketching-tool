@@ -31,7 +31,7 @@ namespace RhinoSketchingTool
     {
         enum Part { None, Bar, Grip, Select, Pen, Eraser, Comments, Views, Separator, Collapse,
             Object, Plane, Cursor, View, ViewList, Color, Snap, Popup, Saturation, Hue, Hex, Swatch0, Swatch1, Swatch2, Swatch3, Swatch4,
-            EraseWhole, ErasePart, Hint, SaveView,
+            EraseWhole, ErasePart, Hint, SaveView, PickFace, FaceChip, PlaceCursor,
             Chip0, Chip1, Chip2, Chip3, Chip4, Chip5, Chip6, Chip7, ChipX0, ChipX1, ChipX2, ChipX3, ChipX4, ChipX5, ChipX6, ChipX7, ChipMore }
 
         // Sizes, in pixels at 100 % display scaling.
@@ -544,6 +544,10 @@ namespace RhinoSketchingTool
                 case Part.Collapse: return collapsed ? "Show toolbar" : "Minimize toolbar";
                 case Part.Object: return "Draw on objects";
                 case Part.Plane: return "Draw on the construction plane";
+                case Part.Cursor: return "Draw on a plane through the 3D cursor";
+                case Part.PickFace: return controller.Picking == PickMode.Face ? "Click a face of an object (click here again to cancel)" : "Click a face of an object to draw on it";
+                case Part.FaceChip: return "Back to the construction plane";
+                case Part.PlaceCursor: return controller.Picking == PickMode.Cursor ? "Click in the model (click here again to cancel)" : "Click in the model to put the 3D cursor there";
                 case Part.Color: return "Pen colour";
                 case Part.Snap: return "Turn rough lines, boxes and ellipses into clean ones";
                 case Part.EraseWhole: return "Erase whole sketches";
@@ -671,6 +675,18 @@ namespace RhinoSketchingTool
             };
 
             public static readonly Shape[] Plus = { Line("M12 5.5v13M5.5 12h13") };
+
+            public static readonly Shape[] CursorMark =
+            {
+                Line("M12 6a6 6 0 1 1 0 12a6 6 0 1 1 0-12z"),
+                Line("M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"),
+            };
+
+            public static readonly Shape[] PickFace =
+            {
+                Line("M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1 -2.5 2.5H6a2.5 2.5 0 0 1 -2.5 -2.5V7A2.5 2.5 0 0 1 6 4.5z"),
+                Path("M11.4 10.6l9.4 3.7-4.1 1.3-1.6 4.2z", 1, true),
+            };
 
             public static readonly Shape[] Close = { Line("M7 7l10 10M17 7L7 17") };
 

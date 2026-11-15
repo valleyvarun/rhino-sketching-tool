@@ -34,7 +34,9 @@ prototype's dock bar (`design-ui-ux/.../design/prototype/index.html`), light or 
 Crayon's own switch. Every control has a tooltip. Drag its grip to dock it on any edge;
 double-click the grip to put it back. Under it, an option row changes with the tool:
 
-- **Pen**: Object | Plane, colour, Snap shapes (the hand-drawn tick).
+- **Pen**: Object | Plane | 3D cursor, colour, Snap shapes (the hand-drawn tick). With Plane,
+  **Pick a face** then a click puts the drawing plane on an object's face (the *On a face* chip's
+  x goes back); with 3D cursor, **Place cursor** then a click moves the cursor. No modifier keys.
 - **Eraser**: Whole sketch | Part.
 - **Comments**: one line of help.
 - **Saved views**: Save view, then a chip per Rhino Named View (click to go there, x to delete).
