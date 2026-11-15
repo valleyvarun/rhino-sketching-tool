@@ -99,6 +99,7 @@ namespace RhinoSketchingTool
             get => dock;
             set
             {
+                value = EdgeDock(value);
                 if (dock == value) return;
                 dock = value;
                 Settings?.SetInteger("ToolbarDock", (int)dock);
@@ -129,7 +130,7 @@ namespace RhinoSketchingTool
                 {
                     remembered = true;
                     int saved = Settings.GetInteger("ToolbarDock", (int)ToolbarDock.Bottom);
-                    if (Enum.IsDefined(typeof(ToolbarDock), saved)) dock = (ToolbarDock)saved;
+                    if (Enum.IsDefined(typeof(ToolbarDock), saved)) dock = EdgeDock((ToolbarDock)saved);
                     collapsed = Settings.GetBool("ToolbarCollapsed", false);
                     floatingX = Settings.GetDouble("ToolbarFloatX", .5);
                     floatingY = Settings.GetDouble("ToolbarFloatY", .8);
@@ -248,6 +249,13 @@ namespace RhinoSketchingTool
             new[] { 0.0, 1.0 }, new[] { 0.5, 1.0 }, new[] { 1.0, 1.0 },
         };
 
+        static ToolbarDock EdgeDock(ToolbarDock value)
+        {
+            if (value == ToolbarDock.TopLeft || value == ToolbarDock.TopRight) return ToolbarDock.Top;
+            if (value == ToolbarDock.BottomLeft || value == ToolbarDock.BottomRight) return ToolbarDock.Bottom;
+            return value;
+        }
+
         static ToolbarDock Nearest(System.Drawing.Size viewport, ScreenPoint point)
         {
             double x = viewport.Width > 0 ? (double)point.X / viewport.Width : 0.5;
@@ -256,6 +264,7 @@ namespace RhinoSketchingTool
             double least = double.MaxValue;
             for (int i = 0; i < Anchors.Length; i++)
             {
+                if (EdgeDock((ToolbarDock)i) != (ToolbarDock)i) continue;
                 double dx = x - Anchors[i][0], dy = y - Anchors[i][1], distance = dx * dx + dy * dy;
                 if (distance < least) { least = distance; nearest = i; }
             }
