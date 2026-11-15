@@ -60,8 +60,7 @@ namespace RhinoSketchingTool
                     new Item { Part=Part.Color }, new Item { Part=Part.Snap, Value="Shapes" } });
             }
             else if (current == Part.Eraser)
-                specs.AddRange(new[] { new Item {Part=Part.Help,Value="Drag over sketches to erase"},
-                    new Item {Part=Part.EraseWhole,Value="Stroke"},new Item {Part=Part.ErasePart,Value="Part"},
+                specs.AddRange(new[] { new Item {Part=Part.EraseWhole,Value="Stroke"},new Item {Part=Part.ErasePart,Value="Part"},
                     new Item {Part=Part.ClearSketches,Value=clearAsked ? "Click again to clear" : "Clear all sketches"} });
             else if (current == Part.Comments)
                 specs.Add(new Item {Part=Part.Help,Value="Click a surface or sketch to add a comment."});
