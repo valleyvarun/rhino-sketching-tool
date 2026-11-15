@@ -1,0 +1,178 @@
+:root {
+  --sky: #f3f4f6;
+  --floor: #d9dce2;
+  --ink: #1f2329;
+  --ink-soft: #626a76;
+  --chip: rgb(255 255 255 / 0.72);
+  --hairline: rgb(31 35 41 / 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--floor);
+  color: var(--ink);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* The canvas is transparent, so this gradient is the scene's background. */
+#viewport {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(var(--sky), var(--floor));
+}
+
+/* Text laid over the viewport. It ignores the pointer so you can drag through it. */
+.overlay {
+  position: fixed;
+  margin: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.title {
+  top: 18px;
+  left: 22px;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.title p {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.hint {
+  bottom: 18px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 6px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-align: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  border-radius: 14px;
+}
+
+.hint strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#viewport {
+  cursor: crosshair;
+}
+
+.toolbar {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.toolbar .group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--chip);
+}
+
+.toolbar .label {
+  padding: 0 6px 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.toolbar button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.toolbar button:hover {
+  background: rgb(31 35 41 / 0.07);
+}
+
+.toolbar button[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+
+.toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Load-failure message, switched on by the onerror handler in index.html. */
+.notice {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: min(440px, calc(100% - 32px));
+  padding: 20px 24px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(31 35 41 / 0.12);
+}
+
+.notice h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.notice p {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+}
+
+.notice p:last-child {
+  margin-bottom: 0;
+}
+
+.notice code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef0f3;
+  color: var(--ink);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.load-failed .notice {
+  display: block;
+}
+
+.load-failed .hint {
+  display: none;
+}
