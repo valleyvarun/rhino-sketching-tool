@@ -588,7 +588,7 @@ namespace RhinoSketchingTool
         // on. While it is being written, the text is left out: the text box sits there.
         LabelPicture LabelFor(Comment comment, string[] link, bool beingWritten, double scale)
         {
-            string key = string.Join("\n", comment.Number, beingWritten ? "" : comment.Text, link == null ? "" : link[0] + " " + link[1], beingWritten, scale);
+            string key = string.Join("\n", comment.Number, beingWritten ? "" : comment.Text, link == null ? "" : link[0] + " " + link[1], beingWritten, scale, Theme.Dark);
             return Cached(key, () =>
             {
                 string shown = comment.Text.Length > 0 ? comment.Text : "Comment";

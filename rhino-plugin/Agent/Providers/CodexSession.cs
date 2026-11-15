@@ -26,6 +26,7 @@ namespace RhinoSketchingTool
         public List<ModelChoice> Models { get; private set; } = new List<ModelChoice>();
         public string Mode { get; private set; } = "default";
         public bool SigningIn { get; private set; }
+        public string ConversationId => thread;
         public string Status => stopping ? "stopping" : Transcript.Pending ? "waiting" : pendingInput != null ? "starting" : turn.Length > 0 ? "working" : "idle";
 
         Process process;
@@ -178,6 +179,13 @@ namespace RhinoSketchingTool
             thread = "";
             Model = "";
             texts.Clear(); calls.Clear();
+        }
+
+        /// <summary>Carry on a thread from History: the next message sends thread/resume with its id.</summary>
+        public void Resume(string id)
+        {
+            Reset();
+            thread = id ?? "";
         }
 
         public void Close()

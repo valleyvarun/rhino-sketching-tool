@@ -1,210 +1,319 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Assistant</title>
-<!--
-  The Agent tab: a chat with Claude Code, made to look like Claude Code's own window.
-  AgentView.cs loads this page into Rhino's web view, hands it the state of the chat
-  (crayon.state) and collects what the user does here (crayon.take). Nothing in this
-  page talks to the network.
--->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent</title>
 <style>
+/* Crayon · Agent tab. Markup, CSS and motion are the prototype's Agent tab
+   (design-ui-ux/.../design/prototype/index.html: #view-agent, .ag-*), on the
+   tokens of design/tokens/tokens.css. Light is the default; <html class="dark">
+   is Crayon's own dark look, chosen in the panel header. AgentView.cs feeds it. */
 :root{
-  --bg:#1a1a1a; --card:#1f1f1f; --box:#2f2f2f; --line:#2e2e2e; --line2:#3a3a3a;
-  --text:#ececec; --text2:#c9c9c9; --muted:#8f8f8f; --faint:#6b6b6b;
+  --ink:#15171c; --ink-2:#4a505d; --muted:#878d99;
+  --surface:#ffffff; --surface-2:#f6f7f9; --well:#f1f2f5; --field:#ffffff;
+  --hover:rgba(16,20,28,.045); --press:rgba(16,20,28,.08);
+  --soft-sel:#d9dde4; --soft-sel-hover:#ccd1d9;
+  --line:rgba(16,20,28,.08); --line-2:rgba(16,20,28,.14);
+  --accent:#9731b0; --accent-ink:#ffffff; --accent-soft:rgba(151,49,176,.10); --accent-ring:rgba(151,49,176,.30);
+  --danger:#e5484d;
+  --shadow-1:0 0 0 1px rgba(16,20,28,.07);
+  --shadow-3:0 22px 50px -24px rgba(16,20,28,.35), 0 0 0 1px rgba(16,20,28,.08);
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --spring:cubic-bezier(.3,0,.2,1); --ease:cubic-bezier(.22,.8,.24,1);
+  --t-fast:.14s; --t-med:.26s;
+  --composer-shadow:0 8px 24px -16px rgba(16,20,28,.3);
+  color-scheme:light;
+}
+:root.dark{
+  --ink:#ecedf0; --ink-2:#b3b7c1; --muted:#868b97;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --surface:#202126; --surface-2:#18191d; --well:#2a2b31; --field:#202126;
   --hover:rgba(255,255,255,.06); --press:rgba(255,255,255,.1);
-  --clay:#d97757; --blue:#4f8ff7; --red:#f0766b; --green:#6cc070;
-  --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
-  --mono:"Cascadia Mono","Cascadia Code",Consolas,monospace;
+  --soft-sel:#35363e; --soft-sel-hover:#3e3f48;
+  --accent:#b66ad0; --accent-ink:#ffffff; --accent-soft:rgba(182,106,208,.17); --accent-ring:rgba(182,106,208,.38);
+  --shadow-1:0 0 0 1px rgba(255,255,255,.07);
+  --shadow-3:0 24px 54px -22px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.09);
+  --composer-shadow:0 8px 24px -16px rgba(0,0,0,.6);
+  color-scheme:dark;
 }
-*{ box-sizing:border-box; }
-html,body{ height:100%; margin:0; }
-body{ background:var(--bg); color:var(--text); font:13px/1.5 var(--ui); overflow:hidden; -webkit-font-smoothing:antialiased; user-select:none; }
-button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
-svg{ display:block; }
-::-webkit-scrollbar{ width:10px; }
-::-webkit-scrollbar-thumb{ background:#3a3a3a; border-radius:5px; border:2px solid var(--bg); }
-::-webkit-scrollbar-thumb:hover{ background:#4a4a4a; }
+/* colours cross-fade when the look switches, nothing else moves */
+:root.ui-switching *, :root.ui-switching *::before, :root.ui-switching *::after{ transition:background-color .28s ease, border-color .28s ease, color .28s ease, fill .28s ease, box-shadow .28s ease !important; }
 
-#chat{ display:flex; flex-direction:column; height:100%; }
-#scroll{ flex:1; min-height:0; overflow-y:auto; padding:12px 12px 4px; display:flex; flex-direction:column; }
-
-/* ---------- the empty chat: the mascot on a small stack of cards ---------- */
-#welcome{ margin:auto 0; padding:8px 0 16px; width:100%; max-width:480px; align-self:center; }
-#mascot{ display:flex; justify-content:flex-end; padding-right:14px; margin-bottom:-3px; position:relative; z-index:1; }
-#mascot svg{ width:44px; height:auto; }
-.card{ background:var(--card); border:1px solid var(--line); border-radius:14px; }
-.card + .card{ margin-top:8px; }
-.row{ display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:8px 14px; text-align:left; border-radius:13px; }
-button.row:hover{ background:var(--hover); }
-.row svg{ flex:none; width:16px; height:16px; color:var(--text2); }
-.row .t{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.row .h{ color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
-.row .caret{ width:12px; height:12px; color:var(--muted); margin-left:-2px; }
-.row.go .t{ color:var(--text); font-weight:600; }
-
-/* ---------- the chat ---------- */
-#list{ display:flex; flex-direction:column; gap:12px; user-select:text; }
-.user{ align-self:flex-end; max-width:88%; background:var(--box); border-radius:14px; padding:7px 12px; white-space:pre-wrap; overflow-wrap:anywhere; }
-.text{ overflow-wrap:anywhere; }
-.text > :first-child{ margin-top:0; } .text > :last-child{ margin-bottom:0; }
-.text p{ margin:0 0 8px; }
-.text h1,.text h2,.text h3{ font-size:13.5px; font-weight:600; margin:12px 0 4px; }
-.text ul,.text ol{ margin:0 0 8px; padding-left:20px; }
-.text li{ margin:2px 0; }
-.text a{ color:#8ab4ff; text-decoration:none; } .text a:hover{ text-decoration:underline; }
-.text code{ font:12px var(--mono); background:#2a2a2a; border-radius:5px; padding:1px 5px; }
-.text pre{ margin:0 0 8px; background:#121212; border:1px solid var(--line); border-radius:10px; padding:9px 11px; overflow-x:auto; }
-.text pre code{ background:none; padding:0; white-space:pre; }
-.tool{ display:flex; align-items:center; gap:8px; color:var(--muted); min-width:0; }
-.tool .dot{ flex:none; width:7px; height:7px; border-radius:50%; background:var(--faint); }
-.tool.running .dot{ background:var(--clay); animation:pulse 1.1s ease-in-out infinite; }
-.tool.done .dot{ background:var(--green); } .tool.error .dot{ background:var(--red); }
-.tool b{ flex:none; color:var(--text2); font-weight:600; }
-.tool span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:12px var(--mono); }
-.ask{ border:1px solid var(--line2); border-radius:14px; background:var(--card); padding:11px 12px; }
-.ask .q{ font-weight:600; margin-bottom:6px; }
-.ask .d{ font:12px/1.45 var(--mono); color:var(--text2); background:#121212; border:1px solid var(--line); border-radius:9px; padding:7px 9px; margin-bottom:9px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:160px; overflow:auto; }
-.ask .b{ display:flex; flex-wrap:wrap; gap:6px; }
-.ask .b button{ height:28px; padding:0 11px; border-radius:8px; background:var(--box); font-weight:500; }
-.ask .b button:hover{ background:#3a3a3a; }
-.ask .b button.yes{ background:var(--text); color:#161616; } .ask .b button.yes:hover{ background:#fff; }
-.ask .a{ color:var(--muted); }
-.notice{ color:var(--muted); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
-.notice.error{ color:var(--red); }
-#activity{ display:flex; align-items:center; gap:8px; color:var(--muted); padding:12px 0 2px; }
-#activity .spark{ color:var(--clay); font-size:15px; line-height:1; animation:spark 1.6s ease-in-out infinite; }
-@keyframes spark{ 0%,100%{ transform:scale(.8) rotate(0deg); opacity:.6; } 50%{ transform:scale(1.15) rotate(90deg); opacity:1; } }
-@keyframes pulse{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
-@keyframes spin{ to{ transform:rotate(360deg); } }
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; overflow:hidden; }
+body{ font:13px/1.4 var(--f-ui); background:var(--surface-2); color:var(--ink); -webkit-font-smoothing:antialiased; }
+button{ font:inherit; color:inherit; }
+button:focus-visible, textarea:focus-visible{ outline:2px solid var(--accent-ring); outline-offset:1px; }
 [hidden]{ display:none !important; }
-@media (max-width:260px){
-  #scroll{ padding:10px 8px 4px; }
-  #composer{ padding:6px 6px 6px; }
-  .row{ padding:8px 10px; gap:8px; }
-  .user{ max-width:94%; }
+svg{ display:block; }
+
+/* ---------- the tab ---------- */
+#view-agent{ position:relative; height:100%; display:flex; flex-direction:column; }
+
+/* ---------- Agent (prototype) ---------- */
+.ag-scroll{ position:relative; z-index:1; flex:1; min-height:0; overflow-y:auto; padding:4px 16px 16px; display:flex; flex-direction:column; scrollbar-width:thin; }
+.ag-hello{ margin:auto 0; display:flex; flex-direction:column; align-items:center; gap:12px; padding:24px 0 36px; text-align:center; }
+.ag-hello h2{ margin:0; font:600 18px/1.25 var(--f-ui); letter-spacing:-.015em; color:var(--ink); }
+.ag-thread{ display:flex; flex-direction:column; }
+.ag-ublock{ display:flex; flex-direction:column; }
+.ag-user{ align-self:flex-end; max-width:86%; margin-top:16px; padding:9px 13px; border-radius:14px; background:var(--well); color:var(--ink); font:400 13px/1.5 var(--f-ui); white-space:pre-wrap; overflow-wrap:anywhere; }
+.ag-ufiles{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
+.ag-ufiles:only-child{ margin-bottom:0; }
+.ag-umeta{ display:flex; justify-content:flex-end; align-items:center; gap:2px; margin-top:4px; opacity:0; transition:opacity .2s; }
+.ag-umeta.last, .ag-user:hover + .ag-umeta, .ag-umeta:hover{ opacity:1; }
+.ag-ai{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin-top:18px; }
+.ag-body{ align-self:stretch; display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-width:0; }
+.ag-body:empty{ display:none; }
+.ag-head{ display:flex; align-items:center; gap:8px; min-height:22px; }
+.ag-mark{ display:grid; place-items:center; width:22px; height:22px; color:var(--accent); }
+.ag-mark svg{ width:22px; height:22px; overflow:visible; }
+.ag-mark.hello-mark, .ag-mark.hello-mark svg{ width:52px; height:52px; }
+.ag-think{ font:500 12.5px var(--f-ui); color:var(--muted); background:linear-gradient(90deg, var(--muted) 0 40%, var(--ink) 50%, var(--muted) 60% 100%) 0 0/250% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:thinkShine 1.6s linear infinite; }
+@keyframes thinkShine{ from{ background-position:100% 0; } to{ background-position:-150% 0; } }
+.ag-text{ margin:0; font:400 13px/1.55 var(--f-ui); color:var(--ink); max-width:100%; overflow-wrap:anywhere; user-select:text; }
+.ag-text:empty{ display:none; }
+/* steps and the result share one marker column */
+.ag-steps{ display:flex; flex-direction:column; gap:6px; max-width:100%; }
+.ag-fold{ display:inline-flex; align-items:center; gap:8px; padding:0; border:0; background:none; font:500 11.5px var(--f-ui); color:var(--muted); cursor:pointer; }
+.ag-fold:hover{ color:var(--ink); }
+.ag-fold svg{ width:13px; height:13px; transition:transform .2s var(--spring); }
+.ag-steps.open .ag-fold svg{ transform:rotate(90deg); }
+.ag-steps.folded .ag-step{ display:none; }
+.ag-step{ display:flex; align-items:center; gap:8px; min-width:0; font:400 12px/1.4 var(--f-ui); color:var(--muted); }
+.ag-step .mk{ width:13px; height:13px; flex:none; display:grid; place-items:center; }
+.ag-step .mk::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--line-2); }
+.ag-step .st{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ag-step .st b{ font-weight:500; color:var(--ink-2); }
+.ag-step.now{ color:var(--ink); }
+.ag-step.now .mk::before{ width:8px; height:8px; background:none; border:1.6px solid var(--accent); border-right-color:transparent; animation:agSpin .7s linear infinite; }
+.ag-step.done .mk::before{ background:var(--accent); }
+.ag-step.err .mk::before{ background:var(--danger); }
+.ag-step.err .st b{ color:var(--danger); }
+@keyframes agSpin{ to{ transform:rotate(360deg); } }
+.ag-ck{ width:13px; height:13px; flex:none; margin-top:3px; border-radius:50%; background:linear-gradient(152deg, #c983da, var(--accent)); color:#fff; display:grid; place-items:center; }
+.ag-ck svg{ width:8px; height:8px; stroke-width:3.2; }
+/* copy · good · bad · time */
+.ag-meta{ display:flex; align-items:center; gap:2px; margin:0 0 0 -6px; opacity:0; transform:translateY(3px); transition:opacity .25s, transform .25s; }
+.ag-meta:empty{ display:none; }
+.ag-meta.show{ opacity:1; transform:none; }
+.ag-meta button, .ag-umeta button{ width:26px; height:26px; padding:0; border:0; border-radius:7px; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
+.ag-meta button:hover, .ag-umeta button:hover{ background:var(--hover); color:var(--ink); }
+.ag-meta button svg, .ag-umeta button svg{ width:14px; height:14px; }
+.ag-meta button.ok, .ag-umeta button.ok{ color:var(--accent); }
+.ag-meta button[aria-pressed="true"]{ color:var(--accent); }
+.ag-meta button[aria-pressed="true"] svg{ fill:var(--accent-soft); }
+.ag-meta time, .ag-umeta time{ margin-left:6px; font:400 10.5px var(--f-ui); color:var(--muted); font-variant-numeric:tabular-nums; }
+.ag-meta .tip{ margin-left:4px; font-size:10.5px; color:var(--accent); }
+.ag-hist{ display:flex; flex-direction:column; gap:2px; padding-top:6px; }
+.ag-hist button{ display:flex; align-items:center; justify-content:space-between; gap:10px; height:36px; padding:0 10px; border:0; border-radius:9px; background:transparent; color:var(--ink); font:500 12.5px var(--f-ui); text-align:left; cursor:pointer; }
+.ag-hist button:hover{ background:var(--hover); }
+.ag-hist button[aria-current="true"]{ background:var(--soft-sel); }
+.ag-hist button span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ag-hist time{ flex:none; font-size:11px; color:var(--muted); }
+.ag-empty{ margin:4px 4px; font-size:12px; color:var(--muted); }
+.cy-h{ margin:0 0 2px; padding:0 4px; font:600 12.5px var(--f-ui); letter-spacing:0; text-transform:none; color:var(--ink); }
+/* composer: glows violet when you click into it */
+.ag-composer{ position:relative; z-index:2; flex:none; margin:0 12px 12px; padding:12px 12px 9px; border-radius:16px; background:var(--surface); box-shadow:0 0 0 1px var(--line-2), var(--composer-shadow); transition:box-shadow .25s ease; }
+.ag-composer:focus-within{ box-shadow:0 0 0 1.5px var(--accent), 0 0 0 5px var(--accent-soft), 0 14px 34px -14px rgba(151,49,176,.5); }
+.ag-composer textarea{ display:block; width:100%; min-height:42px; max-height:160px; padding:0; border:0; outline:0; resize:none; background:transparent; color:var(--ink); font:400 13px/1.5 var(--f-ui); }
+.ag-composer textarea::placeholder{ color:var(--muted); }
+.ag-composer textarea:focus-visible{ outline:0; }
+.ag-ctx{ display:flex; flex-wrap:wrap; gap:6px; }
+.ag-ctx:not(:empty){ margin-bottom:8px; }
+.ag-chip{ display:inline-flex; align-items:center; gap:5px; max-width:100%; height:24px; padding:0 8px 0 7px; border-radius:7px; background:var(--accent-soft); color:var(--ink); font:500 11.5px var(--f-ui); }
+.ag-chip > svg{ width:13px; height:13px; flex:none; color:var(--accent); }
+.ag-chip span{ max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ag-files{ display:flex; flex-wrap:wrap; gap:6px; }
+.ag-files:not(:empty){ margin-bottom:8px; }
+.ag-file{ display:inline-flex; align-items:center; gap:5px; max-width:100%; padding:3px 4px 3px 7px; border-radius:7px; background:var(--well); font:500 11.5px var(--f-ui); color:var(--ink-2); }
+.ag-user .ag-file{ background:var(--surface); padding-right:7px; }
+.ag-file > svg{ width:12px; height:12px; flex:none; }
+.ag-file.sk > svg, .ag-file.cm > svg{ color:var(--accent); }
+.ag-file span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:170px; }
+.ag-file button{ width:18px; height:18px; padding:0; border:0; border-radius:5px; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
+.ag-file button:hover{ background:var(--press); color:var(--ink); }
+.ag-file button svg{ width:11px; height:11px; }
+.ag-bar{ display:flex; align-items:center; gap:2px; height:30px; margin:8px -4px 0; }
+.ag-ib{ width:30px; height:30px; flex:none; padding:0; border:0; border-radius:9px; background:transparent; color:var(--ink-2); display:grid; place-items:center; cursor:pointer; transition:background .15s, color .15s, box-shadow .25s; }
+.ag-ib:hover{ background:var(--hover); color:var(--ink); }
+.ag-ib:disabled{ opacity:.45; cursor:default; background:transparent; }
+.ag-ib svg{ width:17px; height:17px; }
+.ag-tools{ position:relative; min-width:0; }
+.ag-tool{ height:30px; max-width:100%; display:inline-flex; align-items:center; gap:6px; padding:0 8px; border:0; border-radius:9px; background:transparent; color:var(--ink-2); font:500 12.5px var(--f-ui); white-space:nowrap; cursor:pointer; }
+.ag-tool > span:first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.ag-tool:hover, .ag-tool[aria-expanded="true"]{ background:var(--hover); color:var(--ink); }
+.ag-tool:disabled{ cursor:default; opacity:.6; background:transparent; }
+.ag-tool .ti, .ag-tool .chev{ display:grid; place-items:center; }
+.ag-tool .chev svg{ width:12px; height:12px; transition:transform .2s var(--spring); }
+.ag-tool[aria-expanded="true"] .chev svg{ transform:rotate(180deg); }
+.ag-menu{ position:absolute; left:-4px; bottom:calc(100% + 10px); z-index:5; width:250px; max-height:calc(100vh - 120px); overflow-y:auto; padding:5px; border-radius:12px; background:var(--surface); box-shadow:var(--shadow-3); transform-origin:20px 100%; animation:agMenu .16s var(--spring); scrollbar-width:thin; }
+.ag-menu.right{ left:auto; right:-4px; transform-origin:calc(100% - 20px) 100%; }
+@keyframes agMenu{ from{ opacity:0; transform:translateY(4px) scale(.98); } }
+/* section names in sentence case: Crayon has no all-caps labels */
+.ag-menu .mh{ padding:6px 9px 4px; font:600 11px var(--f-ui); color:var(--muted); }
+.ag-menu button{ width:100%; display:grid; grid-template-columns:18px 1fr 14px; align-items:center; gap:1px 9px; padding:8px 9px; border:0; border-radius:8px; background:transparent; color:var(--ink); text-align:left; cursor:pointer; }
+.ag-menu button:hover, .ag-menu button:focus-visible{ background:var(--hover); outline:none; }
+.ag-menu button:disabled{ cursor:default; color:var(--muted); background:transparent; }
+.ag-menu button > svg{ width:16px; height:16px; color:var(--ink-2); }
+.ag-menu b{ font:600 12.5px var(--f-ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ag-menu small{ grid-column:2 / 4; font:400 11px/1.35 var(--f-ui); color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
+.ag-menu .tick{ display:grid; place-items:center; color:var(--accent); opacity:0; }
+.ag-menu .tick svg{ width:14px; height:14px; }
+.ag-menu [aria-checked="true"] .tick{ opacity:1; }
+.ag-sep{ height:1px; margin:4px 8px; background:var(--line); }
+/* send: quiet grey when empty; fills violet from the centre as soon as you type; the arrow flies up on send */
+.ag-send{ flex:none; margin-left:auto; width:30px; height:30px; padding:0; border:0; border-radius:9px; display:grid; place-items:center; overflow:hidden; color:var(--muted); cursor:pointer;
+  background-color:var(--well); background-image:radial-gradient(circle, var(--accent) 0 69%, transparent 70%); background-position:center; background-repeat:no-repeat; background-size:0 0;
+  transition:background-size .32s var(--spring), color .2s; }
+.ag-send.ready{ background-size:210% 210%; color:#fff; }
+.ag-send:disabled{ cursor:default; }
+.ag-send svg{ width:15px; height:15px; stroke-width:2.2; }
+.ag-send.fly svg{ animation:agFly .45s cubic-bezier(.5,0,.3,1); }
+@keyframes agFly{ 0%{ transform:none; } 45%{ transform:translateY(-20px); opacity:0; } 46%{ transform:translateY(16px); opacity:0; } 100%{ transform:none; opacity:1; } }
+/* while the agent works the same button stops it: soft grey, never black or blue */
+.ag-send.stop{ background-color:var(--soft-sel); background-size:0 0; color:var(--ink); }
+.ag-send.stop:hover{ background-color:var(--soft-sel-hover); }
+.ag-send.stop svg{ width:11px; height:11px; }
+
+/* ---------- the Thinking loop (prototype): draws itself once, runs while the agent works ---------- */
+.ic-loop{ stroke-dasharray:1 2; }
+.ic-dot{ transform-box:fill-box; transform-origin:center; }
+.ag-ai.settle .ic-dot, .ag-hello.settle .ic-dot{ animation:icDot .3s cubic-bezier(.3,0,.2,1) both; }
+.ag-ai.settle .ic-loop, .ag-hello.settle .ic-loop{ animation:icLoop .5s cubic-bezier(.3,0,.2,1) .06s both; }
+.ag-ai.settle .ic-echo, .ag-hello.settle .ic-echo{ animation:icEcho .5s ease-out .3s both; }
+@keyframes icDot{ from{ transform:scale(0); } to{ transform:none; } }
+@keyframes icLoop{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+@keyframes icEcho{ from{ opacity:0; } to{ opacity:.3; } }
+.thinking .ic-loop{ animation:loopRun 1.4s cubic-bezier(.45,0,.35,1) infinite; }
+.thinking .ic-dot{ animation:dotBreathe 1.4s ease-in-out infinite; }
+.thinking .ic-echo{ opacity:0; }
+@keyframes loopRun{ 0%{ stroke-dasharray:.04 .96; stroke-dashoffset:0; } 50%{ stroke-dasharray:.62 .38; stroke-dashoffset:-.25; } 100%{ stroke-dasharray:.04 .96; stroke-dashoffset:-1; } }
+@keyframes dotBreathe{ 0%, 100%{ transform:none; } 50%{ transform:scale(.68); } }
+
+/* ---------- what the real agent adds, in the same language ---------- */
+/* a reply's markdown */
+.ag-md > :first-child{ margin-top:0; }
+.ag-md > :last-child{ margin-bottom:0; }
+.ag-md p{ margin:0 0 8px; }
+.ag-md h3{ margin:12px 0 4px; font:600 13px/1.4 var(--f-ui); }
+.ag-md ul, .ag-md ol{ margin:0 0 8px; padding-left:18px; }
+.ag-md li{ margin:2px 0; }
+.ag-md code{ padding:1px 4px; border-radius:5px; background:var(--well); font:400 12px var(--f-mono); }
+.ag-md pre{ margin:0 0 8px; padding:9px 11px; border-radius:10px; background:var(--well); overflow-x:auto; font:400 12px/1.5 var(--f-mono); }
+.ag-md pre code{ padding:0; background:none; }
+.ag-md a{ color:var(--ink); text-decoration:underline; text-decoration-color:var(--line-2); text-underline-offset:3px; cursor:pointer; }
+.ag-md a:hover{ text-decoration-color:var(--ink); }
+/* a notice in the chat, or above it (RhinoMCP, sign-in): a quiet card; errors in the danger colour */
+.ag-note{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; max-width:100%; padding:9px 11px; border-radius:11px; background:var(--well); color:var(--ink-2); font:400 12px/1.5 var(--f-ui); overflow-wrap:anywhere; }
+.ag-note.err{ color:var(--danger); background:color-mix(in srgb, var(--danger) 9%, transparent); }
+.ag-note .acts{ display:flex; flex-wrap:wrap; gap:6px; }
+.ag-top{ flex:none; margin:8px 12px 0; }
+.ag-btn{ height:28px; padding:0 11px; border:0; border-radius:9px; background:var(--surface); box-shadow:var(--shadow-1); color:var(--ink); font:500 12px var(--f-ui); cursor:pointer; white-space:nowrap; transition:background var(--t-fast); }
+.ag-btn:hover{ background:var(--hover); }
+.ag-btn.pri{ background:var(--soft-sel); box-shadow:none; }
+.ag-btn.pri:hover{ background:var(--soft-sel-hover); }
+.ag-btn.ghost{ background:transparent; box-shadow:none; color:var(--ink-2); }
+.ag-btn.ghost:hover{ background:var(--hover); color:var(--ink); }
+.ag-btn:disabled{ opacity:.55; cursor:default; }
+.ag-hello .ag-note{ align-items:center; text-align:center; margin-top:6px; }
+/* an approval: the agent asks before it acts */
+.ag-ask{ align-self:stretch; display:flex; flex-direction:column; gap:6px; padding:10px 12px 11px; border-radius:12px; background:var(--surface); box-shadow:0 0 0 1px var(--line-2); }
+.ag-ask .q{ font:600 12.5px/1.4 var(--f-ui); color:var(--ink); }
+.ag-ask .d{ max-height:140px; overflow:auto; font:400 11.5px/1.45 var(--f-mono); color:var(--ink-2); white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
+.ag-ask .acts{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.ag-ask .ans{ display:flex; align-items:center; gap:8px; font:500 12px var(--f-ui); color:var(--muted); }
+.ag-ask .ans .ag-ck{ margin-top:0; }
+.ag-ask .ans .no{ width:13px; height:13px; flex:none; border-radius:50%; background:var(--line-2); }
+.ag-ask.answered{ background:transparent; box-shadow:0 0 0 1px var(--line); }
+/* choosing the assistant, the first time */
+.ag-picks{ display:flex; flex-direction:column; gap:6px; width:100%; max-width:280px; margin-top:4px; }
+.ag-pick{ display:flex; align-items:center; gap:12px; height:52px; padding:0 14px; border:0; border-radius:12px; background:var(--surface); box-shadow:0 0 0 1px var(--line-2); color:var(--ink); font:600 13px var(--f-ui); text-align:left; cursor:pointer; transition:box-shadow var(--t-fast), background var(--t-fast); }
+.ag-pick:hover{ box-shadow:0 0 0 1.5px var(--accent); }
+.ag-pick[aria-pressed="true"]{ background:var(--soft-sel); box-shadow:none; }
+.ag-pick:disabled{ cursor:default; }
+.ag-pick:disabled:not([aria-pressed="true"]){ opacity:.55; box-shadow:0 0 0 1px var(--line-2); }
+.provider-logo{ width:24px; height:24px; object-fit:contain; flex:none; }
+.logo-dark{ display:none; }
+:root.dark .logo-dark{ display:block; }
+:root.dark .logo-light{ display:none; }
+
+@media (prefers-reduced-motion: reduce){
+  .thinking .ic-loop, .thinking .ic-dot, .ag-think, .ag-step.now .mk::before, .ag-send.fly svg{ animation:none; }
+  *, *::before, *::after{ animation-duration:.01ms !important; animation-delay:0s !important; transition-duration:.01ms !important; }
 }
-
-/* ---------- the message box, and the line of choices under it ---------- */
-#composer{ flex:none; padding:8px 10px 8px; }
-#box{ display:flex; align-items:flex-end; gap:4px; background:var(--box); border:1px solid #3b3b3b; border-radius:16px; padding:6px 6px 6px 6px; }
-#box:focus-within{ border-color:#565656; }
-#box button{ flex:none; width:30px; height:30px; border-radius:9px; display:grid; place-items:center; color:var(--text2); }
-#box button:hover{ background:var(--press); }
-#box button svg{ width:17px; height:17px; }
-#input{ flex:1; min-width:0; min-height:30px; resize:none; border:0; outline:0; background:transparent; color:var(--text); font:13.5px/1.45 var(--ui); padding:5px 2px; max-height:168px; user-select:text; overflow-y:hidden; }
-#input.tall{ overflow-y:auto; }
-#input::placeholder{ color:var(--muted); }
-#go{ background:var(--text) !important; color:#161616 !important; border-radius:50% !important; }
-#go:disabled{ background:transparent !important; color:var(--faint) !important; cursor:default; }
-#go.stop{ background:var(--text) !important; }
-#foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 4px; padding:6px 2px 0; }
-#foot .grow{ flex:1; }
-.chip{ display:flex; align-items:center; gap:6px; height:26px; padding:0 7px; border-radius:8px; color:var(--text2); max-width:100%; min-width:0; }
-.chip:hover{ background:var(--hover); }
-.chip svg{ flex:none; width:15px; height:15px; }
-.chip .t{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.chip .dim{ color:var(--muted); }
-.chip .caret{ width:11px; height:11px; color:var(--muted); margin-left:-2px; }
-#ring{ flex:none; width:18px; height:18px; margin:0 4px 0 6px; border-radius:50%; border:2px solid #3d3d3d; border-top-color:var(--blue); }
-#ring.busy{ animation:spin .9s linear infinite; }
-
-/* ---------- pop-up menus ---------- */
-#menu{ position:fixed; z-index:10; min-width:190px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow:auto; background:#262626; border:1px solid #3a3a3a; border-radius:12px; padding:5px; box-shadow:0 14px 34px rgba(0,0,0,.5); }
-#menu button{ display:flex; align-items:baseline; gap:8px; width:100%; text-align:left; padding:6px 9px; border-radius:8px; overflow-wrap:anywhere; }
-#menu button:hover{ background:var(--press); }
-#menu button:disabled{ color:var(--muted); cursor:default; background:none; }
-#menu .tick{ flex:none; width:12px; color:var(--text2); }
-#menu .w{ display:flex; flex-direction:column; min-width:0; }
-#menu .s{ color:var(--muted); font-size:12px; line-height:1.35; }
-#menu hr{ border:0; border-top:1px solid #3a3a3a; margin:5px 4px; }
-
-#chat-head{display:flex;align-items:center;gap:6px;padding:10px 12px 6px;border-bottom:1px solid var(--line)}
-#provider{font-weight:600;flex:1;min-width:0;text-align:left;padding:5px 7px;border-radius:8px}
-#new-chat,#settings{width:29px;height:29px;border-radius:8px;font-size:18px;color:var(--text2)}
-#chat-head button:hover{background:var(--hover)}
-#chooser{margin:auto 0;max-width:480px;align-self:center;width:100%;padding:20px 0}
-#chooser h2{font-size:20px;line-height:1.25;margin:0 0 8px;font-weight:600;letter-spacing:-.3px}
-#chooser p{color:var(--muted);margin:0 0 20px}
-.provider-choice{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:16px;margin-top:10px;border:1px solid var(--line2);border-radius:14px;background:var(--card);text-align:left}
-.provider-choice:hover{border-color:var(--muted);background:var(--hover)}
-.provider-choice strong{font-size:14px}.provider-choice span{color:var(--muted);font-size:12px}
-#attachments{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
-.attachment{display:flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px;border:1px solid var(--line2);border-radius:8px;background:var(--card);font-size:12px}
-.attachment span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.attachment button{width:19px;height:19px;border-radius:4px;color:var(--muted)}
-.attachment button:hover{background:var(--press);color:var(--text)}
-body.codex{--clay:#9d79f2;--blue:#9d79f2}
-button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-:root.light{color-scheme:light;--bg:#f6f7f9;--card:#fff;--box:#fff;--line:#e3e5e9;--line2:#d9dde4;--text:#15171c;--text2:#4a505d;--muted:#878d99;--faint:#adb2bc;--hover:rgba(16,20,28,.045);--press:rgba(16,20,28,.08)}
-:root.light #menu{background:var(--card);border-color:var(--line2);box-shadow:0 12px 26px -16px rgba(16,20,28,.32)}
-:root.light #box{border-color:var(--line2)}:root.light #go{color:#fff!important}:root.light #menu hr{border-color:var(--line2)}.provider-choice{flex-direction:row;align-items:center;gap:14px;padding:14px 16px;min-height:62px}.provider-logo{width:30px;height:30px;object-fit:contain;flex:none}.logo-light{display:none}:root.light .logo-light{display:block}:root.light .logo-dark{display:none}</style>
+</style>
 </head>
 <body>
-<div id="chat">
-  <div id="chat-head"><button id="provider" title="Choose assistant"></button><button id="new-chat" title="New chat" aria-label="New chat">&#x270E;</button><button id="settings" title="Account and settings" aria-label="Account and settings">&#x22EF;</button></div>
-  <div id="mcp-notice" class="card" role="status" hidden style="padding:10px 12px;font-size:12px;line-height:1.5;flex-shrink:0">
-    <div id="mcp-message"></div>
-    <button id="mcp-install" class="chip">Open Package Manager</button>
-    <button id="mcp-retry" class="chip">Retry</button>
-  </div>
-  <div id="scroll">
-    <div id="chooser">
+<div class="view" id="view-agent">
+  <div class="ag-top" id="mcpNote" hidden></div>
+  <div class="ag-scroll" id="chatLog">
+    <div class="ag-hello" id="chooser" hidden>
+      <span class="ag-mark hello-mark" data-ic="tabAgent"></span>
       <h2>Choose your assistant</h2>
-      <button class="provider-choice" data-provider="claude"><img class="provider-logo" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQ4IiBoZWlnaHQ9IjI0OCIgdmlld0JveD0iMCAwIDI0OCAyNDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01Mi40Mjg1IDE2Mi44NzNMOTguNzg0NCAxMzYuODc5TDk5LjU0ODUgMTM0LjYwMkw5OC43ODQ0IDEzMy4zMzRIOTYuNDkyMUw4OC43MjM3IDEzMi44NjJMNjIuMjM0NiAxMzIuMTUzTDM5LjMxMTMgMTMxLjIwN0wxNy4wMjQ5IDEzMC4wMjZMMTEuNDIxNCAxMjguODQ0TDYuMiAxMjEuODczTDYuNzA5NCAxMTguNDQ3TDExLjQyMTQgMTE1LjI1N0wxOC4xNzEgMTE1Ljg0N0wzMy4wNzExIDExNi45MTFMNTUuNDg1IDExOC40NDdMNzEuNjU4NiAxMTkuMzkyTDk1LjcyOCAxMjEuODczSDk5LjU0ODVMMTAwLjA1OCAxMjAuMzM3TDk4Ljc4NDQgMTE5LjM5Mkw5Ny43NjU2IDExOC40NDdMNzQuNTg3NyAxMDIuNzMyTDQ5LjQ5OTUgODYuMTkwNUwzNi4zODIzIDc2LjYyTDI5LjM3NzkgNzEuNzc1N0wyNS44MTIxIDY3LjI4NThMMjQuMjgzOSA1Ny4zNjA4TDMwLjY1MTUgNTAuMjcxNkwzOS4zMTEzIDUwLjg2MjNMNDEuNDc2MyA1MS40NTMxTDUwLjI2MzYgNTguMTg3OUw2OC45ODQyIDcyLjcyMDlMOTMuNDM1NyA5MC42ODA0TDk3LjAwMTUgOTMuNjM0M0w5OC40Mzc0IDkyLjY2NTJMOTguNjU3MSA5MS45ODAxTDk3LjAwMTUgODkuMjYyNUw4My43NTcgNjUuMjc3Mkw2OS42MjEgNDAuODE5Mkw2My4yNTM0IDMwLjY1NzlMNjEuNTk3OCAyNC42MzJDNjAuOTU2NSAyMi4xMDMyIDYwLjU3OSAyMC4wMTExIDYwLjU3OSAxNy40MjQ2TDY3LjgzODEgNy40OTk2NUw3MS45MTMzIDYuMTk5OTVMODEuNzE5MyA3LjQ5OTY1TDg1Ljc5NDYgMTEuMDQ0M0w5MS45MDc0IDI0Ljk4NjVMMTAxLjcxNCA0Ni44NDUxTDExNi45OTYgNzYuNjJMMTIxLjQ1MyA4NS40ODE2TDEyMy44NzMgOTMuNjM0M0wxMjQuNzY0IDk2LjExNTVIMTI2LjI5MlY5NC42OTc2TDEyNy41NjYgNzcuOTE5N0wxMjkuODU4IDU3LjM2MDhMMTMyLjE1IDMwLjg5NDJMMTMyLjkxNSAyMy40NTA1TDEzNi42MDggMTQuNDcwOEwxNDMuOTk0IDkuNjI2NDNMMTQ5LjcyNSAxMi4zNDRMMTU0LjQzNyAxOS4wNzg4TDE1My44IDIzLjQ1MDVMMTUwLjk5OCA0MS42NDYzTDE0NS41MjIgNzAuMTIxNUwxNDEuOTU3IDg5LjI2MjVIMTQzLjk5NEwxNDYuNDE0IDg2Ljc4MTNMMTU2LjA5MyA3NC4wMjA2TDE3Mi4yNjYgNTMuNjk4TDE3OS4zOTggNDUuNjYzNUwxODcuODAzIDM2LjgwMkwxOTMuMTUyIDMyLjU0ODRIMjAzLjM0TDIxMC43MjYgNDMuNjU0OUwyMDcuNDE1IDU1LjExNTlMMTk2Ljk3MiA2OC4zNDkyTDE4OC4zMTIgNzkuNTczOUwxNzUuODk2IDk2LjIwOTVMMTY4LjE5MSAxMDkuNTg1TDE2OC44ODIgMTEwLjY4OUwxNzAuNzM4IDExMC41M0wxOTguNzU1IDEwNC41MDRMMjEzLjkxIDEwMS43ODdMMjMxLjk5NCA5OC43MTQ5TDI0MC4xNDQgMTAyLjQ5NkwyNDEuMDM2IDEwNi4zOTVMMjM3Ljg1MiAxMTQuMzExTDIxOC40OTUgMTE5LjAzN0wxOTUuODI2IDEyMy42NDVMMTYyLjA3IDEzMS41OTJMMTYxLjY5NiAxMzEuODkzTDE2Mi4xMzcgMTMyLjU0N0wxNzcuMzYgMTMzLjkyNUwxODMuODU1IDEzNC4yNzlIMTk5Ljc3NEwyMjkuNDQ3IDEzNi41MjRMMjM3LjIxNSAxNDEuNjA1TDI0MS44IDE0Ny44NjdMMjQxLjAzNiAxNTIuNzExTDIyOS4wNjUgMTU4LjczN0wyMTMuMDE5IDE1NC45NTZMMTc1LjQ1IDE0NS45NzdMMTYyLjU4NyAxNDIuNzg3SDE2MC44MDVWMTQzLjg1TDE3MS41MDIgMTU0LjM2NkwxOTEuMjQyIDE3Mi4wODlMMjE1LjgyIDE5NS4wMTFMMjE3LjA5NCAyMDAuNjgyTDIxMy45MSAyMDUuMTcyTDIxMC41OTkgMjA0LjY5OUwxODguOTQ5IDE4OC4zOTRMMTgwLjU0NCAxODEuMDY5TDE2MS42OTYgMTY1LjExOEgxNjAuNDIyVjE2Ni43NzJMMTY0Ljc1MiAxNzMuMTUyTDE4Ny44MDMgMjA3Ljc3MUwxODguOTQ5IDIxOC40MDVMMTg3LjI5NCAyMjEuODMyTDE4MS4zMDggMjIzLjk1OUwxNzQuODEzIDIyMi43NzdMMTYxLjE4NyAyMDMuNzU0TDE0Ny4zMDUgMTgyLjQ4NkwxMzYuMDk4IDE2My4zNDVMMTM0Ljc0NSAxNjQuMkwxMjguMDc1IDIzNS40MkwxMjUuMDE5IDIzOS4wODJMMTE3Ljg4NyAyNDEuOEwxMTEuOTAyIDIzNy4zMUwxMDguNzE4IDIyOS45ODRMMTExLjkwMiAyMTUuNDUyTDExNS43MjIgMTk2LjU0N0wxMTguNzc5IDE4MS41NDFMMTIxLjU4IDE2Mi44NzNMMTIzLjI5MSAxNTYuNjM2TDEyMy4xNCAxNTYuMjE5TDEyMS43NzMgMTU2LjQ0OUwxMDcuNjk5IDE3NS43NTJMODYuMzA0IDIwNC42OTlMNjkuMzY2MyAyMjIuNzc3TDY1LjI5MSAyMjQuNDMxTDU4LjI4NjcgMjIwLjc2OEw1OC45MjM1IDIxNC4yN0w2Mi44NzEzIDIwOC40OEw4Ni4zMDQgMTc4LjcwNUwxMDAuNDQgMTYwLjE1NUwxMDkuNTUxIDE0OS41MDdMMTA5LjQ2MiAxNDcuOTY3TDEwOC45NTkgMTQ3LjkyNEw0Ni42OTc3IDE4OC41MTJMMzUuNjE4MiAxODkuOTNMMzAuNzc4OCAxODUuNDRMMzEuNDE1NiAxNzguMTE1TDMzLjcwNzkgMTc1Ljc1Mkw1Mi40Mjg1IDE2Mi44NzNaIiBmaWxsPSIjRDk3NzU3Ii8+Cjwvc3ZnPgo=" alt=""><strong>Claude Code</strong></button>
-      <button class="provider-choice" data-provider="codex"><img class="provider-logo logo-light" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIxIiBoZWlnaHQ9IjcyMSIgdmlld0JveD0iMCAwIDcyMSA3MjEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xNjM3XzI5MzQpIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAxXzE2MzdfMjkzNCkiPgo8cGF0aCBkPSJNMzA0LjI0NiAyOTQuNjExVjI0OS4wMjhDMzA0LjI0NiAyNDUuMTg5IDMwNS42ODcgMjQyLjMwOSAzMDkuMDQ0IDI0MC4zOTJMNDAwLjY5MiAxODcuNjEyQzQxMy4xNjcgMTgwLjQxNSA0MjguMDQyIDE3Ny4wNTggNDQzLjM5NCAxNzcuMDU4QzUwMC45NzEgMTc3LjA1OCA1MzcuNDQgMjIxLjY4MiA1MzcuNDQgMjY5LjE4MkM1MzcuNDQgMjcyLjU0IDUzNy40NCAyNzYuMzc5IDUzNi45NTkgMjgwLjIxOEw0NDEuOTU0IDIyNC41NThDNDM2LjE5NyAyMjEuMjAxIDQzMC40MzcgMjIxLjIwMSA0MjQuNjggMjI0LjU1OEwzMDQuMjQ2IDI5NC42MTFaTTUxOC4yNDUgNDcyLjE0NVYzNjMuMjI0QzUxOC4yNDUgMzU2LjUwNSA1MTUuMzY0IDM1MS43MDcgNTA5LjYwOCAzNDguMzQ5TDM4OS4xNzQgMjc4LjI5Nkw0MjguNTE5IDI1NS43NDNDNDMxLjg3NyAyNTMuODI2IDQzNC43NTcgMjUzLjgyNiA0MzguMTE1IDI1NS43NDNMNTI5Ljc2MiAzMDguNTIzQzU1Ni4xNTQgMzIzLjg3OSA1NzMuOTA1IDM1Ni41MDUgNTczLjkwNSAzODguMTcxQzU3My45MDUgNDI0LjYzNiA1NTIuMzE1IDQ1OC4yMjUgNTE4LjI0NSA0NzIuMTQxVjQ3Mi4xNDVaTTI3NS45MzcgMzc2LjE4MkwyMzYuNTkyIDM1My4xNTJDMjMzLjIzNSAzNTEuMjM1IDIzMS43OTQgMzQ4LjM1NCAyMzEuNzk0IDM0NC41MTVWMjM4Ljk1NkMyMzEuNzk0IDE4Ny42MTcgMjcxLjEzOSAxNDguNzQ5IDMyNC40IDE0OC43NDlDMzQ0LjU1NSAxNDguNzQ5IDM2My4yNjQgMTU1LjQ2OCAzNzkuMTAyIDE2Ny40NjNMMjg0LjU3OCAyMjIuMTY0QzI3OC44MjIgMjI1LjUyMSAyNzUuOTQyIDIzMC4zMTkgMjc1Ljk0MiAyMzcuMDM5VjM3Ni4xODZMMjc1LjkzNyAzNzYuMTgyWk0zNjAuNjI2IDQyNS4xMjJMMzA0LjI0NiAzOTMuNDU1VjMyNi4yODNMMzYwLjYyNiAyOTQuNjE2TDQxNy4wMDIgMzI2LjI4M1YzOTMuNDU1TDM2MC42MjYgNDI1LjEyMlpNMzk2Ljg1MiA1NzAuOTg5QzM3Ni42OTggNTcwLjk4OSAzNTcuOTg5IDU2NC4yNyAzNDIuMTUxIDU1Mi4yNzZMNDM2LjY3NCA0OTcuNTc0QzQ0Mi40MzEgNDk0LjIxNyA0NDUuMzExIDQ4OS40MTkgNDQ1LjMxMSA0ODIuNjk5VjM0My41NTJMNDg1LjEzOCAzNjYuNTgyQzQ4OC40OTUgMzY4LjQ5OSA0ODkuOTM2IDM3MS4zNzkgNDg5LjkzNiAzNzUuMjE5VjQ4MC43NzhDNDg5LjkzNiA1MzIuMTE3IDQ1MC4xMDkgNTcwLjk4NSAzOTYuODUyIDU3MC45ODVWNTcwLjk4OVpNMjgzLjEzNCA0NjMuOTlMMTkxLjQ4NiA0MTEuMjExQzE2NS4wOTQgMzk1Ljg1NCAxNDcuMzQzIDM2My4yMjkgMTQ3LjM0MyAzMzEuNTYyQzE0Ny4zNDMgMjk0LjYxNiAxNjkuNDE1IDI2MS41MDkgMjAzLjQ4IDI0Ny41OTNWMzU2Ljk5MUMyMDMuNDggMzYzLjcxIDIwNi4zNjEgMzY4LjUwOCAyMTIuMTE3IDM3MS44NjZMMzMyLjA3NCA0NDEuNDM3TDI5Mi43MjkgNDYzLjk5QzI4OS4zNzIgNDY1LjkwNyAyODYuNDkxIDQ2NS45MDcgMjgzLjEzNCA0NjMuOTlaTTI3Ny44NTkgNTQyLjY4QzIyMy42MzkgNTQyLjY4IDE4My44MTMgNTAxLjg5NSAxODMuODEzIDQ1MS41MTRDMTgzLjgxMyA0NDcuNjc1IDE4NC4yOTQgNDQzLjgzNiAxODQuNzcxIDQzOS45OTdMMjc5LjI5NSA0OTQuNjk4QzI4NS4wNTEgNDk4LjA1NiAyOTAuODEyIDQ5OC4wNTYgMjk2LjU2OCA0OTQuNjk4TDQxNy4wMDIgNDI1LjEyN1Y0NzAuNzFDNDE3LjAwMiA0NzQuNTQ5IDQxNS41NjIgNDc3LjQyOSA0MTIuMjA0IDQ3OS4zNDZMMzIwLjU1NyA1MzIuMTI2QzMwOC4wODEgNTM5LjMyMyAyOTMuMjA2IDU0Mi42OCAyNzcuODU0IDU0Mi42OEgyNzcuODU5Wk0zOTYuODUyIDU5OS43NzZDNDU0LjkxMSA1OTkuNzc2IDUwMy4zNyA1NTguNTEzIDUxNC40MSA1MDMuODEyQzU2OC4xNDkgNDg5Ljg5NiA2MDIuNjk2IDQzOS41MTUgNjAyLjY5NiAzODguMTc2QzYwMi42OTYgMzU0LjU4NyA1ODguMzAzIDMyMS45NjIgNTYyLjM5MiAyOTguNDVDNTY0Ljc5MSAyODguMzczIDU2Ni4yMzEgMjc4LjI5NiA1NjYuMjMxIDI2OC4yMjRDNTY2LjIzMSAxOTkuNjExIDUxMC41NzEgMTQ4LjI2NyA0NDYuMjc0IDE0OC4yNjdDNDMzLjMyMiAxNDguMjY3IDQyMC44NDYgMTUwLjE4NCA0MDguMzcgMTU0LjUwNUMzODYuNzc1IDEzMy4zOTIgMzU3LjAyNiAxMTkuOTU4IDMyNC40IDExOS45NThDMjY2LjM0MiAxMTkuOTU4IDIxNy44ODMgMTYxLjIyIDIwNi44NDMgMjE1LjkyMUMxNTMuMTA0IDIyOS44MzcgMTE4LjU1NyAyODAuMjE4IDExOC41NTcgMzMxLjU1N0MxMTguNTU3IDM2NS4xNDYgMTMyLjk1IDM5Ny43NzEgMTU4Ljg2MSA0MjEuMjgzQzE1Ni40NjIgNDMxLjM2IDE1NS4wMjIgNDQxLjQzNyAxNTUuMDIyIDQ1MS41MUMxNTUuMDIyIDUyMC4xMjMgMjEwLjY4MiA1NzEuNDY2IDI3NC45NzggNTcxLjQ2NkMyODcuOTMxIDU3MS40NjYgMzAwLjQwNyA1NjkuNTQ5IDMxMi44ODMgNTY1LjIyOEMzMzQuNDczIDU4Ni4zNDEgMzY0LjIyMiA1OTkuNzc2IDM5Ni44NTIgNTk5Ljc3NloiIGZpbGw9ImJsYWNrIi8+CjwvZz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNjM3XzI5MzQiPgo8cmVjdCB3aWR0aD0iNzIwIiBoZWlnaHQ9IjcyMCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuNjA2OTM0IDAuMDk5OTc1NikiLz4KPC9jbGlwUGF0aD4KPGNsaXBQYXRoIGlkPSJjbGlwMV8xNjM3XzI5MzQiPgo8cmVjdCB3aWR0aD0iNDg0LjEzOSIgaGVpZ2h0PSI0NzkuODE4IiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE4LjU1NyAxMTkuOTU4KSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=" alt=""><img class="provider-logo logo-dark" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIxIiBoZWlnaHQ9IjcyMSIgdmlld0JveD0iMCAwIDcyMSA3MjEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xNjM3XzI5MzUpIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAxXzE2MzdfMjkzNSkiPgo8cGF0aCBkPSJNMzA0LjI0NiAyOTUuNDExVjI0OS44MjhDMzA0LjI0NiAyNDUuOTg5IDMwNS42ODcgMjQzLjEwOSAzMDkuMDQ0IDI0MS4xOTFMNDAwLjY5MiAxODguNDEyQzQxMy4xNjcgMTgxLjIxNSA0MjguMDQyIDE3Ny44NTggNDQzLjM5NCAxNzcuODU4QzUwMC45NzEgMTc3Ljg1OCA1MzcuNDQgMjIyLjQ4MiA1MzcuNDQgMjY5Ljk4MkM1MzcuNDQgMjczLjM0IDUzNy40NCAyNzcuMTc5IDUzNi45NTkgMjgxLjAxOEw0NDEuOTU0IDIyNS4zNThDNDM2LjE5NyAyMjIgNDMwLjQzNyAyMjIgNDI0LjY4IDIyNS4zNThMMzA0LjI0NiAyOTUuNDExWk01MTguMjQ1IDQ3Mi45NDVWMzY0LjAyNEM1MTguMjQ1IDM1Ny4zMDQgNTE1LjM2NCAzNTIuNTA3IDUwOS42MDggMzQ5LjE0OUwzODkuMTc0IDI3OS4wOTZMNDI4LjUxOSAyNTYuNTQzQzQzMS44NzcgMjU0LjYyNiA0MzQuNzU3IDI1NC42MjYgNDM4LjExNSAyNTYuNTQzTDUyOS43NjIgMzA5LjMyM0M1NTYuMTU0IDMyNC42NzkgNTczLjkwNSAzNTcuMzA0IDU3My45MDUgMzg4Ljk3MUM1NzMuOTA1IDQyNS40MzYgNTUyLjMxNSA0NTkuMDI0IDUxOC4yNDUgNDcyLjk0MVY0NzIuOTQ1Wk0yNzUuOTM3IDM3Ni45ODJMMjM2LjU5MiAzNTMuOTUyQzIzMy4yMzUgMzUyLjAzNCAyMzEuNzk0IDM0OS4xNTQgMjMxLjc5NCAzNDUuMzE1VjIzOS43NTZDMjMxLjc5NCAxODguNDE2IDI3MS4xMzkgMTQ5LjU0OCAzMjQuNCAxNDkuNTQ4QzM0NC41NTUgMTQ5LjU0OCAzNjMuMjY0IDE1Ni4yNjggMzc5LjEwMiAxNjguMjYyTDI4NC41NzggMjIyLjk2NEMyNzguODIyIDIyNi4zMjEgMjc1Ljk0MiAyMzEuMTE5IDI3NS45NDIgMjM3LjgzOFYzNzYuOTg2TDI3NS45MzcgMzc2Ljk4MlpNMzYwLjYyNiA0MjUuOTIyTDMwNC4yNDYgMzk0LjI1NVYzMjcuMDgzTDM2MC42MjYgMjk1LjQxNkw0MTcuMDAyIDMyNy4wODNWMzk0LjI1NUwzNjAuNjI2IDQyNS45MjJaTTM5Ni44NTIgNTcxLjc4OUMzNzYuNjk4IDU3MS43ODkgMzU3Ljk4OSA1NjUuMDcgMzQyLjE1MSA1NTMuMDc1TDQzNi42NzQgNDk4LjM3NEM0NDIuNDMxIDQ5NS4wMTcgNDQ1LjMxMSA0OTAuMjE5IDQ0NS4zMTEgNDgzLjQ5OVYzNDQuMzUyTDQ4NS4xMzggMzY3LjM4MkM0ODguNDk1IDM2OS4yOTkgNDg5LjkzNiAzNzIuMTc5IDQ4OS45MzYgMzc2LjAxOFY0ODEuNTc3QzQ4OS45MzYgNTMyLjkxNyA0NTAuMTA5IDU3MS43ODUgMzk2Ljg1MiA1NzEuNzg1VjU3MS43ODlaTTI4My4xMzQgNDY0Ljc5TDE5MS40ODYgNDEyLjAxQzE2NS4wOTQgMzk2LjY1NCAxNDcuMzQzIDM2NC4wMjkgMTQ3LjM0MyAzMzIuMzYyQzE0Ny4zNDMgMjk1LjQxNiAxNjkuNDE1IDI2Mi4zMDkgMjAzLjQ4IDI0OC4zOTNWMzU3Ljc5MUMyMDMuNDggMzY0LjUxIDIwNi4zNjEgMzY5LjMwOCAyMTIuMTE3IDM3Mi42NjVMMzMyLjA3NCA0NDIuMjM3TDI5Mi43MjkgNDY0Ljc5QzI4OS4zNzIgNDY2LjcwNyAyODYuNDkxIDQ2Ni43MDcgMjgzLjEzNCA0NjQuNzlaTTI3Ny44NTkgNTQzLjQ4QzIyMy42MzkgNTQzLjQ4IDE4My44MTMgNTAyLjY5NSAxODMuODEzIDQ1Mi4zMTRDMTgzLjgxMyA0NDguNDc1IDE4NC4yOTQgNDQ0LjYzNiAxODQuNzcxIDQ0MC43OTdMMjc5LjI5NSA0OTUuNDk4QzI4NS4wNTEgNDk4Ljg1NiAyOTAuODEyIDQ5OC44NTYgMjk2LjU2OCA0OTUuNDk4TDQxNy4wMDIgNDI1LjkyN1Y0NzEuNTA5QzQxNy4wMDIgNDc1LjM0OSA0MTUuNTYyIDQ3OC4yMjkgNDEyLjIwNCA0ODAuMTQ2TDMyMC41NTcgNTMyLjkyNkMzMDguMDgxIDU0MC4xMjIgMjkzLjIwNiA1NDMuNDggMjc3Ljg1NCA1NDMuNDhIMjc3Ljg1OVpNMzk2Ljg1MiA2MDAuNTc2QzQ1NC45MTEgNjAwLjU3NiA1MDMuMzcgNTU5LjMxMyA1MTQuNDEgNTA0LjYxMkM1NjguMTQ5IDQ5MC42OTYgNjAyLjY5NiA0NDAuMzE1IDYwMi42OTYgMzg4Ljk3NkM2MDIuNjk2IDM1NS4zODcgNTg4LjMwMyAzMjIuNzYyIDU2Mi4zOTIgMjk5LjI1QzU2NC43OTEgMjg5LjE3MyA1NjYuMjMxIDI3OS4wOTYgNTY2LjIzMSAyNjkuMDI0QzU2Ni4yMzEgMjAwLjQxMSA1MTAuNTcxIDE0OS4wNjcgNDQ2LjI3NCAxNDkuMDY3QzQzMy4zMjIgMTQ5LjA2NyA0MjAuODQ2IDE1MC45ODQgNDA4LjM3IDE1NS4zMDVDMzg2Ljc3NSAxMzQuMTkyIDM1Ny4wMjYgMTIwLjc1OCAzMjQuNCAxMjAuNzU4QzI2Ni4zNDIgMTIwLjc1OCAyMTcuODgzIDE2Mi4wMiAyMDYuODQzIDIxNi43MjFDMTUzLjEwNCAyMzAuNjM3IDExOC41NTcgMjgxLjAxOCAxMTguNTU3IDMzMi4zNTdDMTE4LjU1NyAzNjUuOTQ2IDEzMi45NSAzOTguNTcxIDE1OC44NjEgNDIyLjA4M0MxNTYuNDYyIDQzMi4xNiAxNTUuMDIyIDQ0Mi4yMzcgMTU1LjAyMiA0NTIuMzA5QzE1NS4wMjIgNTIwLjkyMiAyMTAuNjgyIDU3Mi4yNjYgMjc0Ljk3OCA1NzIuMjY2QzI4Ny45MzEgNTcyLjI2NiAzMDAuNDA3IDU3MC4zNDkgMzEyLjg4MyA1NjYuMDI4QzMzNC40NzMgNTg3LjE0MSAzNjQuMjIyIDYwMC41NzYgMzk2Ljg1MiA2MDAuNTc2WiIgZmlsbD0id2hpdGUiLz4KPC9nPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwXzE2MzdfMjkzNSI+CjxyZWN0IHdpZHRoPSI3MjAiIGhlaWdodD0iNzIwIiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMC42MDY5MzQgMC44OTk5MDIpIi8+CjwvY2xpcFBhdGg+CjxjbGlwUGF0aCBpZD0iY2xpcDFfMTYzN18yOTM1Ij4KPHJlY3Qgd2lkdGg9IjQ4NC4xMzkiIGhlaWdodD0iNDc5LjgxOCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExOC41NTcgMTIwLjc1OCkiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K" alt=""><strong>Codex</strong></button>
+      <div class="ag-picks">
+        <button type="button" class="ag-pick" data-provider="claude"><img class="provider-logo" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQ4IiBoZWlnaHQ9IjI0OCIgdmlld0JveD0iMCAwIDI0OCAyNDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01Mi40Mjg1IDE2Mi44NzNMOTguNzg0NCAxMzYuODc5TDk5LjU0ODUgMTM0LjYwMkw5OC43ODQ0IDEzMy4zMzRIOTYuNDkyMUw4OC43MjM3IDEzMi44NjJMNjIuMjM0NiAxMzIuMTUzTDM5LjMxMTMgMTMxLjIwN0wxNy4wMjQ5IDEzMC4wMjZMMTEuNDIxNCAxMjguODQ0TDYuMiAxMjEuODczTDYuNzA5NCAxMTguNDQ3TDExLjQyMTQgMTE1LjI1N0wxOC4xNzEgMTE1Ljg0N0wzMy4wNzExIDExNi45MTFMNTUuNDg1IDExOC40NDdMNzEuNjU4NiAxMTkuMzkyTDk1LjcyOCAxMjEuODczSDk5LjU0ODVMMTAwLjA1OCAxMjAuMzM3TDk4Ljc4NDQgMTE5LjM5Mkw5Ny43NjU2IDExOC40NDdMNzQuNTg3NyAxMDIuNzMyTDQ5LjQ5OTUgODYuMTkwNUwzNi4zODIzIDc2LjYyTDI5LjM3NzkgNzEuNzc1N0wyNS44MTIxIDY3LjI4NThMMjQuMjgzOSA1Ny4zNjA4TDMwLjY1MTUgNTAuMjcxNkwzOS4zMTEzIDUwLjg2MjNMNDEuNDc2MyA1MS40NTMxTDUwLjI2MzYgNTguMTg3OUw2OC45ODQyIDcyLjcyMDlMOTMuNDM1NyA5MC42ODA0TDk3LjAwMTUgOTMuNjM0M0w5OC40Mzc0IDkyLjY2NTJMOTguNjU3MSA5MS45ODAxTDk3LjAwMTUgODkuMjYyNUw4My43NTcgNjUuMjc3Mkw2OS42MjEgNDAuODE5Mkw2My4yNTM0IDMwLjY1NzlMNjEuNTk3OCAyNC42MzJDNjAuOTU2NSAyMi4xMDMyIDYwLjU3OSAyMC4wMTExIDYwLjU3OSAxNy40MjQ2TDY3LjgzODEgNy40OTk2NUw3MS45MTMzIDYuMTk5OTVMODEuNzE5MyA3LjQ5OTY1TDg1Ljc5NDYgMTEuMDQ0M0w5MS45MDc0IDI0Ljk4NjVMMTAxLjcxNCA0Ni44NDUxTDExNi45OTYgNzYuNjJMMTIxLjQ1MyA4NS40ODE2TDEyMy44NzMgOTMuNjM0M0wxMjQuNzY0IDk2LjExNTVIMTI2LjI5MlY5NC42OTc2TDEyNy41NjYgNzcuOTE5N0wxMjkuODU4IDU3LjM2MDhMMTMyLjE1IDMwLjg5NDJMMTMyLjkxNSAyMy40NTA1TDEzNi42MDggMTQuNDcwOEwxNDMuOTk0IDkuNjI2NDNMMTQ5LjcyNSAxMi4zNDRMMTU0LjQzNyAxOS4wNzg4TDE1My44IDIzLjQ1MDVMMTUwLjk5OCA0MS42NDYzTDE0NS41MjIgNzAuMTIxNUwxNDEuOTU3IDg5LjI2MjVIMTQzLjk5NEwxNDYuNDE0IDg2Ljc4MTNMMTU2LjA5MyA3NC4wMjA2TDE3Mi4yNjYgNTMuNjk4TDE3OS4zOTggNDUuNjYzNUwxODcuODAzIDM2LjgwMkwxOTMuMTUyIDMyLjU0ODRIMjAzLjM0TDIxMC43MjYgNDMuNjU0OUwyMDcuNDE1IDU1LjExNTlMMTk2Ljk3MiA2OC4zNDkyTDE4OC4zMTIgNzkuNTczOUwxNzUuODk2IDk2LjIwOTVMMTY4LjE5MSAxMDkuNTg1TDE2OC44ODIgMTEwLjY4OUwxNzAuNzM4IDExMC41M0wxOTguNzU1IDEwNC41MDRMMjEzLjkxIDEwMS43ODdMMjMxLjk5NCA5OC43MTQ5TDI0MC4xNDQgMTAyLjQ5NkwyNDEuMDM2IDEwNi4zOTVMMjM3Ljg1MiAxMTQuMzExTDIxOC40OTUgMTE5LjAzN0wxOTUuODI2IDEyMy42NDVMMTYyLjA3IDEzMS41OTJMMTYxLjY5NiAxMzEuODkzTDE2Mi4xMzcgMTMyLjU0N0wxNzcuMzYgMTMzLjkyNUwxODMuODU1IDEzNC4yNzlIMTk5Ljc3NEwyMjkuNDQ3IDEzNi41MjRMMjM3LjIxNSAxNDEuNjA1TDI0MS44IDE0Ny44NjdMMjQxLjAzNiAxNTIuNzExTDIyOS4wNjUgMTU4LjczN0wyMTMuMDE5IDE1NC45NTZMMTc1LjQ1IDE0NS45NzdMMTYyLjU4NyAxNDIuNzg3SDE2MC44MDVWMTQzLjg1TDE3MS41MDIgMTU0LjM2NkwxOTEuMjQyIDE3Mi4wODlMMjE1LjgyIDE5NS4wMTFMMjE3LjA5NCAyMDAuNjgyTDIxMy45MSAyMDUuMTcyTDIxMC41OTkgMjA0LjY5OUwxODguOTQ5IDE4OC4zOTRMMTgwLjU0NCAxODEuMDY5TDE2MS42OTYgMTY1LjExOEgxNjAuNDIyVjE2Ni43NzJMMTY0Ljc1MiAxNzMuMTUyTDE4Ny44MDMgMjA3Ljc3MUwxODguOTQ5IDIxOC40MDVMMTg3LjI5NCAyMjEuODMyTDE4MS4zMDggMjIzLjk1OUwxNzQuODEzIDIyMi43NzdMMTYxLjE4NyAyMDMuNzU0TDE0Ny4zMDUgMTgyLjQ4NkwxMzYuMDk4IDE2My4zNDVMMTM0Ljc0NSAxNjQuMkwxMjguMDc1IDIzNS40MkwxMjUuMDE5IDIzOS4wODJMMTE3Ljg4NyAyNDEuOEwxMTEuOTAyIDIzNy4zMUwxMDguNzE4IDIyOS45ODRMMTExLjkwMiAyMTUuNDUyTDExNS43MjIgMTk2LjU0N0wxMTguNzc5IDE4MS41NDFMMTIxLjU4IDE2Mi44NzNMMTIzLjI5MSAxNTYuNjM2TDEyMy4xNCAxNTYuMjE5TDEyMS43NzMgMTU2LjQ0OUwxMDcuNjk5IDE3NS43NTJMODYuMzA0IDIwNC42OTlMNjkuMzY2MyAyMjIuNzc3TDY1LjI5MSAyMjQuNDMxTDU4LjI4NjcgMjIwLjc2OEw1OC45MjM1IDIxNC4yN0w2Mi44NzEzIDIwOC40OEw4Ni4zMDQgMTc4LjcwNUwxMDAuNDQgMTYwLjE1NUwxMDkuNTUxIDE0OS41MDdMMTA5LjQ2MiAxNDcuOTY3TDEwOC45NTkgMTQ3LjkyNEw0Ni42OTc3IDE4OC41MTJMMzUuNjE4MiAxODkuOTNMMzAuNzc4OCAxODUuNDRMMzEuNDE1NiAxNzguMTE1TDMzLjcwNzkgMTc1Ljc1Mkw1Mi40Mjg1IDE2Mi44NzNaIiBmaWxsPSIjRDk3NzU3Ii8+Cjwvc3ZnPgo=" alt=""><span>Claude Code</span></button>
+        <button type="button" class="ag-pick" data-provider="codex"><img class="provider-logo logo-light" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIxIiBoZWlnaHQ9IjcyMSIgdmlld0JveD0iMCAwIDcyMSA3MjEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xNjM3XzI5MzQpIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAxXzE2MzdfMjkzNCkiPgo8cGF0aCBkPSJNMzA0LjI0NiAyOTQuNjExVjI0OS4wMjhDMzA0LjI0NiAyNDUuMTg5IDMwNS42ODcgMjQyLjMwOSAzMDkuMDQ0IDI0MC4zOTJMNDAwLjY5MiAxODcuNjEyQzQxMy4xNjcgMTgwLjQxNSA0MjguMDQyIDE3Ny4wNTggNDQzLjM5NCAxNzcuMDU4QzUwMC45NzEgMTc3LjA1OCA1MzcuNDQgMjIxLjY4MiA1MzcuNDQgMjY5LjE4MkM1MzcuNDQgMjcyLjU0IDUzNy40NCAyNzYuMzc5IDUzNi45NTkgMjgwLjIxOEw0NDEuOTU0IDIyNC41NThDNDM2LjE5NyAyMjEuMjAxIDQzMC40MzcgMjIxLjIwMSA0MjQuNjggMjI0LjU1OEwzMDQuMjQ2IDI5NC42MTFaTTUxOC4yNDUgNDcyLjE0NVYzNjMuMjI0QzUxOC4yNDUgMzU2LjUwNSA1MTUuMzY0IDM1MS43MDcgNTA5LjYwOCAzNDguMzQ5TDM4OS4xNzQgMjc4LjI5Nkw0MjguNTE5IDI1NS43NDNDNDMxLjg3NyAyNTMuODI2IDQzNC43NTcgMjUzLjgyNiA0MzguMTE1IDI1NS43NDNMNTI5Ljc2MiAzMDguNTIzQzU1Ni4xNTQgMzIzLjg3OSA1NzMuOTA1IDM1Ni41MDUgNTczLjkwNSAzODguMTcxQzU3My45MDUgNDI0LjYzNiA1NTIuMzE1IDQ1OC4yMjUgNTE4LjI0NSA0NzIuMTQxVjQ3Mi4xNDVaTTI3NS45MzcgMzc2LjE4MkwyMzYuNTkyIDM1My4xNTJDMjMzLjIzNSAzNTEuMjM1IDIzMS43OTQgMzQ4LjM1NCAyMzEuNzk0IDM0NC41MTVWMjM4Ljk1NkMyMzEuNzk0IDE4Ny42MTcgMjcxLjEzOSAxNDguNzQ5IDMyNC40IDE0OC43NDlDMzQ0LjU1NSAxNDguNzQ5IDM2My4yNjQgMTU1LjQ2OCAzNzkuMTAyIDE2Ny40NjNMMjg0LjU3OCAyMjIuMTY0QzI3OC44MjIgMjI1LjUyMSAyNzUuOTQyIDIzMC4zMTkgMjc1Ljk0MiAyMzcuMDM5VjM3Ni4xODZMMjc1LjkzNyAzNzYuMTgyWk0zNjAuNjI2IDQyNS4xMjJMMzA0LjI0NiAzOTMuNDU1VjMyNi4yODNMMzYwLjYyNiAyOTQuNjE2TDQxNy4wMDIgMzI2LjI4M1YzOTMuNDU1TDM2MC42MjYgNDI1LjEyMlpNMzk2Ljg1MiA1NzAuOTg5QzM3Ni42OTggNTcwLjk4OSAzNTcuOTg5IDU2NC4yNyAzNDIuMTUxIDU1Mi4yNzZMNDM2LjY3NCA0OTcuNTc0QzQ0Mi40MzEgNDk0LjIxNyA0NDUuMzExIDQ4OS40MTkgNDQ1LjMxMSA0ODIuNjk5VjM0My41NTJMNDg1LjEzOCAzNjYuNTgyQzQ4OC40OTUgMzY4LjQ5OSA0ODkuOTM2IDM3MS4zNzkgNDg5LjkzNiAzNzUuMjE5VjQ4MC43NzhDNDg5LjkzNiA1MzIuMTE3IDQ1MC4xMDkgNTcwLjk4NSAzOTYuODUyIDU3MC45ODVWNTcwLjk4OVpNMjgzLjEzNCA0NjMuOTlMMTkxLjQ4NiA0MTEuMjExQzE2NS4wOTQgMzk1Ljg1NCAxNDcuMzQzIDM2My4yMjkgMTQ3LjM0MyAzMzEuNTYyQzE0Ny4zNDMgMjk0LjYxNiAxNjkuNDE1IDI2MS41MDkgMjAzLjQ4IDI0Ny41OTNWMzU2Ljk5MUMyMDMuNDggMzYzLjcxIDIwNi4zNjEgMzY4LjUwOCAyMTIuMTE3IDM3MS44NjZMMzMyLjA3NCA0NDEuNDM3TDI5Mi43MjkgNDYzLjk5QzI4OS4zNzIgNDY1LjkwNyAyODYuNDkxIDQ2NS45MDcgMjgzLjEzNCA0NjMuOTlaTTI3Ny44NTkgNTQyLjY4QzIyMy42MzkgNTQyLjY4IDE4My44MTMgNTAxLjg5NSAxODMuODEzIDQ1MS41MTRDMTgzLjgxMyA0NDcuNjc1IDE4NC4yOTQgNDQzLjgzNiAxODQuNzcxIDQzOS45OTdMMjc5LjI5NSA0OTQuNjk4QzI4NS4wNTEgNDk4LjA1NiAyOTAuODEyIDQ5OC4wNTYgMjk2LjU2OCA0OTQuNjk4TDQxNy4wMDIgNDI1LjEyN1Y0NzAuNzFDNDE3LjAwMiA0NzQuNTQ5IDQxNS41NjIgNDc3LjQyOSA0MTIuMjA0IDQ3OS4zNDZMMzIwLjU1NyA1MzIuMTI2QzMwOC4wODEgNTM5LjMyMyAyOTMuMjA2IDU0Mi42OCAyNzcuODU0IDU0Mi42OEgyNzcuODU5Wk0zOTYuODUyIDU5OS43NzZDNDU0LjkxMSA1OTkuNzc2IDUwMy4zNyA1NTguNTEzIDUxNC40MSA1MDMuODEyQzU2OC4xNDkgNDg5Ljg5NiA2MDIuNjk2IDQzOS41MTUgNjAyLjY5NiAzODguMTc2QzYwMi42OTYgMzU0LjU4NyA1ODguMzAzIDMyMS45NjIgNTYyLjM5MiAyOTguNDVDNTY0Ljc5MSAyODguMzczIDU2Ni4yMzEgMjc4LjI5NiA1NjYuMjMxIDI2OC4yMjRDNTY2LjIzMSAxOTkuNjExIDUxMC41NzEgMTQ4LjI2NyA0NDYuMjc0IDE0OC4yNjdDNDMzLjMyMiAxNDguMjY3IDQyMC44NDYgMTUwLjE4NCA0MDguMzcgMTU0LjUwNUMzODYuNzc1IDEzMy4zOTIgMzU3LjAyNiAxMTkuOTU4IDMyNC40IDExOS45NThDMjY2LjM0MiAxMTkuOTU4IDIxNy44ODMgMTYxLjIyIDIwNi44NDMgMjE1LjkyMUMxNTMuMTA0IDIyOS44MzcgMTE4LjU1NyAyODAuMjE4IDExOC41NTcgMzMxLjU1N0MxMTguNTU3IDM2NS4xNDYgMTMyLjk1IDM5Ny43NzEgMTU4Ljg2MSA0MjEuMjgzQzE1Ni40NjIgNDMxLjM2IDE1NS4wMjIgNDQxLjQzNyAxNTUuMDIyIDQ1MS41MUMxNTUuMDIyIDUyMC4xMjMgMjEwLjY4MiA1NzEuNDY2IDI3NC45NzggNTcxLjQ2NkMyODcuOTMxIDU3MS40NjYgMzAwLjQwNyA1NjkuNTQ5IDMxMi44ODMgNTY1LjIyOEMzMzQuNDczIDU4Ni4zNDEgMzY0LjIyMiA1OTkuNzc2IDM5Ni44NTIgNTk5Ljc3NloiIGZpbGw9ImJsYWNrIi8+CjwvZz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNjM3XzI5MzQiPgo8cmVjdCB3aWR0aD0iNzIwIiBoZWlnaHQ9IjcyMCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuNjA2OTM0IDAuMDk5OTc1NikiLz4KPC9jbGlwUGF0aD4KPGNsaXBQYXRoIGlkPSJjbGlwMV8xNjM3XzI5MzQiPgo8cmVjdCB3aWR0aD0iNDg0LjEzOSIgaGVpZ2h0PSI0NzkuODE4IiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE4LjU1NyAxMTkuOTU4KSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=" alt=""><img class="provider-logo logo-dark" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIxIiBoZWlnaHQ9IjcyMSIgdmlld0JveD0iMCAwIDcyMSA3MjEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xNjM3XzI5MzUpIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAxXzE2MzdfMjkzNSkiPgo8cGF0aCBkPSJNMzA0LjI0NiAyOTUuNDExVjI0OS44MjhDMzA0LjI0NiAyNDUuOTg5IDMwNS42ODcgMjQzLjEwOSAzMDkuMDQ0IDI0MS4xOTFMNDAwLjY5MiAxODguNDEyQzQxMy4xNjcgMTgxLjIxNSA0MjguMDQyIDE3Ny44NTggNDQzLjM5NCAxNzcuODU4QzUwMC45NzEgMTc3Ljg1OCA1MzcuNDQgMjIyLjQ4MiA1MzcuNDQgMjY5Ljk4MkM1MzcuNDQgMjczLjM0IDUzNy40NCAyNzcuMTc5IDUzNi45NTkgMjgxLjAxOEw0NDEuOTU0IDIyNS4zNThDNDM2LjE5NyAyMjIgNDMwLjQzNyAyMjIgNDI0LjY4IDIyNS4zNThMMzA0LjI0NiAyOTUuNDExWk01MTguMjQ1IDQ3Mi45NDVWMzY0LjAyNEM1MTguMjQ1IDM1Ny4zMDQgNTE1LjM2NCAzNTIuNTA3IDUwOS42MDggMzQ5LjE0OUwzODkuMTc0IDI3OS4wOTZMNDI4LjUxOSAyNTYuNTQzQzQzMS44NzcgMjU0LjYyNiA0MzQuNzU3IDI1NC42MjYgNDM4LjExNSAyNTYuNTQzTDUyOS43NjIgMzA5LjMyM0M1NTYuMTU0IDMyNC42NzkgNTczLjkwNSAzNTcuMzA0IDU3My45MDUgMzg4Ljk3MUM1NzMuOTA1IDQyNS40MzYgNTUyLjMxNSA0NTkuMDI0IDUxOC4yNDUgNDcyLjk0MVY0NzIuOTQ1Wk0yNzUuOTM3IDM3Ni45ODJMMjM2LjU5MiAzNTMuOTUyQzIzMy4yMzUgMzUyLjAzNCAyMzEuNzk0IDM0OS4xNTQgMjMxLjc5NCAzNDUuMzE1VjIzOS43NTZDMjMxLjc5NCAxODguNDE2IDI3MS4xMzkgMTQ5LjU0OCAzMjQuNCAxNDkuNTQ4QzM0NC41NTUgMTQ5LjU0OCAzNjMuMjY0IDE1Ni4yNjggMzc5LjEwMiAxNjguMjYyTDI4NC41NzggMjIyLjk2NEMyNzguODIyIDIyNi4zMjEgMjc1Ljk0MiAyMzEuMTE5IDI3NS45NDIgMjM3LjgzOFYzNzYuOTg2TDI3NS45MzcgMzc2Ljk4MlpNMzYwLjYyNiA0MjUuOTIyTDMwNC4yNDYgMzk0LjI1NVYzMjcuMDgzTDM2MC42MjYgMjk1LjQxNkw0MTcuMDAyIDMyNy4wODNWMzk0LjI1NUwzNjAuNjI2IDQyNS45MjJaTTM5Ni44NTIgNTcxLjc4OUMzNzYuNjk4IDU3MS43ODkgMzU3Ljk4OSA1NjUuMDcgMzQyLjE1MSA1NTMuMDc1TDQzNi42NzQgNDk4LjM3NEM0NDIuNDMxIDQ5NS4wMTcgNDQ1LjMxMSA0OTAuMjE5IDQ0NS4zMTEgNDgzLjQ5OVYzNDQuMzUyTDQ4NS4xMzggMzY3LjM4MkM0ODguNDk1IDM2OS4yOTkgNDg5LjkzNiAzNzIuMTc5IDQ4OS45MzYgMzc2LjAxOFY0ODEuNTc3QzQ4OS45MzYgNTMyLjkxNyA0NTAuMTA5IDU3MS43ODUgMzk2Ljg1MiA1NzEuNzg1VjU3MS43ODlaTTI4My4xMzQgNDY0Ljc5TDE5MS40ODYgNDEyLjAxQzE2NS4wOTQgMzk2LjY1NCAxNDcuMzQzIDM2NC4wMjkgMTQ3LjM0MyAzMzIuMzYyQzE0Ny4zNDMgMjk1LjQxNiAxNjkuNDE1IDI2Mi4zMDkgMjAzLjQ4IDI0OC4zOTNWMzU3Ljc5MUMyMDMuNDggMzY0LjUxIDIwNi4zNjEgMzY5LjMwOCAyMTIuMTE3IDM3Mi42NjVMMzMyLjA3NCA0NDIuMjM3TDI5Mi43MjkgNDY0Ljc5QzI4OS4zNzIgNDY2LjcwNyAyODYuNDkxIDQ2Ni43MDcgMjgzLjEzNCA0NjQuNzlaTTI3Ny44NTkgNTQzLjQ4QzIyMy42MzkgNTQzLjQ4IDE4My44MTMgNTAyLjY5NSAxODMuODEzIDQ1Mi4zMTRDMTgzLjgxMyA0NDguNDc1IDE4NC4yOTQgNDQ0LjYzNiAxODQuNzcxIDQ0MC43OTdMMjc5LjI5NSA0OTUuNDk4QzI4NS4wNTEgNDk4Ljg1NiAyOTAuODEyIDQ5OC44NTYgMjk2LjU2OCA0OTUuNDk4TDQxNy4wMDIgNDI1LjkyN1Y0NzEuNTA5QzQxNy4wMDIgNDc1LjM0OSA0MTUuNTYyIDQ3OC4yMjkgNDEyLjIwNCA0ODAuMTQ2TDMyMC41NTcgNTMyLjkyNkMzMDguMDgxIDU0MC4xMjIgMjkzLjIwNiA1NDMuNDggMjc3Ljg1NCA1NDMuNDhIMjc3Ljg1OVpNMzk2Ljg1MiA2MDAuNTc2QzQ1NC45MTEgNjAwLjU3NiA1MDMuMzcgNTU5LjMxMyA1MTQuNDEgNTA0LjYxMkM1NjguMTQ5IDQ5MC42OTYgNjAyLjY5NiA0NDAuMzE1IDYwMi42OTYgMzg4Ljk3NkM2MDIuNjk2IDM1NS4zODcgNTg4LjMwMyAzMjIuNzYyIDU2Mi4zOTIgMjk5LjI1QzU2NC43OTEgMjg5LjE3MyA1NjYuMjMxIDI3OS4wOTYgNTY2LjIzMSAyNjkuMDI0QzU2Ni4yMzEgMjAwLjQxMSA1MTAuNTcxIDE0OS4wNjcgNDQ2LjI3NCAxNDkuMDY3QzQzMy4zMjIgMTQ5LjA2NyA0MjAuODQ2IDE1MC45ODQgNDA4LjM3IDE1NS4zMDVDMzg2Ljc3NSAxMzQuMTkyIDM1Ny4wMjYgMTIwLjc1OCAzMjQuNCAxMjAuNzU4QzI2Ni4zNDIgMTIwLjc1OCAyMTcuODgzIDE2Mi4wMiAyMDYuODQzIDIxNi43MjFDMTUzLjEwNCAyMzAuNjM3IDExOC41NTcgMjgxLjAxOCAxMTguNTU3IDMzMi4zNTdDMTE4LjU1NyAzNjUuOTQ2IDEzMi45NSAzOTguNTcxIDE1OC44NjEgNDIyLjA4M0MxNTYuNDYyIDQzMi4xNiAxNTUuMDIyIDQ0Mi4yMzcgMTU1LjAyMiA0NTIuMzA5QzE1NS4wMjIgNTIwLjkyMiAyMTAuNjgyIDU3Mi4yNjYgMjc0Ljk3OCA1NzIuMjY2QzI4Ny45MzEgNTcyLjI2NiAzMDAuNDA3IDU3MC4zNDkgMzEyLjg4MyA1NjYuMDI4QzMzNC40NzMgNTg3LjE0MSAzNjQuMjIyIDYwMC41NzYgMzk2Ljg1MiA2MDAuNTc2WiIgZmlsbD0id2hpdGUiLz4KPC9nPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwXzE2MzdfMjkzNSI+CjxyZWN0IHdpZHRoPSI3MjAiIGhlaWdodD0iNzIwIiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMC42MDY5MzQgMC44OTk5MDIpIi8+CjwvY2xpcFBhdGg+CjxjbGlwUGF0aCBpZD0iY2xpcDFfMTYzN18yOTM1Ij4KPHJlY3Qgd2lkdGg9IjQ4NC4xMzkiIGhlaWdodD0iNDc5LjgxOCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExOC41NTcgMTIwLjc1OCkiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K" alt=""><span>Codex</span></button>
+      </div>
     </div>
-    <div id="welcome" hidden>
-      <div id="mascot"><svg viewBox="0 0 11 6.6" shape-rendering="crispEdges" aria-hidden="true">
-        <g fill="#d97757"><rect x="1" y="0" width="9" height="5"/><rect x="0" y="2" width="1" height="2"/><rect x="10" y="2" width="1" height="2"/>
-        <rect x="1.6" y="5" width="1" height="1.6"/><rect x="3.4" y="5" width="1" height="1.6"/><rect x="6.6" y="5" width="1" height="1.6"/><rect x="8.4" y="5" width="1" height="1.6"/></g>
-        <g fill="#1a1a1a"><rect x="3" y="1.2" width="1" height="1.5"/><rect x="7" y="1.2" width="1" height="1.5"/></g></svg></div>
-      <div class="card"><button class="row" id="account"></button></div>
-      <div class="card" id="facts"></div>
+    <div class="ag-hello" id="hello" hidden>
+      <span class="ag-mark hello-mark" data-ic="tabAgent"></span>
+      <h2>What are we working on?</h2>
+      <div class="ag-note" id="account" hidden></div>
     </div>
-    <div id="list"></div>
-    <div id="activity" hidden><span class="spark">✻</span><span id="doing"></span></div>
+    <div class="ag-thread" id="chatThread"></div>
+    <div class="ag-hist" id="chatHist" hidden></div>
   </div>
-  <div id="composer" hidden>
-    <div id="attachments" aria-label="Attached files"></div>
-    <div id="box">
-      <button id="plus" title="Add files" aria-label="Add files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      <textarea id="input" rows="1" placeholder="Describe a task or ask a question"></textarea>
-      <button id="go" disabled title="Send"></button>
+  <form class="ag-composer" id="chatForm" hidden>
+    <div class="ag-ctx" id="chatCtx"></div>
+    <div class="ag-files" id="chatFiles"></div>
+    <textarea id="chatText" rows="1" placeholder="Ask about your model or sketch…" aria-label="Message"></textarea>
+    <div class="ag-bar">
+      <button type="button" class="ag-ib" id="chatUpload" title="Attach a file" aria-label="Attach a file" data-ic="clip"></button>
+      <div class="ag-tools ag-modes"><button type="button" class="ag-tool" id="modeBtn" aria-haspopup="menu" aria-expanded="false" title="How the agent asks before acting"><span id="modeLabel"></span><span class="chev" data-ic="chevDown"></span></button><div class="ag-menu" id="modeMenu" role="menu" aria-label="Permissions" hidden></div></div>
+      <div class="ag-tools ag-models"><button type="button" class="ag-tool" id="modelBtn" aria-haspopup="menu" aria-expanded="false" title="Model"><span id="modelLabel"></span><span class="chev" data-ic="chevDown"></span></button><div class="ag-menu right" id="modelMenu" role="menu" aria-label="Model" hidden></div></div>
+      <button type="submit" class="ag-send" id="sendBtn" aria-label="Send" disabled></button>
     </div>
-    <div id="foot">
-      <button class="chip" id="folder"></button>
-      <span class="grow"></span>
-      <button class="chip" id="model" title="Which model answers"></button>
-      <button class="chip" id="effort" title="Reasoning effort for the next prompt"></button>
-      <button class="chip" id="mode" title="How Claude asks before acting"></button>
-      <span id="ring" title="Claude Code"></span>
-    </div>
-  </div>
+  </form>
 </div>
-<div id="menu" hidden></div>
 
 <script>
 (function(){
 'use strict';
 var $ = function(id){ return document.getElementById(id); };
-var S = { status:'idle', models:[], modes:[], efforts:[], effort:'default', ids:[], attachments:[], provider:'claude', providerChosen:false, providerLabel:'Claude Code' };
-var sending = false, drafts = {}; // the state AgentView last sent
-var entries = {};                                        // the chat's entries, by id
-var outbox = [];                                         // what the user did, until AgentView collects it
+var S = { status:'idle', models:[], modes:[], efforts:[], effort:'default', ids:[], attachments:[], history:[], provider:'claude', providerChosen:false, providerLabel:'Claude Code' };
+var sending = false, drafts = {};   // the state AgentView last sent
+var entries = {};                   // the chat's entries, by id
+var outbox = [];                    // what the user did, until AgentView collects it
+var live = {};                      // reply key -> it was working at the last render
+var folds = {};                     // steps key -> opened or folded by the user
+var feedback = {};                  // reply key -> 'up' | 'down'
 
 function post(type, more){ var m = more || {}; m.type = type; outbox.push(m); }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-var ICON = {
-  caret:'<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
-  term:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12.5 18H19"/></svg>',
-  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.3h7a2 2 0 0 1 2 2v7.7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>',
-  person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.4 7.2-5.4s6.3 1.800 7.2 5.4"/></svg>',
-  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
-  stop:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>'
+/* ---------- icons: the prototype's (24 grid, round caps) ---------- */
+var SV = function(d){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; };
+var SF = function(d){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; };
+var LOOP = 'M5.4 14.4C4.1 10.3 7 6 11.5 5.2c4.6-.8 8.3 2 8.3 5.7 0 4.2-4.2 7.9-8.8 8.1-3.5.2-6-1.6-5.4-4.3.5-2.4 3.4-4.2 6.4-4.1';
+var UI = {
+  tabAgent: SV('<circle class="ic-dot" cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/><path class="ic-loop" pathLength="1" stroke-width="2.1" d="' + LOOP + '"/><path class="ic-echo" stroke-width="1" opacity=".3" transform="translate(.45 .4)" d="' + LOOP + '"/>'),
+  clip:     SV('<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),
+  chevDown: SV('<path d="m6 9 6 6 6-6"/>'),
+  chevRight:SV('<path d="m9 6 6 6-6 6"/>'),
+  up:       SV('<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>'),
+  stop:     '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5" fill="currentColor"/></svg>',
+  copy:     SV('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+  thumbUp:  SV('<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>'),
+  thumbDown:SV('<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/>'),
+  check:    SV('<path d="M20 6 9 17l-5-5"/>'),
+  x:        SF('<path d="M7 7l10 10M17 7L7 17"/>'),
+  pen:      SF('<path d="M15.6 4.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9.4 18.6 5 19.9l1.3-4.4z"/><path d="M13.6 6.4l4 4"/><path d="M2.5 21.3c2-1.4 3.6-1.4 5 0s3.2 1.4 5 0"/>'),
+  bubble:   SF('<path d="M12 3.8a8.2 8.2 0 1 1-3.9 15.4l-4.3 1 1-4.2A8.2 8.2 0 0 1 12 3.8z"/><path d="M8.6 10.7h6.8"/><path d="M8.6 13.8h4.2"/>'),
+  person:   SV('<circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.4 7.2-5.4s6.3 1.8 7.2 5.4"/>'),
+  folder:   SV('<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.3h7a2 2 0 0 1 2 2v7.7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
+  term:     SV('<path d="M5 7l5 5-5 5M12.5 18H19"/>')
 };
+Array.prototype.forEach.call(document.querySelectorAll('[data-ic]'), function(el){ el.innerHTML = UI[el.dataset.ic] || ''; });
+var MARK = '<span class="ag-mark">' + UI.tabAgent + '</span>'; // every reply opens with the agent's loop
 
 /* ---------- Markdown, enough of it for chat replies. Everything is escaped first. ---------- */
 function inline(s){
@@ -244,229 +353,405 @@ function markdown(src){
   return out.join('');
 }
 
-/* ---------- the chat's entries ---------- */
-function fill(el, e){
-  switch (e.kind){
-    case 'user': el.className = 'user'; el.textContent = e.text; break;
-    case 'text': el.className = 'text'; el.innerHTML = markdown(e.text); break;
-    case 'tool':
-      el.className = 'tool ' + e.status; el.title = e.result || e.summary || '';
-      el.innerHTML = '<i class="dot"></i><b>' + esc(e.name) + '</b><span>' + esc(e.summary || '') + '</span>';
-      break;
-    case 'ask':
-      el.className = 'ask';
-      var said = { allowed:'Allowed', denied:'Denied', cancelled:'No longer needed' }[e.status];
-      el.innerHTML = '<div class="q">Allow ' + esc(e.name) + '...</div>' + (e.text ? '<div class="d">' + esc(e.text) + '</div>' : '') +
-        (e.status === 'pending'
-          ? '<div class="b"><button class="yes" data-answer="allow">Allow once</button><button data-answer="always">Allow for chat</button><button data-answer="deny">Deny</button></div>'
-          : '<div class="a">' + said + '</div>');
-      el.dataset.request = e.request;
-      break;
-    default: el.className = 'notice' + (e.error ? ' error' : ''); el.textContent = e.text;
+/* ---------- small helpers ---------- */
+var plural = function(n, w){ return n + ' ' + w + (n === 1 ? '' : 's'); };
+function clock(t){ return t ? new Date(t).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : ''; }
+function when(t){
+  if (!t) return '';
+  var d = new Date(t), now = new Date();
+  if (d.toDateString() === now.toDateString()) return clock(t);
+  var y = new Date(now); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString([], { day:'numeric', month:'short' });
+}
+var busy = function(){ return S.status !== 'idle'; };
+// Copy to the clipboard; the button shows a tick for a moment.
+function clip(text, btn){
+  var tick = function(){ var was = btn.innerHTML; btn.innerHTML = UI.check; btn.classList.add('ok'); setTimeout(function(){ btn.innerHTML = was; btn.classList.remove('ok'); }, 1200); };
+  var fallback = function(){ var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (err) {} ta.remove(); if (ok) tick(); };
+  try { if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(tick, fallback); return; } } catch (err) {}
+  fallback();
+}
+// Keeps a parent's children as the specs say, in order, touching only what changed.
+function reconcile(parent, specs){
+  var seen = {}, kids = {};
+  Array.prototype.forEach.call(parent.children, function(c){ kids[c.dataset.k] = c; });
+  specs.forEach(function(sp, at){
+    seen[sp.key] = true;
+    var el = kids[sp.key];
+    if (!el){ el = document.createElement('div'); el.dataset.k = sp.key; }
+    if (parent.children[at] !== el) parent.insertBefore(el, parent.children[at] || null);
+    if (el.dataset.sig !== sp.sig){ sp.fill(el); el.dataset.sig = sp.sig; }
+  });
+  Array.prototype.slice.call(parent.children).forEach(function(c){ if (!seen[c.dataset.k]) c.remove(); });
+}
+
+/* ---------- the conversation: the user's messages, and the agent's replies between them ---------- */
+function blocksOf(){
+  var blocks = [], reply = null, before = 'start';
+  S.ids.forEach(function(id){
+    var e = entries[id]; if (!e) return;
+    if (e.kind === 'user'){ blocks.push({ key:'u' + id, user:e }); reply = null; before = String(id); return; }
+    if (!reply){ reply = { key:'a' + before, items:[] }; blocks.push(reply); }
+    reply.items.push(e);
+  });
+  // Sent, and nothing back yet: the reply is already there, thinking.
+  var last = blocks[blocks.length - 1];
+  if (busy() && last && last.user) blocks.push({ key:'a' + before, items:[] });
+  return blocks;
+}
+function chipsOf(e){
+  return (e.chips || []).map(function(c){
+    var ic = c.kind === 'comment' ? UI.bubble : c.kind === 'sketch' ? UI.pen : UI.clip;
+    var cls = c.kind === 'comment' ? ' cm' : c.kind === 'sketch' ? ' sk' : '';
+    return '<span class="ag-file' + cls + '" title="' + esc(c.label) + '">' + ic + '<span>' + esc(c.label) + '</span></span>';
+  });
+}
+function fillUser(el, e, last){
+  el.className = 'ag-ublock';
+  var chips = chipsOf(e);
+  el.innerHTML = '<div class="ag-user">' + (chips.length ? '<div class="ag-ufiles">' + chips.join('') + '</div>' : '') + (e.text ? '<span>' + esc(e.text) + '</span>' : '') + '</div>'
+    + '<div class="ag-umeta' + (last ? ' last' : '') + '"><button type="button" data-copy title="Copy" aria-label="Copy message">' + UI.copy + '</button>' + (e.time ? '<time>' + clock(e.time) + '</time>' : '') + '</div>';
+  el.querySelector('[data-copy]').addEventListener('click', function(ev){ clip(e.text || '', ev.currentTarget); });
+}
+function stepClass(t, working){
+  if (t.status === 'error') return 'err';
+  if (t.status === 'stopped' || t.status === 'cancelled') return 'off'; // interrupted: a plain grey dot
+  if (t.status === 'running' || t.status === 'pending' || t.status === 'started') return working ? 'now' : 'done';
+  return 'done';
+}
+// A reply's parts, in order: text, a run of tool calls folded into steps, an approval, a notice.
+function partsOf(b, working){
+  var specs = [], run = null;
+  b.items.forEach(function(e){
+    if (e.kind === 'tool'){
+      if (!run){ run = { key:'s' + e.id, tools:[] }; specs.push(run); }
+      run.tools.push(e); return;
+    }
+    run = null;
+    specs.push({ key:'e' + e.id, entry:e });
+  });
+  return specs.map(function(sp){
+    if (sp.tools){
+      var open = sp.key in folds ? folds[sp.key] : working;
+      var tools = sp.tools;
+      return { key:sp.key, sig:JSON.stringify([tools, open, working]), fill:function(el){
+        el.className = 'ag-steps ' + (open ? 'open' : 'folded');
+        el.innerHTML = '<button type="button" class="ag-fold" aria-expanded="' + open + '">' + UI.chevRight + '<span>' + plural(tools.length, 'step') + '</span></button>'
+          + tools.map(function(t){
+              return '<div class="ag-step ' + stepClass(t, working) + '" title="' + esc(t.result || t.summary || '') + '"><span class="mk"></span><span class="st"><b>' + esc(t.name) + '</b>' + (t.summary ? ' ' + esc(t.summary) : '') + '</span></div>';
+            }).join('');
+      } };
+    }
+    var e = sp.entry;
+    return { key:sp.key, sig:JSON.stringify(e), fill:function(el){
+      el.removeAttribute('data-request');
+      if (e.kind === 'text'){ el.className = 'ag-text ag-md'; el.innerHTML = markdown(e.text || ''); return; }
+      if (e.kind === 'ask'){
+        var pending = e.status === 'pending';
+        el.className = 'ag-ask' + (pending ? '' : ' answered');
+        el.dataset.request = e.request || '';
+        var said = { allowed:'Allowed', always:'Allowed for this chat', denied:'Denied', cancelled:'No longer needed' }[e.status] || 'Answered';
+        el.innerHTML = '<div class="q">Allow ' + esc(e.name) + '?</div>' + (e.text ? '<div class="d">' + esc(e.text) + '</div>' : '')
+          + (pending
+            ? '<div class="acts"><button type="button" class="ag-btn pri" data-answer="allow">Allow once</button><button type="button" class="ag-btn" data-answer="always">Allow for chat</button><button type="button" class="ag-btn ghost" data-answer="deny">Deny</button></div>'
+            : '<div class="ans">' + (e.status === 'denied' || e.status === 'cancelled' ? '<span class="no"></span>' : '<span class="ag-ck">' + UI.check + '</span>') + said + '</div>');
+        return;
+      }
+      el.className = 'ag-note' + (e.error ? ' err' : '');
+      el.textContent = e.text || '';
+    } };
+  });
+}
+function fillReply(el, b, working){
+  if (!el.querySelector('.ag-head')){
+    el.innerHTML = '<div class="ag-head">' + MARK + '</div><div class="ag-body"></div><div class="ag-meta"></div>';
+  }
+  var was = live[b.key];
+  live[b.key] = working;
+  el.classList.add('ag-ai');
+  if (working){ el.classList.remove('settle'); el.classList.add('thinking'); }
+  else if (was){ el.classList.remove('thinking'); el.classList.add('settle'); } // the loop stops and draws itself once, whole
+  else el.classList.remove('thinking');
+  var head = el.querySelector('.ag-head'), think = head.querySelector('.ag-think');
+  if (working){
+    var word = S.status === 'starting' ? 'Starting' : S.status === 'stopping' ? 'Stopping' : S.thinking ? 'Thinking' : 'Working';
+    if (!think){ think = document.createElement('span'); think.className = 'ag-think'; think.setAttribute('role', 'status'); head.appendChild(think); }
+    if (think.textContent !== word) think.textContent = word;
+  } else if (think) think.remove();
+  reconcile(el.querySelector('.ag-body'), partsOf(b, working));
+  // copy · good · bad · time, once the reply is finished
+  var meta = el.querySelector('.ag-meta');
+  var texts = b.items.filter(function(e){ return e.kind === 'text' && e.text; });
+  var lastText = texts[texts.length - 1];
+  var sig = working ? '' : JSON.stringify([texts.length, lastText && lastText.time, feedback[b.key]]);
+  if (meta.dataset.sig !== sig){
+    meta.dataset.sig = sig;
+    if (!sig || !texts.length){ meta.innerHTML = ''; meta.classList.remove('show'); }
+    else {
+      var fb = feedback[b.key];
+      meta.innerHTML = '<button type="button" data-copy title="Copy" aria-label="Copy reply">' + UI.copy + '</button>'
+        + '<button type="button" data-fb="up" title="Good response" aria-label="Good response" aria-pressed="' + (fb === 'up') + '">' + UI.thumbUp + '</button>'
+        + '<button type="button" data-fb="down" title="Bad response" aria-label="Bad response" aria-pressed="' + (fb === 'down') + '">' + UI.thumbDown + '</button>'
+        + (lastText && lastText.time ? '<time>' + clock(lastText.time) + '</time>' : '');
+      meta.querySelector('[data-copy]').addEventListener('click', function(ev){ clip(texts.map(function(t){ return t.text; }).join('\n\n'), ev.currentTarget); });
+      setTimeout(function(){ meta.classList.add('show'); }, 20);
+    }
   }
 }
-
-function render(){
-  $('mcp-notice').hidden = !S.mcpMessage;
-  $('mcp-message').textContent = S.mcpMessage || '';
-  $('mcp-install').hidden = !S.mcpMissing;
-  $('mcp-retry').disabled = S.status !== 'idle';
-  document.documentElement.classList.toggle('light', S.dark === false);
-  var list = $('list'), scroll = $('scroll');
-  var atEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 60;
-  var seen = {};
-  S.ids.forEach(function(id, at){
-    seen[id] = true;
-    var el = document.getElementById('e' + id), e = entries[id];
-    if (!el){ el = document.createElement('div'); el.id = 'e' + id; el.dataset.shown = ''; }
-    if (list.children[at] !== el) list.insertBefore(el, list.children[at] || null);
-    if (e && el.dataset.shown !== e.sig){ fill(el, e); el.dataset.shown = e.sig; }
+function renderThread(){
+  var blocks = blocksOf(), lastUser = null;
+  blocks.forEach(function(b){ if (b.user) lastUser = b.key; });
+  var lastKey = blocks.length ? blocks[blocks.length - 1].key : null;
+  var thread = $('chatThread');
+  reconcile(thread, blocks.map(function(b){
+    if (b.user) return { key:b.key, sig:JSON.stringify([b.user, b.key === lastUser]), fill:function(el){ fillUser(el, b.user, b.key === lastUser); } };
+    return { key:b.key, sig:'reply', fill:function(){} };
+  }));
+  blocks.forEach(function(b){
+    if (b.user) return;
+    var el = thread.querySelector('[data-k="' + b.key + '"]');
+    fillReply(el, b, busy() && b.key === lastKey);
   });
-  Array.prototype.slice.call(list.children).forEach(function(el){ if (!seen[el.id.slice(1)]) el.remove(); });
-
-  var empty = S.ids.length === 0;
-  $('chooser').hidden = !!S.providerChosen;
-  $('chat-head').hidden = !S.providerChosen;
-  $('welcome').hidden = !empty || !S.providerChosen;
-  $('composer').hidden = !S.providerChosen;
-  $('list').hidden = !S.providerChosen;
-  $('provider').textContent = S.providerChosen ? S.providerLabel : '';
-  $('new-chat').hidden = $('settings').hidden = !S.providerChosen;
-  document.body.classList.toggle('codex', S.provider === 'codex');
-  $('mascot').hidden = S.provider === 'codex';
-  $('ring').title = S.providerLabel;
-  $('mode').title = 'How ' + S.providerLabel + ' asks before acting';
-  $('attachments').innerHTML = S.attachments.map(function(file){ return '<div class="attachment" title="' + esc(file.name) + '"><span>' + esc(file.name) + '</span><button data-remove="' + esc(file.id) + '" aria-label="Remove ' + esc(file.name) + '" title="Remove attachment">&times;</button></div>'; }).join('');
-  $('plus').disabled = S.status !== 'idle';
-  var busy = S.status === 'starting' || S.status === 'working';
-  var last = empty ? null : entries[S.ids[S.ids.length - 1]];
-  $('activity').hidden = !busy || !!(last && last.kind === 'text' && last.streaming);
-  $('doing').textContent = S.status === 'starting' ? 'Starting ' + S.providerLabel + '...' : S.thinking ? 'Thinking…' : 'Working…';
-  $('ring').className = S.status === 'idle' ? '' : 'busy';
-
-  // The first card says who is signed in, or what to do about it.
-  var account = $('account');
-  if (S.missing){ account.className = 'row go'; account.dataset.act = 'locate'; account.innerHTML = ICON.term + '<span class="t">Locate ' + esc(S.providerLabel) + '?</span><span class="h">not found</span>'; }
-  else if (S.signedIn === false){ account.className = 'row go'; account.dataset.act = 'signin'; account.innerHTML = ICON.person + '<span class="t">' + (S.signingIn ? 'Signing in...' : 'Sign in to ' + (S.provider === 'codex' ? 'ChatGPT' : 'Claude')) + '</span>'; }
-  else if (S.email || S.signedIn === true){ account.className = 'row'; account.dataset.act = 'account'; account.innerHTML = '<span class="t">' + esc(S.email || 'Signed in') + '</span>' + ICON.caret; }
-  else { account.className = 'row'; account.dataset.act = ''; account.innerHTML = '<span class="h">Connecting to ' + esc(S.providerLabel) + '?</span>'; }
-  $('facts').innerHTML =
-    '<div class="row">' + ICON.term + '<span class="t">' + esc(S.providerLabel) + '</span><span class="h">' + esc(S.plan || '') + '</span></div>' +
-    '<div class="row" title="' + esc(S.folderPath || '') + '">' + ICON.folder + '<span class="t">' + esc(S.folder || '') + '</span><span class="h">working folder</span></div>';
-
-  // Under the message box: the folder, the model, the permission mode.
-  $('folder').innerHTML = ICON.folder + '<span class="t">' + esc(S.folder || 'Folder') + '</span>';
-  $('folder').title = S.folderPath || '';
-  $('model').innerHTML = '<span class="t">' + esc(modelLabel()) + '</span>';
-  var effort = S.efforts.filter(function(e){ return e[0] === S.effort; })[0];
-  $('effort').innerHTML = '<span class="t">Effort: ' + esc(effort ? effort[1] : 'Default') + '</span>' + ICON.caret;
-  $('model').disabled = S.status !== 'idle';
-  $('effort').disabled = S.status !== 'idle' || S.efforts.length < 2;
-  var mode = S.modes.filter(function(m){ return m[0] === S.mode; })[0];
-  $('mode').innerHTML = '<span class="t dim">' + esc(mode ? mode[1] : 'Ask before edits') + '</span>';
-
-  showGo();
-  if (atEnd) scroll.scrollTop = scroll.scrollHeight;
+  return blocks.length;
 }
 
-// The model's own name. "Default" is shown as whatever Claude Code has it stand for.
+/* ---------- History: earlier chats, opened from the panel header ---------- */
+function renderHistory(){
+  var list = $('chatHist');
+  var sig = JSON.stringify([S.history, S.current]);
+  if (list.dataset.sig === sig) return;
+  list.dataset.sig = sig;
+  var items = S.history || [];
+  list.innerHTML = '<h3 class="cy-h">History</h3>' + (items.length
+    ? items.map(function(c){ return '<button type="button" data-hist="' + esc(c.id) + '"' + (c.id === S.current ? ' aria-current="true"' : '') + '><span>' + esc(c.title || 'Conversation') + '</span><time>' + when(c.updated) + '</time></button>'; }).join('')
+    : '<p class="ag-empty">No earlier chats yet. Start a new chat and this one is kept here.</p>');
+}
+
+/* ---------- everything else on the page ---------- */
+var helloShown = false, chooserShown = false;
+function render(){
+  var root = document.documentElement, dark = S.dark === true;
+  if (root.classList.contains('dark') !== dark){
+    if (render.told){ root.classList.add('ui-switching'); clearTimeout(render.fade); render.fade = setTimeout(function(){ root.classList.remove('ui-switching'); }, 320); }
+    root.classList.toggle('dark', dark);
+  }
+
+  var log = $('chatLog');
+  var atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+  var chosen = !!S.providerChosen;
+  var count = renderThread();
+  var hist = chosen && !!S.historyOpen;
+  if (hist) renderHistory();
+
+  var chooser = $('chooser');
+  chooser.hidden = chosen;
+  if (!chosen && !chooserShown){ chooser.classList.remove('settle'); void chooser.offsetWidth; chooser.classList.add('settle'); }
+  if (chosen) Array.prototype.forEach.call(chooser.querySelectorAll('.ag-pick'), function(b){ b.disabled = false; b.removeAttribute('aria-pressed'); });
+  chooserShown = !chosen;
+  $('chatHist').hidden = !hist;
+  $('chatThread').hidden = !chosen || hist;
+  var hello = $('hello'), showHello = chosen && !hist && count === 0;
+  hello.hidden = !showHello;
+  if (showHello && !helloShown){ hello.classList.remove('settle'); void hello.offsetWidth; hello.classList.add('settle'); } // the loop draws itself on
+  helloShown = showHello;
+  $('chatForm').hidden = !chosen;
+
+  // RhinoMCP: what is wrong, and what to do about it
+  var mcp = $('mcpNote');
+  mcp.hidden = !S.mcpMessage;
+  var mcpSig = JSON.stringify([S.mcpMessage, S.mcpMissing, S.status === 'idle']);
+  if (mcp.dataset.sig !== mcpSig){
+    mcp.dataset.sig = mcpSig;
+    mcp.innerHTML = '<div class="ag-note"><span>' + esc(S.mcpMessage || '') + '</span><div class="acts">'
+      + (S.mcpMissing ? '<button type="button" class="ag-btn pri" data-act="mcpInstall">Open Package Manager</button>' : '')
+      + '<button type="button" class="ag-btn" data-act="mcpRetry"' + (S.status !== 'idle' ? ' disabled' : '') + '>Retry</button></div></div>';
+  }
+
+  // Under the welcome: who is signed in, or what to do about it
+  var account = $('account'), acc = '';
+  var other = S.provider === 'codex' ? 'claude' : 'codex', otherLabel = other === 'codex' ? 'Codex' : 'Claude Code';
+  var useOther = '<button type="button" class="ag-btn ghost" data-provider="' + other + '">Use ' + otherLabel + ' instead</button>';
+  if (S.missing) acc = '<span>' + esc(S.providerLabel) + ' was not found on this computer.</span><div class="acts"><button type="button" class="ag-btn pri" data-act="locate">Locate ' + esc(S.providerLabel) + '…</button>' + useOther + '</div>';
+  else if (S.signedIn === false) acc = '<span>Sign in to ' + (S.provider === 'codex' ? 'ChatGPT' : 'Claude') + ' to start.</span><div class="acts"><button type="button" class="ag-btn pri" data-act="signin"' + (S.signingIn ? ' disabled' : '') + '>' + (S.signingIn ? 'Signing in…' : 'Sign in') + '</button>' + (S.signingIn ? '' : useOther) + '</div>';
+  else if (S.status === 'starting' && !S.signedIn) acc = '<span>Connecting to ' + esc(S.providerLabel) + '…</span>';
+  account.hidden = !acc;
+  if (account.dataset.sig !== acc){ account.dataset.sig = acc; account.innerHTML = acc; }
+
+  // What goes with the next message: the groups showing in Layers, and attached files
+  var sk = S.contextSketchGroups || 0, cm = S.contextCommentGroups || 0, ctx = [];
+  if (sk) ctx.push('<span class="ag-chip" title="Sketch groups that are showing in Layers go with your message">' + UI.pen + '<span>' + plural(sk, 'sketch group') + '</span></span>');
+  if (cm) ctx.push('<span class="ag-chip" title="Comment groups that are showing in Layers go with your message">' + UI.bubble + '<span>' + plural(cm, 'comment group') + '</span></span>');
+  var ctxHtml = ctx.join('');
+  if ($('chatCtx').dataset.sig !== ctxHtml){ $('chatCtx').dataset.sig = ctxHtml; $('chatCtx').innerHTML = ctxHtml; }
+  var filesHtml = (S.attachments || []).map(function(f){
+    return '<span class="ag-file" title="' + esc(f.name) + '">' + UI.clip + '<span>' + esc(f.name) + '</span><button type="button" data-remove="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '" title="Remove">' + UI.x + '</button></span>';
+  }).join('');
+  if ($('chatFiles').dataset.sig !== filesHtml){ $('chatFiles').dataset.sig = filesHtml; $('chatFiles').innerHTML = filesHtml; }
+  $('chatUpload').disabled = S.status !== 'idle';
+
+  // The permission mode, and the model by its own name
+  var mode = (S.modes || []).filter(function(m){ return m[0] === S.mode; })[0];
+  $('modeLabel').textContent = mode ? mode[1] : 'Ask before edits';
+  $('modeBtn').parentNode.hidden = !(S.modes || []).length;
+  $('modelLabel').textContent = modelLabel();
+  if (!$('modeMenu').hidden) fillModeMenu();
+  if (!$('modelMenu').hidden) fillModelMenu();
+
+  syncSend();
+  if (atEnd) log.scrollTop = log.scrollHeight;
+}
+
+// The model's own name ("Opus 5.5"), never the assistant's. "Default" is named once the agent says which model it is.
 function modelLabel(){
-  var chosen = S.models.filter(function(m){ return m.value === S.chosen; })[0];
+  var models = S.models || [];
+  var chosen = models.filter(function(m){ return m.value === S.chosen; })[0];
   if (chosen && S.chosen !== 'default') return chosen.label;
-  // Which model "Default" is depends on the user's own Claude Code settings: it is named once Claude Code has said.
-  var answering = S.models.filter(function(m){ return m.value !== 'default' && m.resolved && m.resolved === S.model; })[0];
-  return answering ? answering.label : 'Default';
-}
-
-function showGo(){
-  var go = $('go'), busy = S.status !== 'idle';
-  go.className = busy ? 'stop' : '';
-  go.title = busy ? 'Stop' : 'Send';
-  go.innerHTML = busy ? ICON.stop : ICON.up;
-  go.disabled = sending || !S.providerChosen || S.status === 'stopping' || (!busy && !$('input').value.trim() && !S.attachments.length);
+  var answering = models.filter(function(m){ return m.value !== 'default' && m.resolved && m.resolved === S.model; })[0];
+  if (answering) return answering.label;
+  var named = models.filter(function(m){ return m.value === S.model; })[0];
+  return named ? named.label : (S.model || 'Default');
 }
 
 /* ---------- the message box ---------- */
-var input = $('input');
-// As tall as its text, up to a limit. (Measured with the placeholder out of the way: a long one would count as text.)
-function grow(){
-  var hint = input.placeholder; input.placeholder = '';
-  input.style.height = 'auto';
-  var wanted = input.scrollHeight;
-  input.style.height = Math.min(wanted, 168) + 'px';
-  input.classList.toggle('tall', wanted > 168);
-  input.placeholder = hint;
+var input = $('chatText'), sendBtn = $('sendBtn');
+// As tall as its text, up to the prototype's 160 px.
+function grow(){ input.style.height = 'auto'; input.style.height = Math.min(160, input.scrollHeight) + 'px'; }
+// The send button fills with the accent as soon as there is something to send; while the agent works it stops it.
+function syncSend(){
+  var working = busy();
+  var ready = !!input.value.trim() || (S.attachments || []).length > 0;
+  sendBtn.classList.toggle('stop', working);
+  sendBtn.classList.toggle('ready', !working && ready && !sending);
+  sendBtn.innerHTML = working ? UI.stop : UI.up;
+  sendBtn.title = working ? 'Stop' : 'Send';
+  sendBtn.setAttribute('aria-label', working ? 'Stop' : 'Send');
+  sendBtn.disabled = !S.providerChosen || S.status === 'stopping' || (!working && (!ready || sending));
 }
-// A narrow sidebar has no room for the long invitation.
-function fitHint(){ input.placeholder = input.clientWidth < 215 ? (S.provider === 'codex' ? 'Ask Codex' : 'Ask Claude') : 'Describe a task or ask a question'; }
 function send(){
   var text = input.value;
-  if (sending || !S.providerChosen || (!text.trim() && !S.attachments.length) || S.status !== 'idle') return;
+  if (sending || !S.providerChosen || busy() || (!text.trim() && !(S.attachments || []).length)) return;
   post('send', { text:text });
-  sending = true; showGo();
-  var scroll = $('scroll'); scroll.scrollTop = scroll.scrollHeight;
+  sending = true;
+  sendBtn.classList.remove('fly'); void sendBtn.offsetWidth; sendBtn.classList.add('fly');
+  syncSend();
+  var log = $('chatLog'); log.scrollTop = log.scrollHeight;
 }
-input.addEventListener('input', function(){ grow(); showGo(); });
+input.addEventListener('input', function(){ grow(); syncSend(); });
 input.addEventListener('keydown', function(e){
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); } // Shift + Return starts a new line
-  if (e.key === 'Escape') closeMenu();
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); } // Shift + Enter starts a new line
 });
-$('go').addEventListener('click', function(){ if (S.status !== 'idle') post('stop'); else send(); });
-$('mcp-install').addEventListener('click', function(){ post('mcpInstall'); });
-$('mcp-retry').addEventListener('click', function(){ post('mcpRetry'); });
+$('chatForm').addEventListener('submit', function(e){ e.preventDefault(); if (busy()) post('stop'); else send(); });
 
-/* ---------- menus ---------- */
-function closeMenu(){ $('menu').hidden = true; }
-function openMenu(anchor, items){
-  var menu = $('menu');
-  menu.innerHTML = '';
-  items.forEach(function(item){
-    if (item === '-'){ menu.appendChild(document.createElement('hr')); return; }
-    var b = document.createElement('button');
-    b.disabled = !item.act;
-    b.innerHTML = ('tick' in item ? '<span class="tick">' + (item.tick ? '✓' : '') + '</span>' : '') +
-      '<span class="w"><span class="l">' + esc(item.label) + '</span>' + (item.sub ? '<span class="s">' + esc(item.sub) + '</span>' : '') + '</span>';
-    if (item.act) b.addEventListener('click', function(){ closeMenu(); item.act(); });
-    menu.appendChild(b);
-  });
-  menu.hidden = false;
-  // Above the thing clicked if it is near the bottom, else below; and inside the window.
-  var a = anchor.getBoundingClientRect(), w = menu.offsetWidth, h = menu.offsetHeight;
-  var top = a.top > window.innerHeight / 2 ? a.top - h - 6 : a.bottom + 6;
-  menu.style.left = Math.max(8, Math.min(a.left, window.innerWidth - w - 8)) + 'px';
-  menu.style.top = Math.max(8, Math.min(top, window.innerHeight - h - 8)) + 'px';
+/* ---------- menus: the prototype's .ag-menu ---------- */
+function item(attrs, label, sub, checked, icon){
+  return '<button type="button" role="menuitemradio" aria-checked="' + !!checked + '" ' + attrs + '>' + (icon || '<span></span>') + '<b>' + esc(label) + '</b><span class="tick">' + UI.check + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</button>';
 }
-function accountItems(){
-  var items = [];
-  if (S.email || S.signedIn === true){
-    items.push({ label:S.email || 'Signed in' }); if (S.plan) items.push({ label:S.plan });
-    items.push({ label:'Sign out', act:function(){ post('signout'); } });
-  } else if (!S.missing){
-    items.push({ label:S.signingIn ? 'Signing in…' : 'Sign in to ' + (S.provider === 'codex' ? 'ChatGPT' : 'Claude') + '...', act:S.signingIn ? null : function(){ post('signin'); } });
-  }
-  items.push('-', { label:'Locate ' + S.providerLabel + '...', act:function(){ post('locate'); } });
-  return items;
+function fillModeMenu(){
+  $('modeMenu').innerHTML = (S.modes || []).map(function(m){ return item('data-mode="' + esc(m[0]) + '"', m[1], '', m[0] === S.mode); }).join('');
 }
-document.addEventListener('click', function(e){
-  var t = e.target.closest ? e.target : e.target.parentNode;
-  var choice = t.closest('[data-provider]');
-  if (choice){ post('provider', {value:choice.dataset.provider}); return; }
-  var remove = t.closest('[data-remove]');
-  if (remove){ post('removeAttachment', {value:remove.dataset.remove}); return; }
-  var answer = t.closest('[data-answer]');
-  if (answer){ post('answer', { request:answer.closest('.ask').dataset.request, decision:answer.dataset.answer }); return; }
-  var link = t.closest('a[href]');
-  if (link){ e.preventDefault(); post('link', { url:link.href }); return; }
-  if (t.closest('#menu')) return;
-  var wasOpen = !$('menu').hidden; closeMenu();
-  var hit = t.closest('#plus, #model, #effort, #mode, #account, #folder, #provider, #settings, #new-chat');
-  if (!hit || (wasOpen && hit === openMenu.last)){ openMenu.last = null; return; }
-  openMenu.last = hit;
-  switch (hit.id){
-    case 'plus': post('attach'); break;
-    case 'new-chat': if (S.status === 'idle') post('new'); break;
-    case 'settings': openMenu(hit, accountItems()); break;
-    case 'provider':
-      openMenu(hit, [{label:'Claude Code', tick:S.providerChosen && S.provider === 'claude', act:function(){post('provider',{value:'claude'});}}, {label:'Codex', tick:S.providerChosen && S.provider === 'codex', act:function(){post('provider',{value:'codex'});}}]);
-      break;
-    case 'model':
-      openMenu(hit, S.models.map(function(m){ return { label:m.label, sub:m.description, tick:m.value === S.chosen, act:function(){ post('model', { value:m.value }); } }; }));
-      break;
-    case 'effort':
-      openMenu(hit, S.efforts.map(function(e){ return { label:e[1], tick:e[0] === S.effort, act:function(){ post('effort', { value:e[0] }); } }; }));
-      break;
-    case 'mode':
-      openMenu(hit, S.modes.map(function(m){ return { label:m[1], tick:m[0] === S.mode, act:function(){ post('mode', { value:m[0] }); } }; }));
-      break;
-    case 'account':
-      if (hit.dataset.act === 'account') openMenu(hit, accountItems());
-      else if (hit.dataset.act) post(hit.dataset.act);
-      break;
-    case 'folder':
-      openMenu(hit, [{ label:S.folderPath || S.folder || '' }, { label:S.providerLabel + ' works in this folder' }]);
-      break;
+function fillModelMenu(){
+  var idle = S.status === 'idle', h = '';
+  h += '<div class="mh">Model</div>' + (S.models || []).map(function(m){
+    var label = m.value === 'default' ? 'Default' + (m.resolved && m.resolved !== m.value ? '' : '') : m.label;
+    return item('data-model="' + esc(m.value) + '"' + (idle ? '' : ' disabled'), m.value === 'default' ? m.label : label, m.description, m.value === S.chosen);
+  }).join('');
+  if ((S.efforts || []).length > 1){
+    h += '<div class="ag-sep" role="separator"></div><div class="mh">Effort</div>' + S.efforts.map(function(e){ return item('data-effort="' + esc(e[0]) + '"' + (idle ? '' : ' disabled'), e[1], '', e[0] === S.effort); }).join('');
   }
+  // The CLI's version number only (Codex reports a whole user agent: 'crayon_rhino/0.169.0 (Windows …)').
+  var ver = (String(S.version || '').match(/\d+\.\d+(?:\.\d+)?/) || [''])[0];
+  h += '<div class="ag-sep" role="separator"></div><div class="mh">Assistant</div>'
+    + item('data-provider="claude"', 'Claude Code', S.provider === 'claude' && ver ? 'Version ' + ver : '', S.providerChosen && S.provider === 'claude', UI.term)
+    + item('data-provider="codex"', 'Codex', S.provider === 'codex' && ver ? 'Version ' + ver : '', S.providerChosen && S.provider === 'codex', UI.term);
+  h += '<div class="ag-sep" role="separator"></div>';
+  if (S.email || S.signedIn === true) h += '<button type="button" disabled>' + UI.person + '<b>' + esc(S.email || 'Signed in') + '</b><span></span>' + (S.plan ? '<small>' + esc(S.plan) + '</small>' : '') + '</button><button type="button" data-act="signout"><span></span><b>Sign out</b><span></span></button>';
+  else if (!S.missing) h += '<button type="button" data-act="signin"' + (S.signingIn ? ' disabled' : '') + '>' + UI.person + '<b>' + (S.signingIn ? 'Signing in…' : 'Sign in to ' + (S.provider === 'codex' ? 'ChatGPT' : 'Claude')) + '</b><span></span></button>';
+  h += '<button type="button" data-act="locate"><span></span><b>Locate ' + esc(S.providerLabel) + '…</b><span></span></button>';
+  if (S.folder) h += '<button type="button" disabled title="' + esc(S.folderPath || '') + '">' + UI.folder + '<b>' + esc(S.folder) + '</b><span></span><small>Working folder</small></button>';
+  $('modelMenu').innerHTML = h;
+}
+function openMenu(which, on){
+  var menu = $(which + 'Menu'), btn = $(which + 'Btn');
+  if (on){ closeMenus(); (which === 'mode' ? fillModeMenu : fillModelMenu)(); }
+  menu.hidden = !on; btn.setAttribute('aria-expanded', String(on));
+  if (on){ var c = menu.querySelector('[aria-checked="true"]:not(:disabled)'); if (c) c.focus(); }
+}
+function closeMenus(){ ['mode', 'model'].forEach(function(w){ $(w + 'Menu').hidden = true; $(w + 'Btn').setAttribute('aria-expanded', 'false'); }); }
+$('modeBtn').addEventListener('click', function(){ openMenu('mode', $('modeMenu').hidden); });
+$('modelBtn').addEventListener('click', function(){ openMenu('model', $('modelMenu').hidden); });
+document.addEventListener('pointerdown', function(e){ var t = e.target; if (!t || !t.closest || !t.closest('.ag-tools')) closeMenus(); });
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  var open = !$('modeMenu').hidden ? 'mode' : !$('modelMenu').hidden ? 'model' : null;
+  if (open){ closeMenus(); $(open + 'Btn').focus(); e.stopPropagation(); }
 });
-window.addEventListener('blur', closeMenu);
-window.addEventListener('resize', function(){ closeMenu(); fitHint(); grow(); });
+['modeMenu', 'modelMenu'].forEach(function(id){
+  $(id).addEventListener('keydown', function(e){
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return; e.preventDefault();
+    var o = Array.prototype.slice.call($(id).querySelectorAll('button:not(:disabled)')), i = o.indexOf(document.activeElement);
+    if (o.length) o[(i + (e.key === 'ArrowDown' ? 1 : -1) + o.length) % o.length].focus();
+  });
+});
+
+/* ---------- clicks anywhere on the page ---------- */
+document.addEventListener('click', function(e){
+  var t = e.target && e.target.closest ? e.target : e.target && e.target.parentNode;
+  if (!t || !t.closest) return;
+  var hit;
+  if ((hit = t.closest('[data-mode]'))){ post('mode', { value:hit.dataset.mode }); S.mode = hit.dataset.mode; closeMenus(); input.focus(); render(); return; }
+  if ((hit = t.closest('[data-model]'))){ post('model', { value:hit.dataset.model }); S.chosen = hit.dataset.model; closeMenus(); input.focus(); render(); return; }
+  if ((hit = t.closest('[data-effort]'))){ post('effort', { value:hit.dataset.effort }); S.effort = hit.dataset.effort; closeMenus(); input.focus(); render(); return; }
+  if ((hit = t.closest('[data-provider]'))){
+    if (hit.disabled) return;
+    post('provider', { value:hit.dataset.provider }); closeMenus();
+    if (hit.classList.contains('ag-pick')) Array.prototype.forEach.call(document.querySelectorAll('.ag-pick'), function(b){ b.disabled = true; if (b === hit) b.setAttribute('aria-pressed', 'true'); });
+    return;
+  }
+  if ((hit = t.closest('[data-act]'))){ post(hit.dataset.act); closeMenus(); return; }
+  if ((hit = t.closest('[data-remove]'))){ post('removeAttachment', { value:hit.dataset.remove }); return; }
+  if ((hit = t.closest('[data-answer]'))){ post('answer', { request:hit.closest('.ag-ask').dataset.request, decision:hit.dataset.answer }); hit.closest('.acts').querySelectorAll('button').forEach(function(b){ b.disabled = true; }); return; }
+  if ((hit = t.closest('[data-hist]'))){ if (S.status === 'idle') post('open', { value:hit.dataset.hist }); return; }
+  if ((hit = t.closest('#chatUpload'))){ post('attach'); return; }
+  if ((hit = t.closest('.ag-fold'))){
+    var box = hit.parentElement, open = !box.classList.contains('open');
+    folds[box.dataset.k] = open;
+    box.classList.toggle('open', open); box.classList.toggle('folded', !open); hit.setAttribute('aria-expanded', String(open));
+    return;
+  }
+  if ((hit = t.closest('[data-fb]'))){
+    var meta = hit.closest('.ag-meta'), key = hit.closest('.ag-ai').dataset.k, on = hit.getAttribute('aria-pressed') !== 'true';
+    feedback[key] = on ? hit.dataset.fb : null;
+    Array.prototype.forEach.call(meta.querySelectorAll('[data-fb]'), function(x){ x.setAttribute('aria-pressed', String(x === hit && on)); });
+    var old = meta.querySelector('.tip'); if (old) old.remove();
+    if (on){ var tip = document.createElement('span'); tip.className = 'tip'; tip.textContent = 'Thanks'; meta.insertBefore(tip, meta.querySelector('time')); setTimeout(function(){ tip.remove(); }, 1600); }
+    return;
+  }
+  var link = t.closest('a[href]');
+  if (link){ e.preventDefault(); post('link', { url:link.href }); }
+});
+window.addEventListener('blur', closeMenus);
+window.addEventListener('resize', function(){ closeMenus(); grow(); });
 document.addEventListener('dragover', function(e){ e.preventDefault(); });
 document.addEventListener('drop', function(e){ e.preventDefault(); });
 
 /* ---------- what AgentView calls ---------- */
 window.crayon = {
-  // Take in the state of the chat. Only entries that are new or have changed are sent.
+  // The message was taken (or not).
   sent:function(ok){
     sending = false;
     if (ok){ input.value = ''; drafts[S.provider] = ''; S.attachments = []; grow(); }
-    showGo();
+    syncSend();
   },
+  // Take in the state of the chat. Only entries that are new or have changed are sent.
   state:function(s){
     if (s.provider && s.provider !== S.provider){ drafts[S.provider] = input.value; input.value = drafts[s.provider] || ''; sending = false; grow(); }
-    if (s.reset){ entries = {}; $('list').innerHTML = ''; }
-    (s.entries || []).forEach(function(e){ e.sig = JSON.stringify(e); entries[e.id] = e; });
+    if (s.reset){ entries = {}; live = {}; folds = {}; feedback = {}; $('chatThread').innerHTML = ''; }
+    (s.entries || []).forEach(function(e){ entries[e.id] = e; });
     delete s.entries;
     for (var k in s) S[k] = s[k];
-    render(); fitHint(); grow();
+    render(); grow();
+    render.told = true; // from now on a change of look cross-fades
     return S.ids.length;
   },
   // Hand over what the user has done since last asked. (Encoded so that it survives whatever quoting it meets on the way.)
@@ -477,7 +762,6 @@ window.crayon = {
   }
 };
 post('ready');
-fitHint();
 render();
 })();
 </script>

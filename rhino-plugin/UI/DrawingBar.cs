@@ -11,19 +11,29 @@ using Color = System.Drawing.Color;
 
 namespace RhinoSketchingTool
 {
-    // Companion to the tool dock. It uses the same viewport coordinates for painting
-    // and hit testing, including when DPI, viewport size, or dock orientation changes.
+    // The option row under the tool dock: it changes with the tool, as the prototype's
+    // #subbar (design/prototype/index.html, renderSubbar):
+    //   Pen       Object | Plane    colour    Snap shapes (hand-drawn tick)
+    //   Eraser    Whole sketch | Part
+    //   Comments  one line of help
+    //   Views     + Save view    a chip per Rhino Named View (click: go there, x: delete)
+    //   Select    no row
+    // It uses the same viewport coordinates for painting and hit testing, including when
+    // DPI, viewport size, or dock orientation changes.
     internal sealed partial class Toolbar
     {
-        enum OptionsPopup { None, Colors, Views }
+        enum OptionsPopup { None, Colors }
         OptionsPopup optionsPopup;
         DisplayBitmap optionsPicture, popupPicture;
         string optionsSignature, popupSignature;
         double hue = 220, saturation = .15, value = .15;
         int pickerArgb;
-        int viewPage;
-        const double BarGap = 8, RowHeight = 36, PopupWidth = 284;
-        static readonly Color[] Swatches = { Color.FromArgb(35,38,44), Color.FromArgb(32,94,211), Color.FromArgb(211,46,39), Color.FromArgb(17,132,91), Color.FromArgb(139,86,245) };
+        int chipPage;                  // which page of saved views the row shows
+        int armedChip = -1;            // the view chip whose x was clicked once: a second click deletes
+        int armedAt;                   // when (Environment.TickCount)
+        const double BarGap = 8, RowHeight = 44, PopupWidth = 284, MaxChips = 8;
+        const double SegPad = 3, GroupGap = 6, ButtonHeight = 30, SegButtonHeight = 28;
+        static readonly Color[] Swatches = { Color.FromArgb(35,38,44), Color.FromArgb(151,49,176), Color.FromArgb(211,46,39), Color.FromArgb(17,132,91), Color.FromArgb(32,94,211) };
 
         sealed class Frame
         {
@@ -31,8 +41,76 @@ namespace RhinoSketchingTool
             public ScreenPoint ToolOrigin, OptionOrigin, PopupOrigin;
             public Wpf.Size OptionsSize, PopupSize;
             public List<Item> Items;
+            public List<Wpf.Rect> Wells;     // the grey wells behind segmented buttons
             public IReadOnlyList<string> Views;
-            public int PageSize;
+            public bool HasOptions;
+        }
+
+        // What the row holds for the tool in use. Each group is laid out together; a
+        // segmented group sits in one grey well.
+        sealed class Group { public bool Seg; public List<Part> Parts = new List<Part>(); }
+
+        List<Group> OptionGroups(IReadOnlyList<string> views)
+        {
+            var groups = new List<Group>();
+            switch (controller.Tool)
+            {
+                case SketchTool.Draw:
+                    groups.Add(new Group { Seg = true, Parts = { Part.Object, Part.Plane } });
+                    groups.Add(new Group { Parts = { Part.Color } });
+                    groups.Add(new Group { Parts = { Part.Snap } });
+                    break;
+                case SketchTool.Erase:
+                    groups.Add(new Group { Seg = true, Parts = { Part.EraseWhole, Part.ErasePart } });
+                    break;
+                case SketchTool.Comment:
+                    groups.Add(new Group { Parts = { Part.Hint } });
+                    break;
+                case SketchTool.Views:
+                    groups.Add(new Group { Parts = { Part.SaveView } });
+                    var chips = new Group();
+                    int per = ChipsPerPage(views);
+                    for (int i = 0; i < per && ChipIndex(Part.Chip0 + i, views) < views.Count; i++) chips.Parts.Add(Part.Chip0 + i);
+                    if (views.Count > MaxChips) chips.Parts.Add(Part.ChipMore);
+                    if (chips.Parts.Count > 0) groups.Add(chips);
+                    break;
+            }
+            return groups;
+        }
+
+        string HintText => "Click anywhere to comment";
+
+        // Up to eight chips; with more views, seven a page and a "More" chip that turns the page.
+        static int ChipsPerPage(IReadOnlyList<string> views) => views.Count > MaxChips ? (int)MaxChips - 1 : (int)MaxChips;
+        int ChipIndex(Part chip, IReadOnlyList<string> views)
+        {
+            int per = ChipsPerPage(views), pages = Math.Max(1, (views.Count + per - 1) / per);
+            if (chipPage >= pages) chipPage = 0;
+            return chipPage * per + (chip - Part.Chip0);
+        }
+
+        double OptionWidth(Part part, IReadOnlyList<string> views)
+        {
+            switch (part)
+            {
+                case Part.Object: return 9 + 16 + 6 + LabelWidth("Object") + 11;
+                case Part.Plane: return 9 + 16 + 6 + LabelWidth("Plane") + 11;
+                case Part.EraseWhole: return 11 + LabelWidth("Whole sketch") + 11;
+                case Part.ErasePart: return 11 + LabelWidth("Part") + 11;
+                case Part.Color: return 30;
+                case Part.Snap: return 11 + 16 + 7 + LabelWidth("Snap shapes") + 11;
+                case Part.Hint: return 8 + LabelWidth(HintText) + 6;
+                case Part.SaveView: return 11 + 15 + 6 + LabelWidth("Save view") + 11;
+                default:
+                    if (part >= Part.Chip0 && part <= Part.Chip7)
+                    {
+                        int index = ChipIndex(part, views);
+                        string name = index < views.Count ? views[index] : "";
+                        return Math.Min(160, 10 + LabelWidth(name) + 4) + 24;
+                    }
+                    if (part == Part.ChipMore) return 11 + LabelWidth("More") + 11;
+                    return 0;
+            }
         }
 
         Frame OptionsFrame(RhinoView view, double fittedScale = 0)
@@ -41,28 +119,57 @@ namespace RhinoSketchingTool
             var viewport = view.ActiveViewport.Size;
             Layout(out Wpf.Size toolSize);
             double availableWidth = Math.Max(100, viewport.Width / scale - 2 * Inset);
-            double viewWidth = Math.Min(180, LabelWidth(ViewLabel) + 35);
-            double[] widths = { LabelWidth("Object") + 10, LabelWidth("Plane") + 10,
-                LabelWidth("3D cursor") + 10, viewWidth, 28, LabelWidth("Shapes") + 31 };
-            double preferred = 20; // outer padding and five compact gaps
-            foreach (double itemWidth in widths) preferred += itemWidth;
-            // Side docks use a separate horizontal strip at the viewport bottom.
-            // Fit its scale on narrow viewports instead of wrapping it into a panel.
-            double width = Upright ? preferred : Math.Min(preferred, availableWidth);
-            var items = new List<Item>();
-            double x = 5, y = 5;
-            Part[] parts = { Part.Object, Part.Plane, Part.Cursor, Part.View, Part.Color, Part.Snap };
-            for (int i = 0; i < parts.Length; i++)
+            IReadOnlyList<string> views = controller.NamedViewNames;
+            var groups = collapsed ? new List<Group>() : OptionGroups(views);
+
+            double preferred = 10;
+            foreach (Group g in groups)
             {
-                double length = Math.Min(width - 10, widths[i]);
-                if (x > 5 && x + length > width - 5) { x = 5; y += RowHeight; }
-                items.Add(new Item { Part = parts[i], Box = new Wpf.Rect(x, y, length, 28) });
-                x += length + 2;
+                if (preferred > 10) preferred += GroupGap;
+                if (g.Seg) preferred += 2 * SegPad + (g.Parts.Count - 1) * 2;
+                else preferred += (g.Parts.Count - 1) * GroupGap;
+                foreach (Part p in g.Parts) preferred += OptionWidth(p, views);
             }
-            var optionSize = new Wpf.Size(width, y + 33);
-            bool beside = !Upright && toolSize.Width + BarGap + width <= availableWidth;
-            var pair = collapsed ? toolSize : beside
-                ? new Wpf.Size(toolSize.Width + BarGap + width, Math.Max(toolSize.Height, optionSize.Height))
+            double width = Upright ? Math.Min(preferred, availableWidth) : Math.Min(preferred, availableWidth);
+
+            var items = new List<Item>();
+            var wells = new List<Wpf.Rect>();
+            double x = 5, y = 5;
+            foreach (Group g in groups)
+            {
+                double groupWidth = g.Seg ? 2 * SegPad + (g.Parts.Count - 1) * 2 : (g.Parts.Count - 1) * GroupGap;
+                foreach (Part p in g.Parts) groupWidth += OptionWidth(p, views);
+                if (x > 5) x += GroupGap;
+                if (x > 5 && x + groupWidth > width - 5) { x = 5; y += RowHeight - 5; }
+                if (g.Seg)
+                {
+                    wells.Add(new Wpf.Rect(x, y, Math.Min(groupWidth, width - 10), SegButtonHeight + 2 * SegPad));
+                    double bx = x + SegPad;
+                    foreach (Part p in g.Parts)
+                    {
+                        double w = OptionWidth(p, views);
+                        items.Add(new Item { Part = p, Box = new Wpf.Rect(bx, y + SegPad, w, SegButtonHeight) });
+                        bx += w + 2;
+                    }
+                }
+                else
+                {
+                    double bx = x;
+                    foreach (Part p in g.Parts)
+                    {
+                        double w = Math.Min(OptionWidth(p, views), width - 10);
+                        if (bx > x && bx + w > width - 5) { bx = 5; y += RowHeight - 5; }
+                        items.Add(new Item { Part = p, Box = new Wpf.Rect(bx, y + 2, w, ButtonHeight) });
+                        bx += w + GroupGap;
+                    }
+                    groupWidth = bx - GroupGap - x;
+                }
+                x += groupWidth;
+            }
+            bool hasOptions = items.Count > 0;
+            var optionSize = hasOptions ? new Wpf.Size(width, y + SegButtonHeight + 2 * SegPad + 5) : new Wpf.Size(0, 0);
+            var pair = collapsed || !hasOptions ? toolSize
+                : Upright ? new Wpf.Size(toolSize.Width + BarGap + optionSize.Width, Math.Max(toolSize.Height, optionSize.Height))
                 : new Wpf.Size(Math.Max(toolSize.Width, width), toolSize.Height + BarGap + optionSize.Height);
             // Rhino's four-view layout can be quite short at high DPI. Fit the entire
             // dock pair, then use the same scale for rendering and pointer coordinates.
@@ -71,36 +178,40 @@ namespace RhinoSketchingTool
             if (fitScale + .001 < scale && scale > .1)
                 return OptionsFrame(view, Math.Max(.1, fitScale));
             var origin = Origin(viewport, pair, scale);
-            // Bottom-left axis clearance must not push the pair beyond the right edge.
             origin.X = Math.Max(0, Math.Min(origin.X, (int)Math.Max(0, viewport.Width - pair.Width * scale - Inset * scale)));
             origin.Y = Math.Max(0, Math.Min(origin.Y, (int)Math.Max(0, viewport.Height - pair.Height * scale - Inset * scale)));
-            bool rightDock = dock == ToolbarDock.Right || dock == ToolbarDock.TopRight || dock == ToolbarDock.BottomRight;
-            double toolX = rightDock && !beside && !collapsed ? pair.Width - toolSize.Width : 0;
+            bool bottomDock = dock == ToolbarDock.Bottom || dock == ToolbarDock.BottomLeft || dock == ToolbarDock.BottomRight;
+            // Centre the narrower of the two over the other, as the prototype does.
+            double toolX = (pair.Width - toolSize.Width) / 2, optionX = (pair.Width - optionSize.Width) / 2;
+            if (dock == ToolbarDock.TopLeft || dock == ToolbarDock.BottomLeft) { toolX = 0; optionX = 0; }
+            if (dock == ToolbarDock.TopRight || dock == ToolbarDock.BottomRight) { toolX = pair.Width - toolSize.Width; optionX = pair.Width - optionSize.Width; }
             var frame = new Frame
             {
-                Scale = scale, Items = items, OptionsSize = optionSize,
-                ToolOrigin = new ScreenPoint(origin.X + (int)(toolX * scale), origin.Y),
-                OptionOrigin = beside
-                    ? new ScreenPoint(origin.X + (int)((toolSize.Width + BarGap) * scale), origin.Y)
-                    : new ScreenPoint(origin.X, origin.Y + (int)((toolSize.Height + BarGap) * scale)),
+                Scale = scale, Items = items, Wells = wells, OptionsSize = optionSize, HasOptions = hasOptions, Views = views,
+                // Docked at the bottom, the option row sits above the toolbar.
+                ToolOrigin = new ScreenPoint(origin.X + (int)(toolX * scale), origin.Y + (int)((bottomDock && hasOptions ? optionSize.Height + BarGap : 0) * scale)),
+                OptionOrigin = new ScreenPoint(origin.X + (int)(optionX * scale), origin.Y + (int)((bottomDock ? 0 : toolSize.Height + BarGap) * scale)),
             };
             if (Upright)
             {
-                double bottomSpace = collapsed ? 0 : (optionSize.Height + BarGap) * scale;
+                // On a side dock the row stands level with the tool that opened it.
+                double toolY = Math.Max(Inset * scale, (viewport.Height - toolSize.Height * scale) / 2);
                 frame.ToolOrigin = new ScreenPoint(
                     (int)Math.Round(dock == ToolbarDock.Right ? viewport.Width - (Inset + toolSize.Width) * scale : Inset * scale),
-                    (int)Math.Round(Math.Max(Inset * scale, (viewport.Height - bottomSpace - toolSize.Height * scale) / 2)));
-                frame.OptionOrigin = new ScreenPoint(
-                    (int)Math.Round((viewport.Width - optionSize.Width * scale) / 2),
-                    (int)Math.Round(viewport.Height - (Inset + optionSize.Height) * scale));
+                    (int)Math.Round(toolY));
+                double activeY = 0;
+                foreach (Item item in Layout(out _)) if (item.Part == ActivePart) activeY = item.Box.Top + item.Box.Height / 2;
+                double rowY = toolY + (activeY - optionSize.Height / 2) * scale;
+                rowY = Math.Max(Inset * scale, Math.Min(rowY, viewport.Height - (Inset + optionSize.Height) * scale));
+                double rowX = dock == ToolbarDock.Right
+                    ? frame.ToolOrigin.X - (BarGap + optionSize.Width) * scale
+                    : frame.ToolOrigin.X + (toolSize.Width + BarGap) * scale;
+                frame.OptionOrigin = new ScreenPoint((int)Math.Round(Math.Max(0, rowX)), (int)Math.Round(rowY));
             }
-            frame.Views = controller.NamedViewNames;
-            frame.PageSize = Math.Max(1, Math.Min(8, (int)(viewport.Height / scale - 100) / 30));
-            viewPage = Math.Max(0, Math.Min(viewPage, Math.Max(0, (frame.Views.Count - 1) / frame.PageSize)));
             double popupWidth = Math.Min(PopupWidth, availableWidth);
-            double popupHeight = optionsPopup == OptionsPopup.Colors ? Math.Min(302, Math.Max(180, viewport.Height / scale - 2 * Inset)) : 48 + Math.Min(frame.PageSize, Math.Max(1, frame.Views.Count - viewPage * frame.PageSize)) * 30 + (frame.Views.Count > frame.PageSize ? 30 : 0);
+            double popupHeight = Math.Min(302, Math.Max(180, viewport.Height / scale - 2 * Inset));
             frame.PopupSize = new Wpf.Size(popupWidth, popupHeight);
-            var anchor = items.Find(i => i.Part == (optionsPopup == OptionsPopup.Colors ? Part.Color : Part.View)).Box;
+            var anchor = items.Find(i => i.Part == Part.Color).Box;
             double px = frame.OptionOrigin.X + anchor.X * scale;
             double py = frame.OptionOrigin.Y + (anchor.Bottom + 8) * scale;
             if (py + popupHeight * scale > viewport.Height - Inset * scale)
@@ -120,22 +231,24 @@ namespace RhinoSketchingTool
             var p = Local(point, f.PopupOrigin, f.Scale);
             if (optionsPopup != OptionsPopup.None && new Wpf.Rect(f.PopupSize).Contains(p))
             {
-                if (optionsPopup == OptionsPopup.Colors)
-                {
-                    if (SvBox(f).Contains(p)) return Part.Saturation;
-                    if (HueBox(f).Contains(p)) return Part.Hue;
-                    if (p.Y >= f.PopupSize.Height - 38) return Part.Hex;
-                    if (p.Y < 48)
-                        for (int i = 0; i < 5; i++)
-                            if (Math.Abs(p.X - (27 + i * (f.PopupSize.Width - 54) / 4)) <= 18) return Part.Swatch0 + i;
-                }
+                if (SvBox(f).Contains(p)) return Part.Saturation;
+                if (HueBox(f).Contains(p)) return Part.Hue;
+                if (p.Y >= f.PopupSize.Height - 38) return Part.Hex;
+                if (p.Y < 48)
+                    for (int i = 0; i < 5; i++)
+                        if (Math.Abs(p.X - (27 + i * (f.PopupSize.Width - 54) / 4)) <= 18) return Part.Swatch0 + i;
                 return Part.Popup;
             }
+            if (!f.HasOptions) return Part.None;
             p = Local(point, f.OptionOrigin, f.Scale);
             if (!new Wpf.Rect(f.OptionsSize).Contains(p)) return Part.None;
             foreach (var item in f.Items)
                 if (item.Box.Contains(p))
-                    return item.Part == Part.View && p.X >= item.Box.Right - 28 ? Part.ViewList : item.Part;
+                {
+                    if (item.Part >= Part.Chip0 && item.Part <= Part.Chip7 && p.X >= item.Box.Right - 24)
+                        return Part.ChipX0 + (item.Part - Part.Chip0);
+                    return item.Part == Part.Hint ? Part.Bar : item.Part;
+                }
             return Part.Bar;
         }
 
@@ -143,40 +256,42 @@ namespace RhinoSketchingTool
 
         bool ClickOptions(Part part, RhinoView view, ScreenPoint point)
         {
+            if (part >= Part.Chip0 && part <= Part.Chip7)
+            {
+                var views = controller.NamedViewNames;
+                int i = ChipIndex(part, views);
+                armedChip = -1;
+                if (i < views.Count) controller.RestoreView(views[i]); // the camera only
+                return true;
+            }
+            if (part >= Part.ChipX0 && part <= Part.ChipX7)
+            {
+                // Deleting a Rhino Named View takes two clicks, as deleting does in Layers.
+                int slot = part - Part.ChipX0;
+                if (armedChip != slot || unchecked(Environment.TickCount - armedAt) > 2500) { armedChip = slot; armedAt = Environment.TickCount; return true; }
+                armedChip = -1;
+                var views = controller.NamedViewNames;
+                int i = ChipIndex(Part.Chip0 + slot, views);
+                if (i < views.Count) controller.DeleteView(views[i]);
+                return true;
+            }
+            if (part == Part.ChipMore) { chipPage++; armedChip = -1; ChipIndex(Part.Chip0, controller.NamedViewNames); return true; }
             switch (part)
             {
                 case Part.Object: SetDrawMethod(DrawMethod.Surface); break;
                 case Part.Plane: SetDrawMethod(DrawMethod.Plane); break;
-                case Part.Cursor: SetDrawMethod(DrawMethod.Cursor); break;
-                case Part.View: SetDrawMethod(DrawMethod.View); break;
+                case Part.EraseWhole: controller.Erase = EraseMode.Stroke; break;
+                case Part.ErasePart: controller.Erase = EraseMode.Part; break;
                 case Part.Snap: controller.SnapShapes = !controller.SnapShapes; break;
+                case Part.SaveView: CaptureNamedView(); break;
                 case Part.Color:
                     optionsPopup = optionsPopup == OptionsPopup.Colors ? OptionsPopup.None : OptionsPopup.Colors;
                     ReadColor(); break;
-                case Part.ViewList:
-                    optionsPopup = optionsPopup == OptionsPopup.Views ? OptionsPopup.None : OptionsPopup.Views;
-                    viewPage = 0; break;
                 case Part.Saturation: case Part.Hue: break;
                 case Part.Hex: EditHex(); break;
                 case Part.Swatch0: case Part.Swatch1: case Part.Swatch2: case Part.Swatch3: case Part.Swatch4:
                     controller.StrokeColor = Swatches[part - Part.Swatch0]; ReadColor(); break;
-                case Part.Popup:
-                    if (optionsPopup == OptionsPopup.Views)
-                    {
-                        var f = OptionsFrame(view);
-                        var p = Local(point, f.PopupOrigin, f.Scale);
-                        int row = (int)((p.Y - 38) / 30);
-                        int count = Math.Min(f.PageSize, f.Views.Count - viewPage * f.PageSize);
-                        if (p.Y < 38) { CloseOptionsPopup(); CaptureNamedView(); }
-                        else if (row < count && row >= 0)
-                        {
-                            controller.RestoreView(f.Views[viewPage * f.PageSize + row]);
-                            SetDrawMethod(DrawMethod.View);
-                        }
-                        else if (f.Views.Count > f.PageSize && row >= count)
-                            viewPage = (viewPage + 1) % ((f.Views.Count + f.PageSize - 1) / f.PageSize);
-                    }
-                    break;
+                case Part.Popup: break;
                 default: return false;
             }
             return true;
@@ -189,16 +304,16 @@ namespace RhinoSketchingTool
             controller.Tool = SketchTool.Draw;
         }
 
+        // Saves the camera as a Rhino Named View. Nothing else changes: not the tool, not the sketches.
         void CaptureNamedView()
         {
             CloseOptionsPopup();
             // Dialogs are opened after the viewport mouse callback returns.
             Application.Instance.AsyncInvoke(() =>
             {
-                string name = AskText("Capture view", "Name this Rhino view", "View " + (controller.NamedViewNames.Count + 1));
+                string name = AskText("Save view", "Name this view", "View " + (controller.NamedViewNames.Count + 1));
                 if (name == null) return;
-                string saved = controller.CaptureView(name);
-                if (saved != null) SetDrawMethod(DrawMethod.View);
+                controller.CaptureView(name);
                 Redraw();
             });
         }
@@ -227,12 +342,12 @@ namespace RhinoSketchingTool
         {
             Application.Instance.AsyncInvoke(() =>
             {
-                string text = AskText("Sketch color", "Hex color (#RRGGBB)", Hex);
+                string text = AskText("Sketch colour", "Hex colour (#RRGGBB)", Hex);
                 if (text == null) return;
                 text = text.TrimStart('#');
                 if (text.Length == 6 && int.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int rgb))
                 { controller.StrokeColor = Color.FromArgb((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255); ReadColor(); }
-                else MessageBox.Show("Enter six hexadecimal digits, for example #23262C.", "Sketch color");
+                else MessageBox.Show("Enter six hexadecimal digits, for example #23262C.", "Sketch colour");
                 Redraw();
             });
         }
@@ -257,8 +372,7 @@ namespace RhinoSketchingTool
             Redraw();
         }
         static double Clamp(double n) => Math.Max(0, Math.Min(1, n));
-        string ViewLabel => "View: " + (controller.CurrentViewName ?? "Current");
-        static double LabelWidth(string label) => Math.Ceiling(Picture.Text(label, 11.5, Wpf.FontWeights.Medium, Ink2).WidthIncludingTrailingWhitespace);
+        static double LabelWidth(string label) => Math.Ceiling(Picture.Text(label, 12, Wpf.FontWeights.Medium, Ink2).WidthIncludingTrailingWhitespace);
         static Media.Color Hsv(double h, double s, double v)
         {
             double c = v * s, x = c * (1 - Math.Abs(h / 60 % 2 - 1)), m = v - c;
@@ -271,9 +385,10 @@ namespace RhinoSketchingTool
 
         void DrawOptions(DrawEventArgs e, Frame f)
         {
-            if (collapsed) return;
+            if (collapsed || !f.HasOptions) return;
             if (optionsPopup == OptionsPopup.Colors && pickerArgb != controller.StrokeColor.ToArgb()) ReadColor();
-            string signature = f.OptionsSize + "|" + f.Scale + "|" + controller.Method + "|" + controller.CurrentViewName + "|" + Hex + "|" + controller.SnapShapes + "|" + hover + "|" + pressed;
+            if (armedChip >= 0 && unchecked(Environment.TickCount - armedAt) > 2500) armedChip = -1;
+            string signature = f.OptionsSize + "|" + f.Scale + "|" + chipPage + "|" + armedChip + "|" + controller.Tool + "|" + controller.Method + "|" + controller.Erase + "|" + controller.CurrentViewName + "|" + Hex + "|" + controller.SnapShapes + "|" + hover + "|" + pressed + "|" + Theme.Dark + "|" + string.Join("\n", f.Views);
             if (optionsPicture == null || signature != optionsSignature)
             {
                 optionsPicture?.Dispose();
@@ -282,8 +397,8 @@ namespace RhinoSketchingTool
             }
             int margin = (int)(Margin * f.Scale);
             e.Display.DrawBitmap(optionsPicture, f.OptionOrigin.X - margin, f.OptionOrigin.Y - margin);
-            if (optionsPopup == OptionsPopup.None) return;
-            signature = optionsPopup + "|" + f.PopupSize + "|" + f.Scale + "|" + Hex + "|" + hue + "|" + saturation + "|" + value + "|" + viewPage + "|" + controller.CurrentViewName + "|" + string.Join("\n", f.Views);
+            if (optionsPopup == OptionsPopup.None || controller.Tool != SketchTool.Draw) return;
+            signature = optionsPopup + "|" + f.PopupSize + "|" + f.Scale + "|" + Hex + "|" + hue + "|" + saturation + "|" + value + "|" + Theme.Dark;
             if (popupPicture == null || signature != popupSignature)
             {
                 popupPicture?.Dispose();
@@ -296,8 +411,9 @@ namespace RhinoSketchingTool
         System.Drawing.Bitmap RenderOptions(Frame f) => Picture.Render(f.OptionsSize.Width + Margin * 2, f.OptionsSize.Height + Margin * 2, f.Scale, c =>
         {
             c.PushTransform(new Media.TranslateTransform(Margin, Margin));
-            Picture.Card(c, new Wpf.Rect(f.OptionsSize), 11);
-            foreach (var item in f.Items) PaintOption(c, item);
+            Picture.Card(c, new Wpf.Rect(f.OptionsSize), 15);
+            foreach (var well in f.Wells) c.DrawRoundedRectangle(Fill(Well), null, well, 12, 12);
+            foreach (var item in f.Items) PaintOption(c, item, f);
             c.Pop();
         });
 
@@ -305,7 +421,7 @@ namespace RhinoSketchingTool
         {
             c.PushTransform(new Media.TranslateTransform(Margin, Margin));
             Picture.Card(c, new Wpf.Rect(f.PopupSize), 14);
-            if (optionsPopup == OptionsPopup.Colors) PaintColors(c, f); else PaintViews(c, f);
+            PaintColors(c, f);
             c.Pop();
         });
 
@@ -321,44 +437,107 @@ namespace RhinoSketchingTool
                 optionsPopup = OptionsPopup.Colors;
                 ReadColor();
                 var frame = OptionsFrame(view);
-                using (var bitmap = RenderOptions(frame)) bitmap.Save(System.IO.Path.Combine(folder, "drawing-bar.png"), System.Drawing.Imaging.ImageFormat.Png);
+                if (frame.HasOptions)
+                    using (var bitmap = RenderOptions(frame)) bitmap.Save(System.IO.Path.Combine(folder, "drawing-bar.png"), System.Drawing.Imaging.ImageFormat.Png);
                 using (var bitmap = RenderPopup(frame)) bitmap.Save(System.IO.Path.Combine(folder, "color-picker.png"), System.Drawing.Imaging.ImageFormat.Png);
             }
             finally { optionsPopup = previous; }
         }
 
-        void PaintOption(Media.DrawingContext c, Item item)
+        bool Selected(Part part)
+        {
+            switch (part)
+            {
+                case Part.Object: return controller.Method == DrawMethod.Surface;
+                case Part.Plane: return controller.Method != DrawMethod.Surface;
+                case Part.EraseWhole: return controller.Erase == EraseMode.Stroke;
+                case Part.ErasePart: return controller.Erase == EraseMode.Part;
+                default: return false;
+            }
+        }
+
+        void PaintOption(Media.DrawingContext c, Item item, Frame f)
         {
             var box = item.Box;
-            bool selected = item.Part == Part.Object && controller.Method == DrawMethod.Surface || item.Part == Part.Plane && controller.Method == DrawMethod.Plane || item.Part == Part.Cursor && controller.Method == DrawMethod.Cursor || item.Part == Part.View && controller.Method == DrawMethod.View;
-            c.DrawRoundedRectangle(Fill(selected ? Rgb(0xd9,0xdd,0xe4) : Rgb(0xf1,0xf2,0xf5)), null, box, 8, 8);
-            bool arrowHover = item.Part == Part.View && (hover == Part.ViewList || pressed == Part.ViewList);
-            if (hover == item.Part || pressed == item.Part || arrowHover) c.DrawRoundedRectangle(Fill(Shade, pressed == item.Part || pressed == Part.ViewList && item.Part == Part.View ? PressShade : HoverShade), null, box, 8, 8);
-            string label = item.Part == Part.Object ? "Object" : item.Part == Part.Plane ? "Plane" : item.Part == Part.Cursor ? "3D cursor" : item.Part == Part.View ? ViewLabel : item.Part == Part.Snap ? "Shapes" : "";
-            double textX = box.X + 5;
-            if (item.Part == Part.Color)
+            Part part = item.Part;
+            bool over = hover == part || pressed == part, down = pressed == part;
+            var mid = new Wpf.Point(box.X + box.Width / 2, box.Y + box.Height / 2);
+
+            if (part == Part.Color)
             {
                 var color = controller.StrokeColor;
-                var p = new Wpf.Point(box.X + box.Width / 2, box.Y + box.Height / 2);
-                c.DrawEllipse(Fill(Rgb(color.R,color.G,color.B)), new Media.Pen(Fill(Glass), 2), p, 10, 10);
-                c.DrawEllipse(null, new Media.Pen(Fill(Accent), 1.5), p, 11.5, 11.5);
+                if (over) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
+                c.DrawEllipse(Fill(Rgb(color.R, color.G, color.B)), new Media.Pen(Fill(Glass), 2), mid, 9, 9);
+                c.DrawEllipse(null, new Media.Pen(Fill(Shade, LineShade), 1), mid, 10.5, 10.5);
                 return;
             }
-            if (item.Part == Part.Snap)
+            if (part == Part.Hint)
             {
-                var check = new Wpf.Rect(box.X + 5, box.Y + 7, 14, 14);
-                c.DrawRoundedRectangle(Fill(Glass), new Media.Pen(Fill(Shade, .14), 1), check, 4, 4);
-                if (controller.SnapShapes)
-                {
-                    var pen = new Media.Pen(Fill(Accent), 2.2) { StartLineCap = Media.PenLineCap.Round, EndLineCap = Media.PenLineCap.Round };
-                    c.DrawLine(pen, new Wpf.Point(check.X+3,check.Y+7), new Wpf.Point(check.X+7,check.Y+11));
-                    c.DrawLine(pen, new Wpf.Point(check.X+7,check.Y+11), new Wpf.Point(check.X+17,check.Y-3));
-                }
-                textX = box.X + 26;
+                var hint = Picture.Text(HintText, 12, Wpf.FontWeights.Medium, Muted, box.Width - 8);
+                c.DrawText(hint, new Wpf.Point(box.X + 8, mid.Y - hint.Height / 2));
+                return;
             }
-            if (item.Part == Part.View) PaintIcon(c, Icons.Chevron, new Wpf.Point(box.Right - 14, box.Y+14), 20, arrowHover ? Ink : Ink2, 1, 0);
-            var text = Picture.Text(label, 11.5, Wpf.FontWeights.Medium, selected ? Ink : Ink2, Math.Max(12, box.Right - textX - (item.Part == Part.View ? 30 : 5)));
-            c.DrawText(text, new Wpf.Point(textX, box.Y + (box.Height - text.Height) / 2));
+
+            bool seg = part == Part.Object || part == Part.Plane || part == Part.EraseWhole || part == Part.ErasePart;
+            bool chip = part >= Part.Chip0 && part <= Part.Chip7;
+            if (part == Part.ChipMore)
+            {
+                c.DrawRoundedRectangle(Fill(Well), null, box, 10, 10);
+                if (over) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
+                var more = Picture.Text("More", 12, Wpf.FontWeights.Medium, Ink2);
+                c.DrawText(more, new Wpf.Point(box.X + 11, mid.Y - more.Height / 2));
+                return;
+            }
+            if (seg)
+            {
+                // .seg button: the selected one gets the soft grey fill; hover only darkens the text.
+                if (Selected(part)) c.DrawRoundedRectangle(Fill(SoftSel), null, box, 9, 9);
+                else if (down) c.DrawRoundedRectangle(Fill(Shade, PressShade), null, box, 9, 9);
+                var colour = Selected(part) || over ? Ink : Ink2;
+                double tx = box.X + 11;
+                if (part == Part.Object || part == Part.Plane)
+                {
+                    PaintIcon(c, part == Part.Object ? Icons.OnObject : Icons.OnPlane, new Wpf.Point(box.X + 9 + 8, mid.Y), 16, colour, 1, 0);
+                    tx = box.X + 9 + 16 + 6;
+                }
+                string label = part == Part.Object ? "Object" : part == Part.Plane ? "Plane" : part == Part.EraseWhole ? "Whole sketch" : "Part";
+                var text = Picture.Text(label, 12, Wpf.FontWeights.Medium, colour);
+                c.DrawText(text, new Wpf.Point(tx, mid.Y - text.Height / 2));
+                return;
+            }
+
+            // .sb-t: a well-coloured button, darker on hover. A view chip is the same, soft grey when it is the view on screen.
+            int slot = chip ? part - Part.Chip0 : -1;
+            int chipIndex = chip ? ChipIndex(part, f.Views) : -1;
+            bool current = chip && chipIndex < f.Views.Count && f.Views[chipIndex] == controller.CurrentViewName;
+            bool overX = chip && (hover == Part.ChipX0 + slot || pressed == Part.ChipX0 + slot);
+            bool armed = chip && armedChip == slot;
+            c.DrawRoundedRectangle(Fill(current ? SoftSel : Well), null, box, 10, 10);
+            if (over || overX) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
+
+            if (part == Part.Snap)
+            {
+                Picture.Tick(c, new Wpf.Point(box.X + 11, mid.Y - 8), controller.SnapShapes);
+                var text = Picture.Text("Snap shapes", 12, Wpf.FontWeights.Medium, Ink);
+                c.DrawText(text, new Wpf.Point(box.X + 11 + 16 + 7, mid.Y - text.Height / 2));
+                return;
+            }
+            if (part == Part.SaveView)
+            {
+                PaintIcon(c, Icons.Plus, new Wpf.Point(box.X + 11 + 7.5, mid.Y), 15, Ink, 1, 0);
+                var text = Picture.Text("Save view", 12, Wpf.FontWeights.Medium, Ink);
+                c.DrawText(text, new Wpf.Point(box.X + 11 + 15 + 6, mid.Y - text.Height / 2));
+                return;
+            }
+            if (chip && chipIndex < f.Views.Count)
+            {
+                var text = Picture.Text(f.Views[chipIndex], 12, Wpf.FontWeights.Medium, Ink, box.Width - 34);
+                c.DrawText(text, new Wpf.Point(box.X + 10, mid.Y - text.Height / 2));
+                var x = new Wpf.Rect(box.Right - 26, box.Y + 3, 24, 24);
+                if (armed) c.DrawRoundedRectangle(Fill(Picture.Danger, 0.14), null, x, 7, 7);
+                else if (overX) c.DrawRoundedRectangle(Fill(Shade, HoverShade), null, x, 7, 7);
+                PaintIcon(c, Icons.Close, new Wpf.Point(x.X + 12, x.Y + 12), 13, armed ? Picture.Danger : overX ? Ink : Muted, 1, 0);
+            }
         }
 
         void PaintColors(Media.DrawingContext c, Frame f)
@@ -367,7 +546,7 @@ namespace RhinoSketchingTool
             {
                 var color = Swatches[i]; var p = new Wpf.Point(27 + i * (f.PopupSize.Width - 54) / 4, 27);
                 c.DrawEllipse(Fill(Rgb(color.R,color.G,color.B)), new Media.Pen(Fill(Glass), 3), p, 13, 13);
-                c.DrawEllipse(null, new Media.Pen(Fill(color.ToArgb() == controller.StrokeColor.ToArgb() ? Accent : Rgb(0xdd,0xdf,0xe3)), 1.6), p, 15.5, 15.5);
+                c.DrawEllipse(null, new Media.Pen(color.ToArgb() == controller.StrokeColor.ToArgb() ? Fill(Accent) : Fill(Shade, LineShade), 1.6), p, 15.5, 15.5);
             }
             var sv = SvBox(f);
             c.PushClip(new Media.RectangleGeometry(sv, 11, 11));
@@ -375,32 +554,17 @@ namespace RhinoSketchingTool
             c.DrawRectangle(new Media.LinearGradientBrush(Media.Colors.Transparent, Media.Colors.Black, 90), null, sv);
             c.Pop();
             var marker = new Wpf.Point(sv.X + saturation * sv.Width, sv.Y + (1-value)*sv.Height);
-            c.DrawEllipse(null, new Media.Pen(Fill(Shade, .45), 4), marker, 7, 7);
-            c.DrawEllipse(null, new Media.Pen(Fill(Glass), 2), marker, 7, 7);
+            c.DrawEllipse(null, new Media.Pen(Fill(Rgb(16,20,28), .45), 4), marker, 7, 7);
+            c.DrawEllipse(null, new Media.Pen(Fill(Rgb(255,255,255)), 2), marker, 7, 7);
             var hueBox = HueBox(f); var gradient = new Media.LinearGradientBrush { StartPoint = new Wpf.Point(0,0), EndPoint = new Wpf.Point(1,0) };
             for (int i = 0; i <= 6; i++) gradient.GradientStops.Add(new Media.GradientStop(Hsv(i*60,1,1), i/6.0));
             c.DrawRoundedRectangle(gradient, null, hueBox, 8, 8);
-            c.DrawEllipse(Fill(Glass), null, new Wpf.Point(hueBox.X + hue / 360 * hueBox.Width, hueBox.Y + 8), 9, 9);
+            c.DrawEllipse(Fill(Rgb(255,255,255)), new Media.Pen(Fill(Rgb(16,20,28), .2), 1), new Wpf.Point(hueBox.X + hue / 360 * hueBox.Width, hueBox.Y + 8), 9, 9);
             var colorNow = controller.StrokeColor;
             double hexY = f.PopupSize.Height - 38;
             c.DrawRoundedRectangle(Fill(Rgb(colorNow.R,colorNow.G,colorNow.B)), null, new Wpf.Rect(12,hexY,32,28), 8,8);
-            c.DrawRoundedRectangle(Fill(Rgb(0xf1,0xf2,0xf5)), null, new Wpf.Rect(53,hexY,f.PopupSize.Width-65,28), 8,8);
-            c.DrawText(Picture.Text(Hex,14,Wpf.FontWeights.SemiBold,Ink), new Wpf.Point(64,hexY+4));
-        }
-
-        void PaintViews(Media.DrawingContext c, Frame f)
-        {
-            c.DrawText(Picture.Text("+ Capture view…",12,Wpf.FontWeights.SemiBold,Ink),new Wpf.Point(13,12));
-            c.DrawLine(new Media.Pen(Fill(Shade,.08),1), new Wpf.Point(10,36),new Wpf.Point(f.PopupSize.Width-10,36));
-            int start = viewPage * f.PageSize, count = Math.Min(f.PageSize, f.Views.Count-start);
-            if (count == 0) c.DrawText(Picture.Text("No named views yet",12,Wpf.FontWeights.Normal,Muted),new Wpf.Point(13,47));
-            for (int i = 0; i < count; i++)
-            {
-                string name = f.Views[start+i]; bool selected = name == controller.CurrentViewName;
-                if (selected) c.DrawRoundedRectangle(Fill(Rgb(0xd9,0xdd,0xe4)),null,new Wpf.Rect(5,39+i*30,f.PopupSize.Width-10,28),8,8);
-                c.DrawText(Picture.Text(name,12,Wpf.FontWeights.Medium,Ink2,f.PopupSize.Width-28),new Wpf.Point(13,45+i*30));
-            }
-            if (f.Views.Count > f.PageSize) c.DrawText(Picture.Text("More views  →",12,Wpf.FontWeights.Medium,Accent),new Wpf.Point(13,45+count*30));
+            c.DrawRoundedRectangle(Fill(Well), null, new Wpf.Rect(53,hexY,f.PopupSize.Width-65,28), 8,8);
+            c.DrawText(Picture.Text(Hex,13,Wpf.FontWeights.SemiBold,Ink), new Wpf.Point(64,hexY+5));
         }
     }
 }

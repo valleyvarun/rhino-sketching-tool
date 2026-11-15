@@ -32,7 +32,6 @@ namespace RhinoSketchingTool
             // The icon given here does not show up on the tab in Rhino 8; ShowTabIcon sees to that.
             Panels.RegisterPanel(this, typeof(SketchPanel), "Crayon", PanelIcon(), PanelType.System);
             Controller.StartPainting();
-            Controller.EscapedTwice += (s, e) => Sidebar.Leave();
             Sidebar.Watch();
             RhinoApp.Idle += RhinoMcpConnection.OnStartup;
             RhinoDoc.CloseDocument += Agent.DocumentClosed;

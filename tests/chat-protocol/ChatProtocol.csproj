@@ -7,6 +7,7 @@
     <Compile Include="../../rhino-plugin/Agent/Providers/CodexSession.cs" Link="CodexSession.cs" />
     <Compile Include="../../rhino-plugin/Agent/IChatSession.cs" Link="IChatSession.cs" />
     <Compile Include="../../rhino-plugin/Agent/ChatAttachment.cs" Link="ChatAttachment.cs" />
+    <Compile Include="../../rhino-plugin/Agent/ChatHistory.cs" Link="ChatHistory.cs" />
     <Compile Include="../../rhino-plugin/Agent/Providers/ClaudeCli.cs" Link="ClaudeCli.cs" />
     <Compile Include="../../rhino-plugin/Infrastructure/Json.cs" Link="Json.cs" />
     <Compile Include="../../rhino-plugin/Infrastructure/ChildProcess.cs" Link="ChildProcess.cs" />

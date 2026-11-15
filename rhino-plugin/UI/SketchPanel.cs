@@ -20,8 +20,8 @@ namespace RhinoSketchingTool
         string tab = "agent";
         bool DarkAppearance()
         {
-            bool dark = Rhino.Runtime.HostUtils.RunningInDarkMode;
-            var color = dark ? Color.FromArgb(0x20, 0x22, 0x28) : Color.FromArgb(0xf6, 0xf7, 0xf9);
+            bool dark = Theme.Dark; // Crayon's own light / dark switch, never Rhino's
+            var color = dark ? Color.FromArgb(0x23, 0x24, 0x28) : Color.FromArgb(0xf6, 0xf7, 0xf9);
             if (BackgroundColor != color) BackgroundColor = color;
             return dark;
         }
@@ -63,6 +63,8 @@ namespace RhinoSketchingTool
                 tab = value;
                 ShowTab();
             }
+            else if (type == "chatHistory") agentView.SetHistory("toggle");
+            else if (type == "chatNew") agentView.NewChat();
         }
 
         void ShowTab()

@@ -1,61 +1,550 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- the wordmark's font; loaded without holding up the page (offline it falls back to Segoe UI) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@600&display=swap" media="print" onload="this.media='all'">
 <style>
-:root{color-scheme:light;--ink:#15171c;--ink-2:#4a505d;--muted:#878d99;--surface:#fff;--surface-2:#f6f7f9;--well:#f1f2f5;--soft-sel:#d9dde4;--soft-sel-hover:#ccd1d9;--line:rgba(16,20,28,.08);--line-2:rgba(16,20,28,.14);--hover:rgba(16,20,28,.045);--accent:#9731b0;--accent-ring:rgba(151,49,176,.3);--danger:#e5484d;--font:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--mono:Consolas,monospace}
-:root.dark{color-scheme:dark;--ink:#edeef1;--ink-2:#b5bbc7;--muted:#858c9a;--surface:#292c33;--surface-2:#202228;--well:#2c3038;--soft-sel:#414650;--soft-sel-hover:#4b515c;--line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.14);--hover:rgba(255,255,255,.045)}
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}body{font:12.5px/1.4 var(--font);background:var(--surface-2);color:var(--ink);user-select:none}button,input,select{font:inherit;color:inherit}button{cursor:pointer;border:0;background:none;padding:0}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px}button:hover{background:var(--hover)}button:disabled{opacity:.45;cursor:default}svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}[hidden]{display:none!important}
-.header{height:50px;display:flex;align-items:center;gap:7px;padding:0 12px}.lockup{display:flex;align-items:center;gap:5px;flex:1;min-width:0}.lockup svg{width:28px;height:28px;stroke:none}.wordmark{font-size:19px;letter-spacing:-.6px;font-weight:600}.icon-button{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--ink-2)}.power{width:31px;height:19px;background:var(--soft-sel);border-radius:6px;padding:3px;transition:background 140ms}.power i{display:block;width:13px;height:13px;background:var(--surface);border-radius:3px;transition:transform 140ms}.power[aria-checked=true]{background:var(--accent)}.power[aria-checked=true] i{transform:translateX(12px)}
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin:0 12px 8px;padding:4px;background:var(--well);border-radius:12px;height:38px}.tabs button{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;border-radius:9px;font-size:12px;color:var(--ink-2)}.tabs button[aria-selected=true]{background:var(--soft-sel);color:var(--ink)}.tabs button[data-value=agent] svg{color:var(--accent)}
-main{height:100%;overflow-y:auto;scrollbar-width:thin;padding:2px 12px 18px}section{margin:0 0 14px}details{margin:0 0 12px}summary{height:32px;display:flex;align-items:center;gap:6px;list-style:none;cursor:pointer;font-weight:600;color:var(--ink-2);border-radius:8px;padding:0 4px}summary::-webkit-details-marker{display:none}summary:before{content:'›';display:inline-block;font-size:17px;font-weight:400;transform:rotate(0);color:var(--muted)}details[open]>summary:before{transform:rotate(90deg)}summary:hover{background:var(--hover)}summary small{margin-left:auto;font:11px var(--mono);color:var(--muted)}.section-body{padding:2px 4px}.preview{height:84px;margin:4px 0 12px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px}.preview svg{width:88%;height:64px;overflow:visible}.preset{display:flex;align-items:center;gap:12px;height:38px;padding:0 8px;border-radius:10px;width:100%;text-align:left}.preset svg{width:68px;height:22px}.preset span{flex:1}.preset small{color:var(--muted);font-size:11px}.field{display:flex;align-items:center;gap:9px;min-height:38px}.field>label,.field>.label{width:62px;flex:none;color:var(--ink-2);font-weight:500}.field input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:22px;margin:0}.field output{width:42px;text-align:right;color:var(--ink-2);font:11.5px var(--mono)}.swatches{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.swatch{width:22px;height:22px;border-radius:50%;background:var(--c)!important;box-shadow:inset 0 0 0 1px var(--line-2)}.swatch[aria-pressed=true]{outline:2px solid var(--accent);outline-offset:3px}.color-wheel{position:relative;width:24px;height:24px;border-radius:50%;background:conic-gradient(#ff4d4d,#ffb84d,#f5e94d,#4ddb7a,#4dc3ff,#6b5cff,#e04dff,#ff4d4d)}.color-wheel:after{content:'';position:absolute;inset:5px;border-radius:50%;background:var(--color,#9731b0);pointer-events:none}.color-wheel input{opacity:0;position:absolute;inset:0;width:100%;height:100%;cursor:pointer}.check{display:flex;align-items:center;gap:10px;width:100%;padding:9px 3px;border-radius:8px;text-align:left;color:var(--ink-2)}.check i{display:grid;place-items:center;width:17px;height:17px;border:1px solid var(--line-2);background:var(--surface);border-radius:4px;flex:none}.check svg{width:20px;height:20px;stroke:var(--accent);stroke-width:2.2;opacity:0;transform:translate(1px,-2px)}.check[aria-checked=true] svg{opacity:1}.segment{display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--well);width:100%}.segment button{min-width:0;flex:1;padding:6px 5px;border-radius:8px;font-size:11.5px;white-space:nowrap}.segment button[aria-pressed=true]{background:var(--soft-sel)}.methods{display:grid;grid-template-columns:1fr 1fr;gap:3px}.methods button{height:30px;text-align:left;padding-left:9px}.select{width:100%;height:32px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:0 8px;min-width:0}.row{display:flex;gap:6px;align-items:center}.row .select{flex:1}.button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:32px;border-radius:10px;padding:0 10px;background:var(--soft-sel);color:var(--ink);font-size:12px}.button:hover{background:var(--soft-sel-hover)}.button.ghost{background:transparent;border:1px solid var(--line-2)}.xyz{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}.xyz label{display:flex;gap:5px;align-items:center;padding:5px 7px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);color:var(--muted);font:11px var(--mono)}.xyz input{width:100%;min-width:0;border:0;outline:none;background:none;font-size:12px;color:var(--ink)}input::-webkit-inner-spin-button{display:none}.caption{margin:8px 3px 0;color:var(--muted);font-size:11.5px;line-height:1.5}.off{display:flex;align-items:center;justify-content:space-between;padding:10px 4px;color:var(--muted)}.off button{color:var(--accent);font-weight:600}.search{width:100%;height:34px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 10px;outline:none;margin:5px 0 10px}.empty{padding:18px 8px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}.item{display:flex;align-items:center;gap:8px;min-height:42px;border-radius:10px;padding:5px 7px;margin:2px 0}.item:hover{background:var(--hover)}.item.off-item{opacity:.55}.item .name{flex:1;min-width:0;text-align:left;overflow:hidden}.item .name b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item .name small{display:block;color:var(--muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item .name input{width:100%;border:0;outline:none;background:transparent;font-size:12px;padding:2px 0;border-bottom:1px solid transparent}.item .name input:focus{border-bottom-color:var(--accent)}.item .icon-button{width:25px;height:27px;flex:none;color:var(--muted)}.item .danger:hover{color:var(--danger)}.dot{width:9px;height:9px;border-radius:3px;background:var(--c);flex:none}.comment-number{display:grid;place-items:center;background:rgba(151,49,176,.10);color:var(--accent);font:11px var(--mono);width:22px;height:22px;border-radius:7px;flex:none}.comment-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;flex:1}.count{color:var(--muted);font:11px var(--mono)}.document{font-size:11px;color:var(--muted);padding:8px 4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.button:active,.icon-button:active{transform:translateY(1px)}
-.brush-select{position:relative;margin:6px 0 12px}.brush-select>summary{height:42px;padding:0 12px;gap:10px;background:var(--well);border-radius:11px;color:var(--ink)}.brush-select>summary:before{display:none}.brush-sample{width:38px;height:22px;color:var(--accent)}.brush-arrow{margin-left:auto;width:19px;height:19px}.brush-select[open] .brush-arrow{transform:rotate(180deg)}.brush-menu{position:absolute;top:48px;left:0;right:0;z-index:5;padding:5px;background:var(--surface);border:1px solid var(--line-2);border-radius:11px;box-shadow:0 12px 26px -16px rgba(16,20,28,.32)}.brush-menu button{display:block;text-align:left;width:100%;padding:9px 12px;border-radius:8px}.sensitivity{flex:none;width:26px;height:26px;display:grid;place-items:center;border-radius:7px;color:var(--muted);border:1px solid var(--line-2)}.sensitivity[aria-pressed=true]{color:var(--accent);background:var(--soft-sel);border-color:transparent}.field{gap:7px}.field>label{width:56px}.field output{width:37px}#layers .item{min-height:28px;padding:1px 6px;margin:0;border-radius:7px;gap:7px}#layers .item .icon-button{height:26px;width:24px}#layers .item .name input{padding:2px 0}#layers .item-group{margin:0 0 5px 8px}#layers .item-group>summary{height:28px;font-weight:500}#layers .comment-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#layers .comment-number{height:19px;width:19px}#layers details{margin-bottom:6px}.layer-options{display:grid;gap:6px;margin:6px 0 8px}.layer-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;font-size:11.5px;min-height:26px}.layer-toggle i{position:relative;width:28px;height:16px;border-radius:9px;background:var(--line-2);flex:none}.layer-toggle i:after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:white}.layer-toggle[aria-checked=true] i{background:var(--accent)}.layer-toggle[aria-checked=true] i:after{left:14px}.group-active{width:15px;height:15px;border:1px solid var(--line-2);border-radius:4px;display:grid;place-items:center;background:var(--surface);flex:none}.group-active svg{width:14px;height:14px;opacity:0}.group-active[aria-checked=true]{background:var(--accent);border-color:var(--accent);color:white}.group-active[aria-checked=true] svg{opacity:1}.item-group>summary{gap:7px;height:30px}.item-group>summary .group-name{flex:1}.item-group>summary small{margin-left:0}.visibility{display:grid;place-items:center;width:24px;height:24px;color:var(--muted);flex:none}.visibility[aria-pressed=true]{color:var(--ink-2)}.item-group{margin:0 0 3px}.item-group>.group-items{padding-left:12px}
-.tabs button svg{color:var(--accent)}
+/* Crayon panel. Tokens, sizes and motion follow design/tokens/tokens.css and
+   design/prototype/index.html (the source of truth). Light is the default;
+   <html class="dark"> is Crayon's own dark look, chosen in the header. */
+:root{
+  --ink:#15171c; --ink-2:#4a505d; --muted:#878d99;
+  --surface:#ffffff; --surface-2:#f6f7f9; --well:#f1f2f5; --field:#ffffff;
+  --hover:rgba(16,20,28,.045); --press:rgba(16,20,28,.08);
+  --soft-sel:#d9dde4; --soft-sel-hover:#ccd1d9;
+  --line:rgba(16,20,28,.08); --line-2:rgba(16,20,28,.14);
+  --accent:#9731b0; --accent-ink:#ffffff; --accent-soft:rgba(151,49,176,.10); --accent-ring:rgba(151,49,176,.30);
+  --danger:#e5484d;
+  --shadow-1:0 0 0 1px rgba(16,20,28,.07);
+  --shadow-3:0 22px 50px -24px rgba(16,20,28,.35), 0 0 0 1px rgba(16,20,28,.08);
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --spring:cubic-bezier(.3,0,.2,1); --ease:cubic-bezier(.22,.8,.24,1);
+  --t-fast:.14s; --t-med:.26s;
+  color-scheme:light;
+}
+:root.dark{
+  --ink:#ecedf0; --ink-2:#b3b7c1; --muted:#868b97;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --surface:#202126; --surface-2:#18191d; --well:#2a2b31; --field:#202126;
+  --hover:rgba(255,255,255,.06); --press:rgba(255,255,255,.1);
+  --soft-sel:#35363e; --soft-sel-hover:#3e3f48;
+  --accent:#b66ad0; --accent-ink:#ffffff; --accent-soft:rgba(182,106,208,.17); --accent-ring:rgba(182,106,208,.38);
+  --shadow-1:0 0 0 1px rgba(255,255,255,.07);
+  --shadow-3:0 24px 54px -22px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.09);
+  color-scheme:dark;
+}
+/* colours cross-fade when switching, nothing else moves */
+:root.ui-switching *, :root.ui-switching *::before, :root.ui-switching *::after{ transition:background-color .28s ease, border-color .28s ease, color .28s ease, fill .28s ease, box-shadow .28s ease !important; }
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; overflow:hidden; }
+body{ font:13px/1.4 var(--f-ui); background:var(--surface-2); color:var(--ink); -webkit-font-smoothing:antialiased; user-select:none; }
+button{ font:inherit; color:inherit; }
+button:focus-visible, input:focus-visible{ outline:2px solid var(--accent-ring); outline-offset:2px; }
+svg{ flex:none; }
+[hidden]{ display:none !important; }
+.ic{ fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+
+/* ---------- header: logo · Crayon on/off · light/dark ---------- */
+.dock-h{ display:flex; align-items:center; gap:4px; height:50px; padding:0 8px 0 14px; }
+.lockup{ display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden; }
+.lockup svg{ width:25px; height:25px; flex:none; }
+:root.dark .lockup svg [fill="#1d2025"]{ fill:#f2f1ed; }
+:root.dark .lockup svg [fill="#9731b0"]{ fill:#b165c4; }
+:root.dark .lockup svg [fill="#6d237f"]{ fill:#9731b0; }
+.wordmark{ font:600 18.5px/1 "Instrument Sans", var(--f-ui); letter-spacing:-.03em; color:var(--ink); white-space:nowrap; padding-bottom:2px; }
+.dh-gap{ flex:1; }
+.hbtn{ width:30px; height:30px; border:0; border-radius:9px; background:transparent; color:var(--muted); cursor:pointer; display:grid; place-items:center; padding:0; flex:none; transition:background var(--t-fast), color var(--t-fast), transform .3s var(--spring); }
+.hbtn:hover{ background:var(--hover); color:var(--ink); }
+.hbtn:active{ transform:scale(.9); }
+.hbtn svg{ width:17px; height:17px; }
+/* history · new chat | Crayon on/off · light/dark (the first two only on the Agent tab) */
+.dh-div{ width:1px; height:18px; margin:0 3px; background:var(--line-2); flex:none; }
+#chatHistory[aria-pressed="true"]{ background:var(--soft-sel); color:var(--ink); }
+.hbtn:disabled{ opacity:.4; cursor:default; }
+.hbtn:disabled:hover{ background:transparent; color:var(--muted); }
+.hbtn.theme{ position:relative; }
+.hbtn.theme > span{ position:absolute; inset:0; display:grid; place-items:center; transition:opacity .2s ease, transform .3s var(--spring); }
+.hbtn.theme .th-sun{ opacity:0; transform:rotate(-60deg) scale(.7); }
+.hbtn.theme[aria-pressed="true"] .th-moon{ opacity:0; transform:rotate(60deg) scale(.7); }
+.hbtn.theme[aria-pressed="true"] .th-sun{ opacity:1; transform:none; }
+/* Crayon on / off: filleted corners and a square-ish knob (not an iOS pill); violet on, grey off */
+.cswitch{ position:relative; flex:none; width:32px; height:18px; margin:0 5px; padding:0; border:0; border-radius:6px; background:var(--accent); cursor:pointer; transition:background .18s ease; }
+.cswitch i{ position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:4px; background:#fff; box-shadow:0 1px 2px rgba(16,20,28,.28); transform:translateX(14px); transition:transform .2s var(--spring); }
+.cswitch[aria-checked="false"]{ background:var(--line-2); }
+.cswitch[aria-checked="false"] i{ transform:none; }
+.cswitch:hover{ filter:brightness(1.06); }
+.cswitch:focus-visible{ outline:none; box-shadow:0 0 0 2px var(--accent-ring); }
+
+/* a narrow panel: the mark without the word, and the tabs as icons (their names show on hover) */
+@media (max-width:290px){ .wordmark{ display:none; } }
+@media (max-width:270px){ .mswitch [role=tab]{ font-size:0; gap:0; } }
+/* a very narrow panel: group rows tighten, and rename moves to double-click only */
+@media (max-width:240px){ .lrow{ gap:3px; } .lrow.grp [data-act=groupRenameStart]{ display:none; } }
+/* Rhino's narrowest panel (a fresh layout opens it at ~150 px): header buttons and rows compact,
+   the mark leaves the header (the panel's own title says Crayon), item counts hide */
+@media (max-width:190px){ .lockup{ display:none; } .dock-h{ padding:0 4px 0 8px; gap:2px; } .hbtn{ width:26px; } .cswitch{ margin:0 2px; } .dh-div{ margin:0 1px; }
+  .lrow .lc{ display:none; } .lrow .lx{ width:20px; } .mswitch{ margin:0 6px 4px; } }
+
+/* ---------- tabs: Sketch · Layers · Agent, a sliding soft-grey thumb ---------- */
+.mswitch{ position:relative; display:grid; grid-template-columns:repeat(3,1fr); margin:0 12px 4px; padding:4px; border-radius:14px; background:var(--well); }
+.mswitch::before{ content:""; position:absolute; top:4px; bottom:4px; left:4px; width:calc((100% - 8px) / 3); border-radius:11px; background:var(--soft-sel); transform:translateX(calc(var(--mi, 0) * 100%)); transition:transform .45s var(--spring); }
+.mswitch button{ position:relative; z-index:1; height:30px; display:flex; align-items:center; justify-content:center; gap:7px; padding:1px 6px; border:0; background:transparent; border-radius:11px; color:var(--ink-2); font:600 12.5px var(--f-ui); cursor:pointer; transition:color var(--t-med); white-space:nowrap; min-width:0; }
+.mswitch button:hover{ color:var(--ink); }
+.mswitch button[aria-selected="true"]{ color:var(--ink); }
+.mswitch button > span{ display:grid; place-items:center; }
+.mswitch button svg{ width:15px; height:15px; }
+.mswitch button[aria-selected="true"] svg{ color:var(--accent); }
+.mswitch button[data-tab="agent"] svg{ color:var(--accent); } /* the agent is always violet */
+/* tab icons: a small moment when you switch tabs */
+.ic-ink{ stroke-dasharray:14 40; }
+.mswitch button.play .ic-ink{ animation:icInk .4s var(--spring) both; }
+.mswitch button.play .ic-pencil{ animation:icPencil .4s var(--spring) both; }
+@keyframes icInk{ from{ stroke-dashoffset:16; } to{ stroke-dashoffset:0; } }
+@keyframes icPencil{ from{ transform:translate(-3px, .6px); } to{ transform:none; } }
+.ic-top, .ic-low{ transform-box:view-box; }
+.mswitch button.play .ic-top{ animation:icLift .42s var(--spring) both; }
+.mswitch button.play .ic-low{ animation:icSlide .42s var(--spring) both; }
+@keyframes icLift{ 0%{ transform:none; } 35%{ transform:translateY(-2.5px); } 100%{ transform:none; } }
+@keyframes icSlide{ 0%{ transform:translateY(-6px); opacity:0; } 30%{ opacity:1; } 100%{ transform:none; opacity:1; } }
+.ic-loop{ stroke-dasharray:1 2; }
+.ic-dot{ transform-box:fill-box; transform-origin:center; }
+.mswitch button.play .ic-dot{ animation:icDot .3s var(--spring) both; }
+.mswitch button.play .ic-loop{ animation:icLoop .5s var(--spring) .06s both; }
+.mswitch button.play .ic-echo{ animation:icEcho .5s ease-out .3s both; }
+@keyframes icDot{ from{ transform:scale(0); } to{ transform:none; } }
+@keyframes icLoop{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+@keyframes icEcho{ from{ opacity:0; } to{ opacity:.3; } }
+/* thinking: a short stroke chases round the loop, growing and shrinking, while the dot breathes */
+.mswitch button.busy .ic-loop{ animation:loopRun 1.4s cubic-bezier(.45,0,.35,1) infinite; }
+.mswitch button.busy .ic-dot{ animation:dotBreathe 1.4s ease-in-out infinite; }
+.mswitch button.busy .ic-echo{ opacity:0; }
+@keyframes loopRun{ 0%{ stroke-dasharray:.04 .96; stroke-dashoffset:0; } 50%{ stroke-dasharray:.62 .38; stroke-dashoffset:-.25; } 100%{ stroke-dasharray:.04 .96; stroke-dashoffset:-1; } }
+@keyframes dotBreathe{ 0%, 100%{ transform:none; } 50%{ transform:scale(.68); } }
+@media (prefers-reduced-motion: reduce){ .mswitch button.busy .ic-loop, .mswitch button.busy .ic-dot{ animation:none; } }
+
+/* ---------- panel body ---------- */
+main{ height:100%; }
+.cy-scroll{ height:100%; overflow-y:auto; padding:6px 12px 14px; display:flex; flex-direction:column; gap:16px; scrollbar-width:thin; animation:paneIn .34s var(--ease); }
+@keyframes paneIn{ from{ opacity:0; translate:0 6px; } }
+.cy-sec{ display:flex; flex-direction:column; gap:2px; }
+.ps{ display:flex; flex-direction:column; gap:2px; }
+
+/* one heading style for every section: fold-out, all open at the start */
+.ph{ position:relative; display:flex; align-items:center; gap:7px; height:30px; padding:0 4px; border-radius:8px; cursor:pointer; outline:none; }
+.ph:hover{ background:var(--hover); }
+.ph:focus-visible{ box-shadow:0 0 0 2px var(--accent-ring); }
+.chev{ width:14px; flex:none; display:grid; place-items:center; color:var(--muted); transition:transform .18s var(--spring); }
+.chev svg{ width:12px; height:12px; }
+.ph .chev{ transform:rotate(90deg); }
+.ph[aria-expanded="false"] .chev{ transform:none; }
+.ph .pt{ font:600 13px var(--f-ui); color:var(--ink); }
+.ph .pm{ display:inline-flex; align-items:center; gap:5px; margin-left:auto; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font:400 11.5px var(--f-ui); color:var(--muted); }
+.ph .pm svg{ width:13px; height:13px; flex:none; color:var(--accent); }
+.lmore{ width:26px; height:26px; flex:none; margin-left:4px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
+.lmore:hover{ background:var(--press); color:var(--ink); }
+.lmore svg{ width:16px; height:16px; }
+.ph .pm:empty + .lmore{ margin-left:auto; }
+
+/* Sketch: preview, presets, stroke */
+.cy-preview{ flex:none; height:84px; margin-top:2px; border-radius:14px; background:var(--surface); box-shadow:var(--shadow-1); display:grid; place-items:center; overflow:hidden; }
+.cy-preview svg{ width:88%; height:64px; overflow:visible; }
+.pr{ display:grid; grid-template-columns:76px 1fr; align-items:center; gap:10px; height:38px; padding:0 8px 0 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); font:500 12.5px var(--f-ui); text-align:left; cursor:pointer; transition:background var(--t-fast); }
+.pr:hover{ background:var(--hover); }
+.pr.on{ background:var(--soft-sel); }
+.pr.on:hover{ background:var(--soft-sel-hover); }
+.pr > svg{ width:76px; height:22px; overflow:visible; }
+.cy-field{ display:flex; align-items:center; gap:10px; min-height:38px; padding:0 4px; }
+.cy-lbl{ width:66px; flex:none; font:500 12.5px var(--f-ui); color:var(--ink-2); }
+.cy-cols{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.cy-col{ position:relative; width:22px; height:22px; padding:0; border:0; border-radius:50%; background:var(--c); cursor:pointer; box-shadow:inset 0 0 0 1px rgba(0,0,0,.12); transition:box-shadow .15s; }
+.cy-col[aria-pressed="true"]{ box-shadow:0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--ink); }
+.cy-col.wheel{ background:conic-gradient(#ff4d4d, #ffb84d, #f5e94d, #4ddb7a, #4dc3ff, #6b5cff, #e04dff, #ff4d4d); }
+.cy-col.wheel::after{ content:""; position:absolute; inset:5px; border-radius:50%; background:var(--c); pointer-events:none; }
+.cy-col.wheel input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0; }
+/* a soft bar you drag; the value sits inside */
+.cy-bar{ position:relative; flex:1; min-width:0; height:28px; border-radius:8px; background:var(--well); overflow:hidden; cursor:ew-resize; touch-action:none; outline:none; }
+.cy-bar .fill{ position:absolute; left:0; top:0; bottom:0; background:var(--soft-sel); box-shadow:inset -2px 0 0 var(--ink-2); }
+.cy-bar:hover .fill{ background:var(--soft-sel-hover); }
+.cy-bar.drag .fill{ box-shadow:inset -2px 0 0 var(--ink); }
+.cy-bar .bv{ position:absolute; top:0; right:10px; bottom:0; display:flex; align-items:center; font:500 12px var(--f-ui); font-variant-numeric:tabular-nums; color:var(--ink); pointer-events:none; }
+.cy-bar:focus-visible{ box-shadow:0 0 0 2px var(--accent-ring); }
+
+/* hand-drawn ticks: the only kind of checkbox in Crayon */
+.cy-check{ display:flex; align-items:center; gap:11px; width:100%; padding:8px 6px; border:0; border-radius:8px; background:none; color:inherit; text-align:left; cursor:pointer; }
+.cy-check:hover{ background:var(--hover); }
+.cy-check:focus-visible{ outline:none; box-shadow:0 0 0 2px var(--accent-ring); }
+.cy-check .cy-lbl{ width:auto; flex:1; }
+.ck{ position:relative; width:16px; height:16px; flex:none; border-radius:4px; background:var(--surface); box-shadow:inset 0 0 0 1.5px var(--line-2); display:grid; place-items:center; }
+.ck svg{ position:absolute; left:-3px; top:-9px; width:25px; height:25px; overflow:visible; pointer-events:none; }
+.ck path{ fill:none; stroke:var(--accent); stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:34; stroke-dashoffset:34; }
+.ck .ck-a{ stroke-width:2.3; }
+.ck .ck-b{ stroke-width:1.1; opacity:.35; }
+[aria-checked="true"] > .ck path{ stroke-dashoffset:0; }
+.ck.anim-on .ck-a{ animation:ckDraw .34s var(--spring) both; }
+.ck.anim-on .ck-b{ animation:ckDraw .34s var(--spring) .07s both; }
+.ck.anim-off path{ animation:ckErase .22s ease-in both; }
+@keyframes ckDraw{ from{ stroke-dashoffset:34; } to{ stroke-dashoffset:0; } }
+@keyframes ckErase{ from{ stroke-dashoffset:0; opacity:1; } to{ stroke-dashoffset:-34; opacity:0; } }
+
+/* Layers: flat rows. A group's eye decides whether the agent gets it. */
+.lsec{ display:flex; flex-direction:column; gap:1px; }
+.lsec + .lsec{ margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
+.lrow{ position:relative; display:flex; align-items:center; gap:6px; height:32px; padding:0 6px 0 2px; border-radius:9px; color:var(--ink); font:500 12.5px var(--f-ui); cursor:pointer; transition:background var(--t-fast); }
+.lrow:hover{ background:var(--hover); }
+.lrow.picked{ background:var(--soft-sel); }
+.lrow.picked:hover{ background:var(--soft-sel-hover); }
+.lx{ width:24px; height:24px; flex:none; padding:0; border:0; border-radius:7px; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
+.lx:hover{ background:var(--press); color:var(--ink); }
+.lx[aria-pressed="false"]{ color:var(--ink-2); }
+.lx svg{ width:15px; height:15px; }
+.lx:disabled{ opacity:.35; cursor:default; background:transparent; }
+.lx.del:hover{ color:var(--danger); }
+.lrow .chev{ width:14px; }
+.lrow.shut .chev{ transform:none; }
+.lrow.grp .chev{ transform:rotate(90deg); }
+.lrow.grp.shut .chev{ transform:none; }
+.lrow .dot{ width:8px; height:8px; flex:none; margin:0 3px; border-radius:50%; background:var(--c); }
+:root.dark .lrow .dot, :root.dark .cy-col{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+:root.dark .cy-col[aria-pressed="true"]{ box-shadow:0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--ink); }
+.lrow .cnum{ min-width:16px; height:16px; padding:0 3px; flex:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font:700 9.5px var(--f-ui); }
+.lrow .ln{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lrow .lc{ min-width:16px; text-align:right; font:500 11px var(--f-ui); font-variant-numeric:tabular-nums; color:var(--muted); }
+/* the group new sketches go into: one per collection, like a radio button */
+/* a group's two marks: a checkbox = the group goes to the agent (any number);
+   a live tick, no box = the group you are drawing in (one per list) */
+/* a checkbox inside a row button keeps its full-size tick (the row's 15 px icon size is for icons) */
+.lx .ck svg{ width:25px; height:25px; }
+/* the live tick: centred in its own tile, violet on the group you are drawing in */
+.lx.gck{ transition:background var(--t-fast); }
+.lx.gck[aria-checked="true"]{ background:var(--accent-soft); }
+.lx.gck .lt{ width:19px; height:19px; overflow:visible; }
+.lx.gck .lt path{ fill:none; stroke:var(--accent); stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:34; stroke-dashoffset:34; }
+.lx.gck .lt .ck-a{ stroke-width:2.6; }
+.lx.gck .lt .ck-b{ stroke-width:1.2; opacity:.35; }
+.lx.gck[aria-checked="true"] .lt path{ stroke-dashoffset:0; }
+.lx.gck[aria-checked="false"]:hover .lt path{ stroke:var(--line-2); stroke-dashoffset:0; }
+.lx.gck .lt.anim-on .ck-a{ animation:ckDraw .34s var(--spring) both; }
+.lx.gck .lt.anim-on .ck-b{ animation:ckDraw .34s var(--spring) .07s both; }
+.lrow.item{ height:30px; padding-left:22px; font-weight:400; }
+.lrow.off .ln, .lrow.off .dot, .lrow.off .cnum, .lrow.off .lc{ opacity:.38; }
+.lrow input{ flex:1; min-width:0; font:inherit; color:var(--ink); border:0; outline:0; border-radius:6px; padding:3px 6px; background:var(--field); box-shadow:inset 0 0 0 1.5px var(--accent); }
+.lempty{ margin:0; padding:2px 10px 6px 50px; font-size:11.5px; color:var(--muted); }
+.lempty.top{ padding-left:32px; }
 </style></head>
 <body data-mode="{{MODE}}">
 <div id="shell">
- <div class="header"><div class="lockup">{{LOGO}}<span class="wordmark">crayon</span></div><button id="power" class="power" data-act="power" role="switch" aria-label="Crayon" aria-checked="false" title="Turn Crayon on"><i></i></button></div>
- <div class="tabs" role="tablist" aria-label="Crayon panel"><button role="tab" data-act="tab" data-value="agent" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M18 5C8-2 0 11 6 18c5 7 16 0 14-7-1-5-10-5-10 1 0 3 4 4 6 1"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/></svg>Agent</button><button role="tab" data-act="tab" data-value="sketch" aria-selected="false"><svg viewBox="0 0 24 24"><path d="m5 16-1 4 4-1L20 7l-3-3Z M14 7l3 3 M11 21h9"/></svg>Sketch</button><button role="tab" data-act="tab" data-value="layers" aria-selected="false"><svg viewBox="0 0 24 24"><path d="m3 8 9-5 9 5-9 5Z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg>Layers</button></div>
+  <div class="dock-h">
+    <div class="lockup" role="img" aria-label="Crayon">{{LOGO}}<span class="wordmark">crayon</span></div>
+    <span class="dh-gap"></span>
+    <button type="button" class="hbtn" id="chatHistory" title="Chat history" aria-label="Chat history" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></button>
+    <button type="button" class="hbtn" id="newChat" title="New chat" aria-label="New chat" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.85.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.85z"/></svg></button>
+    <span class="dh-div" id="chatDiv" hidden></span>
+    <button type="button" class="cswitch" id="power" role="switch" aria-checked="false" aria-label="Crayon" title="Turn Crayon on"><i></i></button>
+    <button type="button" class="hbtn theme" id="theme" aria-pressed="false" title="Dark mode" aria-label="Dark mode"><span class="th-moon"><svg class="ic" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span><span class="th-sun"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg></span></button>
+  </div>
+  <div class="mswitch" role="tablist" aria-label="Panel">
+    <button type="button" role="tab" data-tab="sketch" aria-selected="false"><span><svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><g class="ic-pencil"><path d="M15.6 4.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9.4 18.6 5 19.9l1.3-4.4z"/><path d="M13.6 6.4l4 4"/></g><path class="ic-ink" d="M2.5 21.3c2-1.4 3.6-1.4 5 0s3.2 1.4 5 0"/></svg></span>Sketch</button>
+    <button type="button" role="tab" data-tab="layers" aria-selected="false"><span><svg class="ic" viewBox="0 0 24 24"><path class="ic-top" d="M12 3l9 5-9 5-9-5z"/><path class="ic-low" d="M3 13l9 5 9-5"/></svg></span>Layers</button>
+    <button type="button" role="tab" data-tab="agent" aria-selected="false"><span><svg class="ic" viewBox="0 0 24 24"><circle class="ic-dot" cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/><path class="ic-loop" pathLength="1" stroke-width="2.1" d="M5.4 14.4C4.1 10.3 7 6 11.5 5.2c4.6-.8 8.3 2 8.3 5.7 0 4.2-4.2 7.9-8.8 8.1-3.5.2-6-1.6-5.4-4.3.5-2.4 3.4-4.2 6.4-4.1"/><path class="ic-echo" stroke-width="1" opacity=".3" transform="translate(.45 .4)" d="M5.4 14.4C4.1 10.3 7 6 11.5 5.2c4.6-.8 8.3 2 8.3 5.7 0 4.2-4.2 7.9-8.8 8.1-3.5.2-6-1.6-5.4-4.3.5-2.4 3.4-4.2 6.4-4.1"/></svg></span>Agent</button>
+  </div>
 </div>
 <main id="main">
-<div id="sketch">
- <details class="brush-select" id="brushMenu"><summary aria-label="Choose brush type"><svg class="brush-sample" viewBox="0 0 76 22"><path d="M4 16C18 0 27 2 38 11s21 10 34-5" stroke-width="5"/></svg><span id="brushName">Crayon</span><svg class="brush-arrow" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary><div class="brush-menu"><button data-act="preset" data-value="crayon">Crayon</button><button data-act="preset" data-value="pencil">Pencil</button><button data-act="preset" data-value="marker">Marker</button><button data-act="preset" data-value="soft">Soft brush</button></div></details>
- <div id="strokeSection"><div class="section-body"><div class="field"><span class="label">Colour</span><div class="swatches" id="swatches"></div></div><div id="ranges"></div></div></div>
-</div>
-<div id="layers" hidden>
-<div class="layer-options"><button class="layer-toggle" data-act="activeOnly" role="switch" aria-checked="true">Context only from active group<i></i></button><button class="layer-toggle" data-act="newGroup" role="switch" aria-checked="true">New group for new prompt<i></i></button><button class="layer-toggle" data-act="hideUsed" role="switch" aria-checked="true">Visibility off after context used<i></i></button></div>
-<input id="search" class="search" type="search" placeholder="Find sketches and comments" aria-label="Find sketches and comments">
-<details open><summary>Sketches<small id="sketchCount"></small></summary><div id="sketchList"></div></details><details open><summary>Comments<small id="commentCount"></small></summary><div id="commentList"></div></details><p class="document" id="document"></p></div>
+  <div id="sketch" class="cy-scroll" hidden>
+    <div class="cy-preview" aria-hidden="true"><svg id="preview" viewBox="0 0 280 64"></svg></div>
+    <section class="cy-sec">
+      <div class="ph" role="button" tabindex="0" data-fold="presets" aria-expanded="true"><span class="chev">CHEV</span><span class="pt">Presets</span><span class="pm" id="presetCount"></span></div>
+      <div class="ps" id="presets"></div>
+    </section>
+    <section class="cy-sec">
+      <div class="ph" role="button" tabindex="0" data-fold="stroke" aria-expanded="true"><span class="chev">CHEV</span><span class="pt">Stroke</span><span class="pm" id="strokeMeta"></span></div>
+      <div class="ps">
+        <div class="cy-field"><span class="cy-lbl">Colour</span><div class="cy-cols" id="colours"></div></div>
+        <div id="bars"></div>
+        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="sizePressure"><i class="ck">TICK</i><span class="cy-lbl">Pressure sets weight</span></button>
+        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="opacityPressure"><i class="ck">TICK</i><span class="cy-lbl">Pressure sets opacity</span></button>
+        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="hardnessPressure"><i class="ck">TICK</i><span class="cy-lbl">Pressure sets hardness</span></button>
+        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="snap"><i class="ck">TICK</i><span class="cy-lbl">Snap shapes</span></button>
+      </div>
+    </section>
+  </div>
+  <div id="layers" class="cy-scroll" hidden>
+    <section class="lsec cy-sec">
+      <div class="ph" role="button" tabindex="0" data-fold="sketches" aria-expanded="true"><span class="chev">CHEV</span><span class="pt">Sketches</span><span class="pm" id="sketchMeta"></span><button type="button" class="lmore" data-act="groupNew" data-value="sketch" title="New sketch group" aria-label="New sketch group">PLUS</button></div>
+      <div class="ps" id="sketchGroups"></div>
+    </section>
+    <section class="lsec cy-sec">
+      <div class="ph" role="button" tabindex="0" data-fold="comments" aria-expanded="true"><span class="chev">CHEV</span><span class="pt">Comments</span><span class="pm" id="commentMeta"></span><button type="button" class="lmore" data-act="groupNew" data-value="comment" title="New comment group" aria-label="New comment group">PLUS</button></div>
+      <div class="ps" id="commentGroups"></div>
+    </section>
+    <section class="lsec cy-sec">
+      <div class="ph" role="button" tabindex="0" data-fold="agent" aria-expanded="true"><span class="chev">CHEV</span><span class="pt">Agent</span><span class="pm" id="agentMeta"></span></div>
+      <div class="ps">
+        <button type="button" class="cy-check" role="checkbox" aria-checked="true" data-check="newGroup"><i class="ck">TICK</i><span class="cy-lbl">New group after each prompt</span></button>
+        <button type="button" class="cy-check" role="checkbox" aria-checked="true" data-check="hideUsed"><i class="ck">TICK</i><span class="cy-lbl">Hide groups once sent</span></button>
+      </div>
+    </section>
+  </div>
 </main>
 <script>
 (function(){'use strict';
-var $=function(id){return document.getElementById(id)}, header=document.body.dataset.mode==='header', S={tab:'agent',active:false,dark:false}, queue=[], layersSignature='';
-$('shell').hidden=!header;$('main').hidden=header;
-function post(type,value,more){var a=more||{};a.type=type;a.value=String(value==null?'':value);queue.push(a)}
+var $=function(id){return document.getElementById(id)};
+var header=document.body.dataset.mode==='header';
+var S={tab:'agent',active:false,dark:false}, queue=[], fold={}, lastDark=null, layersSig='', sketchSig='';
+$('shell').hidden=!header; $('main').hidden=header;
+
+var IC={
+  chev:'<svg class="ic" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>',
+  plus:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>',
+  eye:'<svg class="ic" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>',
+  eyeOff:'<svg class="ic" viewBox="0 0 24 24"><path d="M10.7 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.2 3.2M6.6 6.6C3.9 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M2 2l20 20"/></svg>',
+  select:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M4.5 4.5l15 5.9-6.6 2.1-2.4 6.8z"/></svg>',
+  rename:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M14.5 5.5l4 4L9 19H5v-4z"/></svg>',
+  trash:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+  loop:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/><path stroke-width="2.1" d="M5.4 14.4C4.1 10.3 7 6 11.5 5.2c4.6-.8 8.3 2 8.3 5.7 0 4.2-4.2 7.9-8.8 8.1-3.5.2-6-1.6-5.4-4.3.5-2.4 3.4-4.2 6.4-4.1"/></svg>',
+  pen:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M15.6 4.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9.4 18.6 5 19.9l1.3-4.4z"/><path d="M13.6 6.4l4 4"/></svg>',
+  bubble:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M12 3.8a8.2 8.2 0 1 1-3.9 15.4l-4.3 1 1-4.2A8.2 8.2 0 0 1 12 3.8z"/><path d="M8.6 10.7h6.8"/><path d="M8.6 13.8h4.2"/></svg>',
+  tick:'<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ck-a" d="M4.2 13.4c1.5 1 2.7 2.5 3.7 4.5.4.7 1 .7 1.3 0 2.4-5.3 6.3-10 11.9-13.9"/><path class="ck-b" d="M5 12.8c1.3 1.2 2.4 2.6 3.2 4.3 2.6-5.2 6.4-9.7 11.6-13.3"/></svg>'
+};
+document.querySelectorAll('.chev').forEach(function(e){if(e.textContent==='CHEV')e.innerHTML=IC.chev});
+document.querySelectorAll('.lmore').forEach(function(e){e.innerHTML=IC.plus});
+document.querySelectorAll('.ck').forEach(function(e){e.innerHTML=IC.tick});
+
+function post(type,value,more){
+  var a=more||{}; a.type=type; a.value=String(value==null?'':value);
+  // a drag sends many values: only the last one of each kind matters
+  if(type==='brush'){ queue=queue.filter(function(q){return !(q.type==='brush'&&q.value===a.value)}); }
+  queue.push(a);
+}
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-var check='<svg viewBox="0 0 24 24"><path d="M4 13c2 1 3 3 4 5C12 10 16 5 22 2"/></svg>',eye='<svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',trash='<svg viewBox="0 0 24 24"><path d="M4 6h16 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7"/></svg>',select='<svg viewBox="0 0 24 24"><path d="m5 3 14 10-7 1-4 7Z"/></svg>';
-document.querySelectorAll('.check i').forEach(function(e){e.innerHTML=check});
-var palette=['#23262C','#235ED1','#D6322B','#11865D','#8855F7'];
-$('swatches').innerHTML=palette.map(function(c){return '<button class="swatch" style="--c:'+c+'" data-act="color" data-value="'+c+'" title="'+c+'" aria-label="Use '+c+'" aria-pressed="false"></button>'}).join('')+'<label class="color-wheel" title="Choose colour"><input id="color" type="color" aria-label="Sketch colour"></label>';
-var ranges=[['size','Size',1,40,'px'],['opacity','Opacity',10,100,'%'],['hardness','Hardness',0,100,'%']];
-$('ranges').innerHTML=ranges.map(function(r){return '<div class="field"><label for="'+r[0]+'">'+r[1]+'</label><input id="'+r[0]+'" type="range" min="'+r[2]+'" max="'+r[3]+'" step="1"><output id="'+r[0]+'Out"></output><button class="sensitivity" data-act="'+r[0]+'Pressure" aria-pressed="false" aria-label="Pressure sensitivity for '+r[1].toLowerCase()+'" title="Pressure sensitivity for '+r[1].toLowerCase()+'"><svg viewBox="0 0 24 24"><path d="m7 14-1 4 4-1L20 7l-3-3Z M14 7l3 3 M3 22c3-5 5 1 9-3"/></svg></button></div>'}).join('');
-function setValue(el,value){if(document.activeElement!==el)el.value=value}
-function segment(id,value){$(id).querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.value===String(value)))})}
-function render(){document.documentElement.classList.toggle('dark',!!S.dark);$('power').setAttribute('aria-checked',String(!!S.active));$('power').title=S.active?'Turn Crayon off':'Turn Crayon on';document.querySelectorAll('[role=tab]').forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.value===S.tab))});if(header)return;
-$('sketch').hidden=S.tab!=='sketch';$('layers').hidden=S.tab!=='layers';if(S.tab==='layers'){renderLayers();return}
-$('brushName').textContent=({crayon:'Crayon',pencil:'Pencil',marker:'Marker',soft:'Soft brush'})[S.preset]||'Crayon';document.querySelector('.brush-sample').style.color=S.color||'#9731b0';document.querySelectorAll('.sensitivity').forEach(function(b){b.setAttribute('aria-pressed',String(!!S[b.dataset.act]))});
-ranges.forEach(function(r){setValue($(r[0]),Math.round(S[r[0]]||0));$(r[0]+'Out').textContent=Math.round(S[r[0]]||0)+(r[4]==='px'?' px':'%')});document.querySelectorAll('.check').forEach(function(b){b.setAttribute('aria-checked',String(!!S[b.dataset.act]))});setValue($('color'),S.color||'#9731b0');document.querySelector('.color-wheel').style.setProperty('--color',S.color||'#9731b0');document.querySelectorAll('.swatch').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.value.toLowerCase()===(S.color||'').toLowerCase()))});}
-var groupOpen={}, groupDocument=null;
-var eyeOff='<svg viewBox="0 0 24 24"><path d="m3 3 18 18M10 5a12 12 0 0 1 12 7 17 17 0 0 1-4 5M6 6a18 18 0 0 0-4 6s4 7 10 7c2 0 3-1 4-1M10 10a3 3 0 0 0 4 4"/></svg>';
-function visibility(action,id,visible,label){return '<button class="visibility" data-act="'+action+'" data-value="'+esc(id)+'" aria-pressed="'+!!visible+'" title="'+(visible?'Hide ':'Show ')+esc(label)+'" aria-label="'+(visible?'Hide ':'Show ')+esc(label)+'">'+(visible?eye:eyeOff)+'</button>'}
-function annotationRow(x,kind){var name=kind==='sketch'?x.name:'Comment '+x.number;
-var content=kind==='sketch'?'<i class="dot" style="--c:'+esc(x.color)+'"></i><div class="name"><input data-rename="'+esc(x.id)+'" value="'+esc(name)+'" aria-label="Stroke name" title="Rename stroke"></div>':'<span class="comment-number">'+esc(x.number)+'</span><span class="comment-text" title="'+esc(x.text)+'">'+esc(x.text)+'</span>';
-return '<div class="item'+(x.visible?'':' off-item')+'">'+content+(kind==='sketch'?'<button class="icon-button" data-act="select" data-value="'+esc(x.id)+'" aria-label="Select '+esc(name)+'" title="Select stroke" '+(x.overlay?'disabled':'')+'>'+select+'</button>':'')+visibility('visible',x.id,x.ownVisible!==false,name)+'<button class="icon-button danger" data-act="delete" data-value="'+esc(x.id)+'" title="Delete '+esc(name)+'" aria-label="Delete '+esc(name)+'">'+trash+'</button></div>'}
-function groupList(kind,groups,items,query){return groups.map(function(g){var key=kind+':'+g.id,matchGroup=g.name.toLowerCase().indexOf(query)!==-1;
-var members=items.filter(function(x){return (x.group||1)===g.id&&(matchGroup||String(x.name||x.text||'').toLowerCase().indexOf(query)!==-1)});if(query&&!matchGroup&&!members.length)return '';
-return '<details class="item-group" data-group="'+key+'" '+((groupOpen[key]||query)?'open':'')+'><summary><button class="group-active" data-act="groupActive" data-value="'+key+'" role="checkbox" aria-checked="'+!!g.active+'" title="Use '+esc(g.name)+' for new '+(kind==='sketch'?'strokes':'comments')+'" aria-label="Active '+kind+' '+esc(g.name)+'">'+check+'</button><span class="group-name">'+esc(g.name)+'</span><small>'+members.length+'</small>'+visibility('groupVisible',key,g.visible,g.name)+'</summary><div class="group-items">'+(members.map(function(x){return annotationRow(x,kind)}).join('')||'<div class="empty">No '+(kind==='sketch'?'strokes':'comments')+' yet.</div>')+'</div></details>'}).join('')||'<div class="empty">No matching groups.</div>'}
-function renderLayers(){var query=$('search').value.toLowerCase(),sig=JSON.stringify([S.sketches,S.comments,S.sketchGroups,S.commentGroups,S.activeOnly,S.newGroup,S.hideUsed,S.documentId,query]);if(sig===layersSignature)return;layersSignature=sig;if(groupDocument!==S.documentId){groupOpen={};groupDocument=S.documentId}
-document.querySelector('[data-act=activeOnly]').setAttribute('aria-checked',String(S.activeOnly!==false));document.querySelector('[data-act=newGroup]').setAttribute('aria-checked',String(S.newGroup!==false));document.querySelector('[data-act=hideUsed]').setAttribute('aria-checked',String(S.hideUsed!==false));var fallback=[{id:1,name:'Group 1',visible:true,active:true}];$('sketchCount').textContent=(S.sketches||[]).length;$('commentCount').textContent=(S.comments||[]).length;$('sketchList').innerHTML=groupList('sketch',S.sketchGroups||fallback,S.sketches||[],query);$('commentList').innerHTML=groupList('comment',S.commentGroups||fallback,S.comments||[],query);$('document').textContent=S.document||'Untitled Rhino model'}
-document.addEventListener('toggle',function(e){if(e.target.dataset.group&&document.contains(e.target)&&!$('search').value)groupOpen[e.target.dataset.group]=e.target.open},true);
-document.addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(b){if(b.closest('summary')){e.preventDefault();e.stopPropagation()}post(b.dataset.act,b.dataset.value);if(b.dataset.act==='preset'){$('brushMenu').open=false}}});ranges.forEach(function(r){$(r[0]).addEventListener('input',function(){S[r[0]]=Number(this.value);post('brush',r[0],{number:Number(this.value)});render()})});$('color').addEventListener('input',function(){S.color=this.value;post('color',this.value);render()});$('search').addEventListener('input',renderLayers);document.addEventListener('change',function(e){if(e.target.dataset.rename)post('rename',e.target.dataset.rename,{name:e.target.value})});document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.dataset.rename)e.target.blur()});
-document.addEventListener('click',function(e){if(!e.target.closest('#brushMenu'))$('brushMenu').open=false});document.addEventListener('keydown',function(e){if(e.key==='Escape')$('brushMenu').open=false});window.crayonSidebar={state:function(s){S=s;render()},take:function(){if(!queue.length)return '';var taken=queue;queue=[];return encodeURIComponent(JSON.stringify(taken))}};
+
+/* ---------- header ---------- */
+function playTab(b){ b.classList.remove('play'); void b.offsetWidth; b.classList.add('play'); clearTimeout(b._pt); b._pt=setTimeout(function(){b.classList.remove('play')},800); }
+document.querySelectorAll('[role=tab]').forEach(function(b){
+  b.title=b.textContent.trim(); // the name, for when a narrow panel shows icons only
+  b.addEventListener('click',function(){ if(S.tab!==b.dataset.tab){ playTab(b); S.tab=b.dataset.tab; renderHeader(); post('tab',b.dataset.tab); } });
+});
+$('power').addEventListener('click',function(){ S.active=!S.active; renderHeader(); post('power',''); });
+$('theme').addEventListener('click',function(){ S.dark=!S.dark; applyTheme(); renderHeader(); post('theme',S.dark?'dark':'light'); });
+// History and New chat belong to the Agent tab: the chat itself is in the agent page below.
+$('chatHistory').addEventListener('click',function(){ S.historyOpen=!S.historyOpen; renderHeader(); post('chatHistory',''); });
+$('newChat').addEventListener('click',function(){ if(S.agentBusy)return; S.historyOpen=false; renderHeader(); post('chatNew',''); });
+function renderTabs(){
+  var i=0; document.querySelectorAll('[role=tab]').forEach(function(b,n){ var on=b.dataset.tab===S.tab; b.setAttribute('aria-selected',String(on)); if(on)i=n; });
+  document.querySelector('.mswitch').style.setProperty('--mi',i);
+}
+// Rhino gives the header a height; the page says what it needs (in device pixels too,
+// in case Windows scales the web view differently), so the tab switcher is never cropped.
+var toldHeight=0;
+function reportHeight(){
+  if(!header)return;
+  var tabs=document.querySelector('.mswitch'); if(!tabs)return;
+  var h=Math.ceil(tabs.getBoundingClientRect().bottom+8);
+  if(Math.abs(h-toldHeight)<1)return; toldHeight=h;
+  post('height',String(h),{dpr:window.devicePixelRatio||1});
+}
+window.addEventListener('resize',reportHeight);
+// Moving Rhino to a monitor with other Windows scaling changes the pixel ratio: measure again.
+(function watchScale(){
+  if(!window.matchMedia)return;
+  var mq=window.matchMedia('(resolution: '+(window.devicePixelRatio||1)+'dppx)');
+  var again=function(){ toldHeight=0; reportHeight(); watchScale(); };
+  if(mq.addEventListener) mq.addEventListener('change',again,{once:true}); else if(mq.addListener) mq.addListener(again);
+})();
+function renderHeader(){
+  $('power').setAttribute('aria-checked',String(!!S.active)); $('power').title=S.active?'Turn Crayon off':'Turn Crayon on';
+  $('theme').setAttribute('aria-pressed',String(!!S.dark)); $('theme').title=$('theme').ariaLabel=S.dark?'Light mode':'Dark mode';
+  var chat=S.tab==='agent'&&S.agentReady!==false;
+  $('chatHistory').hidden=$('newChat').hidden=$('chatDiv').hidden=!chat;
+  $('chatHistory').setAttribute('aria-pressed',String(!!S.historyOpen));
+  $('newChat').disabled=!!S.agentBusy;
+  var agentTab=document.querySelector('.mswitch [data-tab="agent"]'); if(agentTab) agentTab.classList.toggle('busy',!!S.agentBusy);
+  renderTabs();
+  reportHeight();
+}
+function applyTheme(){
+  var dark=!!S.dark; if(dark===lastDark)return;
+  var root=document.documentElement;
+  if(lastDark!==null){ root.classList.add('ui-switching'); clearTimeout(applyTheme._t); applyTheme._t=setTimeout(function(){root.classList.remove('ui-switching')},320); }
+  lastDark=dark; root.classList.toggle('dark',dark);
+}
+
+/* ---------- fold-out sections ---------- */
+document.addEventListener('click',function(e){
+  if(e.target.closest('button,input'))return;
+  var h=e.target.closest('.ph[data-fold]'); if(!h)return;
+  var open=h.getAttribute('aria-expanded')!=='true'; h.setAttribute('aria-expanded',String(open)); fold[h.dataset.fold]=!open;
+  h.nextElementSibling.hidden=!open;
+});
+document.addEventListener('keydown',function(e){ var h=e.target.closest&&e.target.closest('.ph[data-fold]'); if(h&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); h.click(); } });
+
+/* ---------- Sketch ---------- */
+var PRESETS=[['crayon','Crayon','#9731b0',6,.8,.6],['pencil','Pencil','#23262c',3,.8,.8],['marker','Marker','#1f5fd1',12,.55,.9],['soft','Soft brush','#23262c',24,.45,.15]];
+var COLOURS=[['#23262c','Graphite'],['#9731b0','Violet'],['#1f5fd1','Blue'],['#d0352b','Red'],['#14845a','Green']];
+var BARS=[['size','Weight',1,40,' px'],['opacity','Opacity',10,100,'%'],['hardness','Hardness',0,100,'%']];
+var WAVE='M6 13C16 19 24 18 34 12S56 4 70 13';
+// graphite reads as the text colour on Crayon's own surfaces, so it shows in dark too
+function inkOf(c){ return /^#23262c$/i.test(c)?'var(--ink)':c; }
+$('presets').innerHTML=PRESETS.map(function(p){
+  return '<button type="button" class="pr" data-preset="'+p[0]+'"><svg viewBox="0 0 76 22" aria-hidden="true"><path d="'+WAVE+'" fill="none" style="stroke:'+inkOf(p[2])+'" stroke-opacity="'+p[4]+'" stroke-width="'+Math.max(1.5,Math.min(9,p[3]*.42))+'" stroke-linecap="round"/></svg><span>'+p[1]+'</span></button>';
+}).join('');
+$('presetCount').textContent=PRESETS.length;
+$('colours').innerHTML=COLOURS.map(function(c){return '<button type="button" class="cy-col" data-colour="'+c[0]+'" style="--c:'+c[0]+'" title="'+c[1]+'" aria-label="'+c[1]+'" aria-pressed="false"></button>'}).join('')+
+  '<label class="cy-col wheel" title="Pick any colour" aria-pressed="false" style="--c:#8a5cf6"><input id="wheel" type="color" aria-label="Pick any colour"></label>';
+$('bars').innerHTML=BARS.map(function(b){return '<div class="cy-field"><span class="cy-lbl">'+b[1]+'</span><div class="cy-bar" id="bar-'+b[0]+'" data-key="'+b[0]+'" role="slider" tabindex="0" aria-label="'+b[1]+'" aria-valuemin="'+b[2]+'" aria-valuemax="'+b[3]+'"><i class="fill"></i><span class="bv"></span></div></div>'}).join('');
+
+var held={}; // a bar being dragged ignores state from Rhino until shortly after
+function barValue(b,v){ return Math.max(b[2],Math.min(b[3],Math.round(v))); }
+function paintBar(b,v){
+  var el=$('bar-'+b[0]); el.querySelector('.fill').style.width=((v-b[2])/(b[3]-b[2])*100)+'%';
+  el.querySelector('.bv').textContent=v+b[4]; el.setAttribute('aria-valuenow',v); el.setAttribute('aria-valuetext',v+b[4]);
+}
+BARS.forEach(function(b){
+  var el=$('bar-'+b[0]), drag=false;
+  function at(x){ var r=el.getBoundingClientRect(); return barValue(b,b[2]+(x-r.left)/r.width*(b[3]-b[2])); }
+  function set(v){ S[b[0]]=v; held[b[0]]=Date.now(); paintBar(b,v); paintPreview(); post('brush',b[0],{number:v}); }
+  el.addEventListener('pointerdown',function(e){ drag=true; el.classList.add('drag'); try{el.setPointerCapture(e.pointerId)}catch(_){ } set(at(e.clientX)); });
+  el.addEventListener('pointermove',function(e){ if(drag) set(at(e.clientX)); });
+  function end(){ if(!drag)return; drag=false; el.classList.remove('drag'); held[b[0]]=Date.now(); }
+  el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end); el.addEventListener('lostpointercapture',end);
+  el.addEventListener('keydown',function(e){ var d=e.key==='ArrowRight'||e.key==='ArrowUp'?1:e.key==='ArrowLeft'||e.key==='ArrowDown'?-1:0; if(!d)return; e.preventDefault(); set(barValue(b,(S[b[0]]||0)+d*(e.shiftKey?10:1))); });
+});
+
+function paintPreview(){
+  var c=S.color||'#9731b0', w=Math.max(1.5,Math.min(30,(S.size||6)*1.15)), o=Math.max(.1,(S.opacity==null?80:S.opacity)/100), h=(S.hardness==null?60:S.hardness)/100;
+  var blur=(1-h)*w*.22;
+  $('preview').innerHTML='<defs><filter id="soft" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="'+blur.toFixed(2)+'"/></filter></defs>'+
+    '<path d="M8 44C40 60 70 58 104 40S170 10 206 22 252 50 272 34" fill="none" style="stroke:'+esc(inkOf(c))+'" stroke-opacity="'+o+'" stroke-width="'+w.toFixed(1)+'" stroke-linecap="round"'+(blur>.15?' filter="url(#soft)"':'')+'/>';
+}
+
+document.addEventListener('click',function(e){
+  var p=e.target.closest('.pr'); if(p){ S.preset=p.dataset.preset; renderSketch(true); post('preset',p.dataset.preset); return; }
+  var c=e.target.closest('[data-colour]'); if(c){ S.color=c.dataset.colour; renderSketch(true); post('color',c.dataset.colour); return; }
+  var k=e.target.closest('[data-check]'); if(k){ var key=k.dataset.check; S[key]=!S[key]; setCheck(k,S[key],true); post(key,''); return; }
+});
+$('wheel').addEventListener('input',function(){ S.color=this.value; renderSketch(true); post('color',this.value); });
+
+// The live tick: draws itself on the group you switch to; the others just let go.
+function setLive(btn,on){
+  var was=btn.getAttribute('aria-checked')==='true'; btn.setAttribute('aria-checked',String(!!on));
+  var lt=btn.querySelector('.lt'); if(!lt)return; lt.classList.remove('anim-on');
+  if(on&&!was){ void lt.getBoundingClientRect(); lt.classList.add('anim-on'); }
+}
+function setCheck(btn,on,animate){
+  var was=btn.getAttribute('aria-checked')==='true'; btn.setAttribute('aria-checked',String(!!on));
+  var ck=btn.querySelector('.ck'); ck.classList.remove('anim-on','anim-off');
+  if(animate&&was!==!!on){ void ck.offsetWidth; ck.classList.add(on?'anim-on':'anim-off'); }
+}
+
+function renderSketch(force){
+  var sig=JSON.stringify([S.preset,S.color,S.size,S.opacity,S.hardness,S.sizePressure,S.opacityPressure,S.hardnessPressure,S.snap]);
+  if(sig===sketchSig&&!force)return; sketchSig=sig;
+  var colour=(S.color||'#9731b0').toLowerCase();
+  document.querySelectorAll('.pr').forEach(function(p){p.classList.toggle('on',p.dataset.preset===S.preset)});
+  var preset=PRESETS.filter(function(p){return p[0]===S.preset})[0];
+  $('strokeMeta').textContent=preset?preset[1]:'';
+  var known=false;
+  document.querySelectorAll('[data-colour]').forEach(function(b){var on=b.dataset.colour.toLowerCase()===colour; known=known||on; b.setAttribute('aria-pressed',String(on))});
+  var wheel=document.querySelector('.cy-col.wheel'); wheel.setAttribute('aria-pressed',String(!known)); wheel.style.setProperty('--c',known?'#8a5cf6':colour);
+  if(document.activeElement!==$('wheel')) $('wheel').value=colour;
+  BARS.forEach(function(b){ if(held[b[0]]&&Date.now()-held[b[0]]<700)return; paintBar(b,barValue(b,S[b[0]]==null?b[2]:S[b[0]])); });
+  document.querySelectorAll('#sketch [data-check]').forEach(function(k){setCheck(k,!!S[k.dataset.check],false)});
+  paintPreview();
+}
+
+/* ---------- Layers ---------- */
+var shut={}; // groups folded shut, by "kind:id"; all start open
+function eyeButton(act,id,on,label){
+  return '<button type="button" class="lx" data-act="'+act+'" data-value="'+esc(id)+'" aria-pressed="'+!!on+'" title="'+(on?'Hide ':'Show ')+esc(label)+'" aria-label="'+(on?'Hide ':'Show ')+esc(label)+'">'+(on?IC.eye:IC.eyeOff)+'</button>';
+}
+function itemRow(x,kind,groupOn){
+  var own=x.ownVisible!==false, name=kind==='sketch'?x.name:(x.text||'Comment '+x.number);
+  var off=!own||!groupOn||x.visible===false;
+  var mark=kind==='sketch'?'<i class="dot" style="--c:'+esc(x.color||'#15171c')+'"></i>':'<span class="cnum">'+esc(x.number)+'</span>';
+  return '<div class="lrow item'+(off?' off':'')+'" data-item="'+esc(x.id)+'" data-kind="'+kind+'">'+
+    eyeButton('visible',x.id,own,name)+mark+
+    '<span class="ln" title="'+esc(name)+(kind==='sketch'?' · double-click to rename':'')+'">'+esc(name)+'</span>'+
+    (kind==='sketch'?'<button type="button" class="lx" data-act="select" data-value="'+esc(x.id)+'" title="Select in Rhino" aria-label="Select '+esc(name)+'"'+(x.overlay||!groupOn||!own?' disabled':'')+'>'+IC.select+'</button>':'')+
+    '<button type="button" class="lx del" data-act="delete" data-value="'+esc(x.id)+'" title="Delete" aria-label="Delete '+esc(name)+'">'+IC.trash+'</button></div>';
+}
+function groupRows(kind,groups,items){
+  return groups.map(function(g){
+    var key=kind+':'+g.id, members=items.filter(function(x){return (x.group||1)===g.id});
+    var row='<div class="lrow grp'+(g.active?' picked':'')+(shut[key]?' shut':'')+(g.visible?'':' off')+'" data-group="'+key+'" title="'+(g.active?'New '+(kind==='sketch'?'sketches':'comments')+' go here':'Click to draw new '+(kind==='sketch'?'sketches':'comments')+' into '+esc(g.name))+'">'+
+      '<span class="chev" data-act="fold" aria-hidden="true">'+IC.chev+'</span>'+
+      eyeButton('groupVisible',key,g.visible,g.name)+
+      '<button type="button" class="lx gai" role="checkbox" data-act="groupContext" data-value="'+key+'" aria-checked="'+(g.context!==false)+'" title="'+(g.context!==false?'Sent to the agent with your next message':'Not sent to the agent')+'" aria-label="Send '+esc(g.name)+' to the agent"><i class="ck">'+IC.tick+'</i></button>'+
+      '<span class="ln" data-rename-group="'+key+'">'+esc(g.name)+'</span>'+
+      '<span class="lc">'+members.length+'</span>'+
+      '<button type="button" class="lx gck" role="radio" data-act="groupActive" data-value="'+key+'" aria-checked="'+!!g.active+'" title="'+(g.active?'You are '+(kind==='sketch'?'sketching':'commenting')+' in this group':(kind==='sketch'?'Sketch':'Comment')+' in this group')+'" aria-label="'+(kind==='sketch'?'Sketch':'Comment')+' in '+esc(g.name)+'">'+IC.tick.replace('<svg ','<svg class="lt" ')+'</button>'+
+      '<button type="button" class="lx" data-act="groupRenameStart" data-value="'+key+'" title="Rename group" aria-label="Rename '+esc(g.name)+'">'+IC.rename+'</button>'+
+      '<button type="button" class="lx del" data-act="groupDelete" data-value="'+key+'" data-count="'+members.length+'" title="Delete group" aria-label="Delete '+esc(g.name)+'">'+IC.trash+'</button></div>';
+    if(shut[key])return row;
+    return row+(members.length?members.map(function(x){return itemRow(x,kind,g.visible)}).join(''):'<p class="lempty">'+(kind==='sketch'?'No sketches yet':'No comments yet')+'</p>');
+  }).join('');
+}
+function renderLayers(force){
+  if(document.activeElement&&document.activeElement.tagName==='INPUT'&&$('layers').contains(document.activeElement))return; // renaming
+  var fallback=[{id:1,name:'Group 1',visible:true,active:true}];
+  var sg=S.sketchGroups||fallback, cg=S.commentGroups||fallback, sk=S.sketches||[], cm=S.comments||[];
+  var sig=JSON.stringify([sk,cm,sg,cg,S.newGroup,S.hideUsed,shut]); if(sig===layersSig&&!force)return; layersSig=sig;
+  $('sketchMeta').textContent=sk.length===1?'1 sketch':sk.length+' sketches';
+  $('commentMeta').textContent=cm.length===1?'1 comment':cm.length+' comments';
+  $('sketchGroups').innerHTML=groupRows('sketch',sg,sk);
+  $('commentGroups').innerHTML=groupRows('comment',cg,cm);
+  // the agent gets every ticked group, without the items whose own eye is off
+  var count=function(groups,items){return groups.filter(function(g){return g.context!==false&&items.some(function(x){return (x.group||1)===g.id&&x.ownVisible!==false})}).length};
+  var n=count(sg,sk)+count(cg,cm);
+  $('agentMeta').innerHTML=n?IC.loop+'<span>'+n+(n===1?' group':' groups')+'</span>':'';
+  $('agentMeta').title='Groups with the agent check on go to the agent with your next message';
+  document.querySelectorAll('#layers [data-check]').forEach(function(k){setCheck(k,S[k.dataset.check]!==false,false)});
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');
+  if(b&&$('layers').contains(b)){
+    e.stopPropagation();
+    if(b.dataset.act==='fold'){ var key=b.closest('[data-group]').dataset.group; shut[key]=!shut[key]; renderLayers(true); return; }
+    if(b.dataset.act==='groupContext'){ var on=b.getAttribute('aria-checked')!=='true'; setCheck(b,on,true); b.title=on?'Sent to the agent with your next message':'Not sent to the agent'; post('groupContext',b.dataset.value); return; }
+    if(b.dataset.act==='groupActive'){ var kind=b.dataset.value.split(':')[0];
+      document.querySelectorAll('.lx.gck').forEach(function(t){ if(t.dataset.value.split(':')[0]===kind) setLive(t,t===b); });
+      document.querySelectorAll('.lrow.grp').forEach(function(r){ if(r.dataset.group.split(':')[0]===kind) r.classList.toggle('picked',r.dataset.group===b.dataset.value); });
+      post('groupActive',b.dataset.value); return; }
+    if(b.dataset.act==='groupRenameStart'){ var gl=b.closest('.lrow').querySelector('.ln'); if(gl)startRename(gl); return; }
+    if((b.dataset.act==='delete'||b.dataset.act==='groupDelete')&&!b.classList.contains('armed')){
+      var n=+(b.dataset.count||0), what=b.dataset.value&&b.dataset.value.indexOf('comment')===0?(n===1?'comment':'comments'):(n===1?'sketch':'sketches');
+      b.classList.add('armed'); b.style.color='var(--danger)';
+      b.title=b.dataset.act==='groupDelete'?(n?'Click again to delete the group and its '+n+' '+what:'Click again to delete the group'):'Click again to delete';
+      setTimeout(function(){b.classList.remove('armed');b.style.color='';b.title=b.dataset.act==='groupDelete'?'Delete group':'Delete';},2200); return; }
+    post(b.dataset.act,b.dataset.value);
+    return;
+  }
+  var g=e.target.closest('.lrow.grp');
+  if(g&&!e.target.closest('input')){ var k=g.dataset.group; document.querySelectorAll('.lrow.grp').forEach(function(r){ if(r.dataset.group.split(':')[0]===k.split(':')[0]) r.classList.toggle('picked',r===g) }); post('groupActive',k); }
+},true);
+document.addEventListener('dblclick',function(e){
+  var ln=e.target.closest('#layers .ln'); if(ln)startRename(ln);
+});
+function startRename(ln){
+  var row=ln.closest('.lrow'), group=ln.dataset.renameGroup, item=row.dataset.kind==='sketch'?row.dataset.item:null;
+  if(!group&&!item)return;
+  var input=document.createElement('input'); input.value=ln.textContent; input.setAttribute('aria-label','Name'); ln.replaceWith(input); input.focus(); input.select();
+  var done=false;
+  function finish(save){ if(done)return; done=true; var v=input.value.trim(); if(save&&v){ if(group)post('groupRename',group,{name:v}); else post('rename',item,{name:v}); } input.blur(); renderLayers(true); }
+  input.addEventListener('keydown',function(ev){ if(ev.key==='Enter')finish(true); if(ev.key==='Escape')finish(false); ev.stopPropagation(); });
+  input.addEventListener('blur',function(){finish(true)});
+}
+
+/* ---------- state from Rhino ---------- */
+function render(){
+  applyTheme();
+  if(header){ renderHeader(); return; }
+  $('sketch').hidden=S.tab!=='sketch'; $('layers').hidden=S.tab!=='layers';
+  if(S.tab==='sketch') renderSketch(false);
+  else if(S.tab==='layers') renderLayers(false);
+}
+window.crayonSidebar={
+  state:function(s){ S=s||{}; render(); },
+  take:function(){ if(!queue.length)return ''; var taken=queue; queue=[]; return encodeURIComponent(JSON.stringify(taken)); }
+};
+render();
 })();
 </script></body></html>

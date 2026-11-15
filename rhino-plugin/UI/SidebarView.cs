@@ -65,6 +65,13 @@ namespace RhinoSketchingTool
         {
             dirty = false;
             var state = new JsonMap { ["active"] = controller.Active, ["tab"] = tab(), ["dark"] = dark() };
+            if (header)
+            {
+                // History and New chat sit in the header on the Agent tab; its loop runs while the agent works.
+                state["agentReady"] = Agent.ProviderChosen;
+                state["agentBusy"] = Agent.ProviderChosen && Agent.Session.Status != "idle";
+                state["historyOpen"] = AgentView.HistoryOpen;
+            }
             if (!header)
             {
                 Brush brush = controller.Brush;
@@ -103,7 +110,7 @@ namespace RhinoSketchingTool
             state["document"] = doc?.Name ?? "";
             state["documentId"] = doc?.RuntimeSerialNumber ?? 0;
             if (doc == null) return;
-            var groups = AnnotationGroups.Read(doc);
+            var groups = AnnotationGroups.Heal(doc);
             state["sketchGroups"] = AnnotationGroups.AsJson(groups.Sketches, groups.ActiveSketch);
             state["commentGroups"] = AnnotationGroups.AsJson(groups.Comments, groups.ActiveComment);
             state["activeOnly"] = groups.ActiveOnly;
@@ -113,12 +120,9 @@ namespace RhinoSketchingTool
             foreach (RhinoObject obj in SketchController.StrokeObjects(doc))
             {
                 number++;
-                string name = obj.Name;
-                if (string.IsNullOrWhiteSpace(name)) name = "Stroke " + number;
-                else if (name.StartsWith("Sketch ", StringComparison.Ordinal) && int.TryParse(name.Substring(7), out int legacyNumber)) name = "Stroke " + legacyNumber;
-                sketches.Add(new JsonMap { ["id"] = obj.Id.ToString(), ["name"] = name,
+                sketches.Add(new JsonMap { ["id"] = obj.Id.ToString(), ["name"] = AnnotationGroups.SketchName(obj, number),
                     ["group"] = AnnotationGroups.GroupOf(obj.Attributes), ["ownVisible"] = obj.Attributes.GetUserString(AnnotationGroups.HiddenKey) != "1",
-                    ["layer"] = LayerName(doc, obj), ["visible"] = SketchController.OnVisibleLayer(doc, obj),
+                    ["visible"] = SketchController.OnVisibleLayer(doc, obj),
                     ["overlay"] = !string.IsNullOrEmpty(obj.Attributes.GetUserString(SketchController.ViewStrokeKey)),
                     ["color"] = "#" + (obj.Attributes.ObjectColor.ToArgb() & 0xffffff).ToString("X6") });
             }
@@ -129,12 +133,6 @@ namespace RhinoSketchingTool
                 comments.Add(new JsonMap { ["id"] = comment.Id.ToString(), ["number"] = comment.Number, ["text"] = comment.Text, ["visible"] = comment.Visible,
                     ["group"] = AnnotationGroups.GroupOf(attributes), ["ownVisible"] = attributes.GetUserString(AnnotationGroups.HiddenKey) != "1" });
             }
-        }
-
-        static string LayerName(RhinoDoc doc, RhinoObject obj)
-        {
-            int index = obj.Attributes.LayerIndex;
-            return index >= 0 && index < doc.Layers.Count ? doc.Layers[index].FullPath : "";
         }
 
         async void Take()
@@ -155,17 +153,35 @@ namespace RhinoSketchingTool
         void Act(JsonMap action)
         {
             string type = Json.Text(action.At("type")), value = Json.Text(action.At("value"));
-            if (type == "tab") { shellAction(type, value); return; }
+            if (type == "tab" || type == "chatHistory" || type == "chatNew") { shellAction(type, value); return; }
             if (type == "power") { controller.Active = !controller.Active; return; }
+            if (type == "theme") { Theme.Dark = value == "dark"; return; }
+            if (type == "groupNew") { AnnotationGroups.Create(RhinoDoc.ActiveDoc, value == "comment"); return; }
             if (type == "activeOnly" || type == "newGroup") { AnnotationGroups.ToggleOption(RhinoDoc.ActiveDoc, type == "activeOnly"); return; }
             if (type == "hideUsed") { AnnotationGroups.ToggleHideUsed(RhinoDoc.ActiveDoc); return; }
-            if (type == "groupActive" || type == "groupVisible")
+            if (type == "height")
+            {
+                // The header page says how tall it needs to be, so its tabs are never cropped.
+                if (header && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double css))
+                {
+                    double dpr = Number(action.At("dpr"), out double ratio) && ratio > 0 ? ratio : 1;
+                    double scale = ParentWindow?.LogicalPixelSize ?? Eto.Forms.Screen.PrimaryScreen.LogicalPixelSize;
+                    int wanted = (int)Math.Ceiling(css * dpr / (scale > 0 ? scale : 1));
+                    if (wanted >= 60 && wanted <= 200 && Math.Abs(wanted - Height) > 1) Height = wanted;
+                }
+                return;
+            }
+            if (type == "groupActive" || type == "groupVisible" || type == "groupRename" || type == "groupDelete" || type == "groupContext")
             {
                 string[] parts = value.Split(':');
                 if (parts.Length == 2 && (parts[0] == "sketch" || parts[0] == "comment") && int.TryParse(parts[1], out int group))
                 {
-                    if (type == "groupActive") AnnotationGroups.SetActive(RhinoDoc.ActiveDoc, parts[0] == "comment", group);
-                    else AnnotationGroups.ToggleGroup(RhinoDoc.ActiveDoc, parts[0] == "comment", group);
+                    bool comment = parts[0] == "comment";
+                    if (type == "groupActive") AnnotationGroups.SetActive(RhinoDoc.ActiveDoc, comment, group);
+                    else if (type == "groupVisible") AnnotationGroups.ToggleGroup(RhinoDoc.ActiveDoc, comment, group);
+                    else if (type == "groupDelete") AnnotationGroups.Delete(RhinoDoc.ActiveDoc, comment, group);
+                    else if (type == "groupContext") AnnotationGroups.ToggleContext(RhinoDoc.ActiveDoc, comment, group);
+                    else AnnotationGroups.Rename(RhinoDoc.ActiveDoc, comment, group, Json.Text(action.At("name")));
                 }
                 return;
             }
@@ -197,7 +213,7 @@ namespace RhinoSketchingTool
                 }
             }
             else if (type == "preset") ApplyPreset(value);
-            else if (type == "visible" || type == "layer" || type == "delete" || type == "rename" || type == "select") EditModel(type, value, Json.Text(action.At("name")));
+            else if (type == "visible" || type == "delete" || type == "rename" || type == "select") EditModel(type, value, Json.Text(action.At("name")));
         }
 
         static bool Number(object value, out double number)
@@ -228,15 +244,6 @@ namespace RhinoSketchingTool
         {
             RhinoDoc doc = RhinoDoc.ActiveDoc;
             if (doc == null || !Guid.TryParse(value, out Guid id)) return;
-            if (type == "layer")
-            {
-                Layer layer = doc.Layers.FindId(id);
-                if (layer == null || layer.IsDeleted) return;
-                uint record = doc.BeginUndoRecord("Crayon layer visibility");
-                try { layer.IsVisible = !layer.IsVisible; doc.Layers.Modify(layer, layer.Index, true); }
-                finally { if (record != 0) doc.EndUndoRecord(record); }
-            }
-            else
             {
                 RhinoObject obj = doc.Objects.FindId(id);
                 if (obj == null || obj.IsDeleted || (obj.Attributes.GetUserString(SketchController.StrokeKey) == null && obj.Attributes.GetUserString(SketchController.CommentKey) == null)) return;

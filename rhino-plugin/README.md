@@ -21,33 +21,31 @@ Rhino keeps loaded plugin assemblies locked until it exits; a running session ca
 hot-reload a rebuilt plugin. The build script installs immediately when possible;
 otherwise a hidden updater waits for Rhino to close and then installs automatically.
 The previous build is backed up alongside the installed file. Update status is written
-to `bin/update-status.txt`. `scripts/Update-Plugin.ps1` can also install an already staged build.
+to `bin/update-status.txt`. If Crayon was installed with the setup wizard, Rhino loads the
+package in `%APPDATA%\McNeel\Rhinoceros\packages\8.0\crayon-rhino` instead: close Rhino and run
+`.\scripts\Install-Package.ps1` to install the current build as a new package version. `scripts/Update-Plugin.ps1` can also install an already staged build.
 You can also run `dotnet build RhinoSketchingTool.csproj -c Release` directly from
 this folder when local PowerShell scripts are disabled.
 
 ## Drawing and views
 
-The tools dock contains Select, Draw, Erase, Comments, and Capture view. Drag its grip
-to dock it; the companion drawing bar stays beside it, or along the viewport bottom for a side dock. Small
-viewports wrap and scale the bars to keep their controls reachable.
+The toolbar holds Select, Pen, Eraser, Comments and Saved views, sized and styled as the
+prototype's dock bar (`design-ui-ux/.../design/prototype/index.html`), light or dark with
+Crayon's own switch. Every control has a tooltip. Drag its grip to dock it on any edge;
+double-click the grip to put it back. Under it, an option row changes with the tool:
 
-- **Object** follows the surface under the pointer.
-- **Plane** uses the construction plane.
-- **3D cursor** uses a camera-facing plane through the cursor coordinates.
-- **View** annotates a captured camera, over the model. Capture a named view with the
-  camera button and return to it using the adjacent dropdown. Existing Rhino Named
-  Views appear there too. Drawing in an unsaved view captures it automatically.
+- **Pen**: Object | Plane, colour, Snap shapes (the hand-drawn tick).
+- **Eraser**: Whole sketch | Part.
+- **Comments**: one line of help.
+- **Saved views**: Save view, then a chip per Rhino Named View (click to go there, x to delete).
 
-View sketches retain their named-view GUID in the `.3dm` file. Navigating away hides
-them; restoring that view shows them again. Renaming a native named view preserves the
-association; deleting it hides its sketches. Two identical camera captures are distinct
-when selected using Crayon's dropdown, including after save/reopen. Rhino's own Named
-Views panel does not report which of two identical cameras it restored, so use the
-Crayon dropdown to distinguish those captures.
+**Saved views are cameras only.** They are Rhino Named Views, in sync with Rhino's Named
+Views panel both ways. Going to one changes the camera and nothing else. Sketches are 3D
+model content: every sketch shows in every view and never disappears when you orbit.
+Nothing is captured automatically. (Sketches tied to a view by earlier builds now show
+in every view too.)
 
-View annotations stay hidden from Rhino's ordinary geometry selection to prevent them
-appearing in unrelated viewports. Use the eraser in their view, or the Layers tab to
-rename/delete them. Ordinary object, plane, and cursor sketches remain selectable.
+Crayon is turned off only with the switch in the panel header; Esc never turns it off.
 
 The colour picker offers presets, saturation/value, hue and hex entry. Colours belong
 to individual sketches. Snap shapes conservatively recognizes lines, rectangles and

@@ -11,7 +11,7 @@ using ScreenPoint = System.Drawing.Point;
 
 namespace RhinoSketchingTool
 {
-    public enum SketchTool { Draw, Erase, Select, Comment }
+    public enum SketchTool { Draw, Erase, Select, Comment, Views }
     public enum DrawMethod { Surface, Plane, Cursor, View }
     public enum EraseMode { Stroke, Part }
 
@@ -106,9 +106,6 @@ namespace RhinoSketchingTool
         /// <summary>Raised when the tool, method, erase mode or active state changes.</summary>
         public event EventHandler Changed;
 
-        /// <summary>Raised after Esc, pressed twice in a row, has turned the tools off.</summary>
-        public event EventHandler EscapedTwice;
-
         /// <summary>
         /// True while sketching is on: the left mouse button draws and erases in the
         /// viewports, and the view keys and Esc Esc are listened for. Nothing is
@@ -138,7 +135,7 @@ namespace RhinoSketchingTool
                     ReturnPlanes();
                 }
                 ShowOrHideStrokes();
-                RhinoApp.WriteLine(value ? "Sketch tools on. Esc goes back to Select; Esc twice turns them off." : "Sketch tools off.");
+                RhinoApp.WriteLine(value ? "Crayon on." : "Crayon off.");
                 Refresh();
             }
         }
@@ -154,9 +151,8 @@ namespace RhinoSketchingTool
         // command is running, so that other tools can be used while sketching.
         void LeaveByEscape()
         {
-            if (!active) return;
-            Active = false;
-            EscapedTwice?.Invoke(this, EventArgs.Empty);
+            // Crayon is turned off only with its switch in the panel header, never by
+            // keys: Esc twice is left to Rhino.
         }
 
         /// <summary>
@@ -235,7 +231,7 @@ namespace RhinoSketchingTool
         void SetMethod(DrawMethod value)
         {
             if (method == DrawMethod.Plane && value != DrawMethod.Plane) ReturnPlanes();
-            method = value;
+            method = value == DrawMethod.View ? DrawMethod.Plane : value;
         }
 
         public EraseMode Erase
@@ -276,7 +272,7 @@ namespace RhinoSketchingTool
         /// </summary>
         public bool PointerDown(RhinoView view, ScreenPoint point, bool shift, bool ctrl, double pressure = -1)
         {
-            if (!active || tool == SketchTool.Select || view == null) return false;
+            if (!active || tool == SketchTool.Select || tool == SketchTool.Views || view == null) return false;
             EndDrag();
 
             if (tool == SketchTool.Comment)
@@ -302,18 +298,8 @@ namespace RhinoSketchingTool
             }
 
             var viewport = view.ActiveViewport;
-            string viewKey = null;
-            if (method == DrawMethod.View)
-            {
-                viewKey = ViewKeyFor(view.Document, viewport);
-                if (viewKey == null)
-                {
-                    if (CaptureView(null, view) == null) return true;
-                    viewKey = ViewKeyFor(view.Document, viewport);
-                }
-                if (viewKey == null) return true;
-                BindView(view.Document, viewport, viewKey, true);
-            }
+            // Saved views are cameras only (Rhino Named Views). A sketch is always 3D model
+            // content that every view shows; it is never tied to, or captured as, a view.
             drawing = new DrawDrag
             {
                 View = view,
@@ -323,7 +309,6 @@ namespace RhinoSketchingTool
                         ? new Plane(viewport.CameraTarget, viewport.CameraDirection)
                         : viewport.ConstructionPlane(),
                 Color = StrokeColor,
-                ViewKey = viewKey,
                 Method = method,
             };
             ExtendStroke(point, pressure);
@@ -342,11 +327,6 @@ namespace RhinoSketchingTool
             if (view == null || view.RuntimeSerialNumber != dragView.RuntimeSerialNumber)
             {
                 EndDrag(); // wandered into another viewport
-                return;
-            }
-            if (drawing?.ViewKey != null && !LiveVisibleInView(view.Document, view.ActiveViewport))
-            {
-                EndDrag(); // navigation during a view sketch must not mix two projections
                 return;
             }
             if (drawing != null) ExtendStroke(point, pressure);
@@ -510,7 +490,6 @@ namespace RhinoSketchingTool
                 var attributes = StrokeAttributes(doc);
                 attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 attributes.ObjectColor = drawing.Color;
-                if (drawing.ViewKey != null) attributes.SetUserString(ViewStrokeKey, drawing.ViewKey);
                 var points = drawing.Points.ToArray();
                 var paint = Paint(drawing, true);
                 if (SnapShapes && drawing.Method != DrawMethod.Surface)
@@ -1122,7 +1101,6 @@ namespace RhinoSketchingTool
             public List<Target> Targets;
             public Color Color;
             public DrawMethod Method;
-            public string ViewKey;
             public Guid ObjectId;
             public ScreenPoint Last;
 

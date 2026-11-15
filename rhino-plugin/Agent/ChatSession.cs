@@ -340,6 +340,7 @@ namespace RhinoSketchingTool
         public Transcript Transcript { get; private set; } = new Transcript();
         public string Model { get; private set; } = "";       // the model answering, as Claude Code names it
         public string SessionId = "";
+        public string ConversationId => SessionId;
         public string Version { get; private set; } = "";     // Claude Code's own version, once it has said
         public bool MissingCli { get; set; }
         public Account Account { get; private set; } = new Account();
@@ -458,6 +459,17 @@ namespace RhinoSketchingTool
             SessionId = "";
             resume = "";
             allowed.Clear();
+        }
+
+        /// <summary>
+        /// Carry on a conversation from History: an empty transcript (the page replays the
+        /// saved one), and the next start of Claude Code uses --resume with its session id.
+        /// </summary>
+        public void Resume(string id)
+        {
+            Reset();
+            SessionId = id ?? "";
+            resume = SessionId;
         }
 
         /// <summary>Stop Claude Code. The next message starts it again and carries on the conversation.</summary>
