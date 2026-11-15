@@ -37,9 +37,11 @@ namespace RhinoSketchingTool
 
         public void SetCursor(Point3d value)
         {
+            EnsureCursorDocument();
             if (!value.IsValid || cursor == value) return;
             EndDrag();
             cursor = value;
+            SaveCursor();
             Refresh();
         }
 

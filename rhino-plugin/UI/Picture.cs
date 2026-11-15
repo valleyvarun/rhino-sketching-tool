@@ -15,8 +15,15 @@ namespace RhinoSketchingTool
     /// </summary>
     internal static class Picture
     {
-        public static readonly Media.Color Ink = Rgb(0x15, 0x17, 0x1c), Ink2 = Rgb(0x4a, 0x50, 0x5d), Muted = Rgb(0x87, 0x8d, 0x99);
-        public static readonly Media.Color Glass = Rgb(0xff, 0xff, 0xff), Accent = Rgb(0x97, 0x31, 0xb0), Shade = Rgb(16, 20, 28);
+        public static Media.Color Ink => CrayonAppearance.Dark ? Rgb(0xec,0xed,0xf0) : Rgb(0x15,0x17,0x1c);
+        public static Media.Color Ink2 => CrayonAppearance.Dark ? Rgb(0xb3,0xb7,0xc1) : Rgb(0x4a,0x50,0x5d);
+        public static Media.Color Muted => CrayonAppearance.Dark ? Rgb(0x86,0x8b,0x97) : Rgb(0x87,0x8d,0x99);
+        public static Media.Color Glass => CrayonAppearance.Dark ? Rgb(0x20,0x21,0x26) : Rgb(255,255,255);
+        public static Media.Color Well => CrayonAppearance.Dark ? Rgb(0x2a,0x2b,0x31) : Rgb(0xf1,0xf2,0xf5);
+        public static Media.Color Selected => CrayonAppearance.Dark ? Rgb(0x35,0x36,0x3e) : Rgb(0xd9,0xdd,0xe4);
+        public static Media.Color Overlay => CrayonAppearance.Dark ? Rgb(255,255,255) : Rgb(16,20,28);
+        public static Media.Color Accent => CrayonAppearance.Dark ? Rgb(0xb6,0x6a,0xd0) : Rgb(0x97,0x31,0xb0);
+        public static readonly Media.Color Shade = Rgb(16,20,28);
         public const double LineShade = 0.14;
 
         public static Media.Color Rgb(byte red, byte green, byte blue) => Media.Color.FromRgb(red, green, blue);
@@ -70,7 +77,7 @@ namespace RhinoSketchingTool
                 shadow.Offset(0, 2.5);
                 context.DrawRoundedRectangle(Fill(Shade, 0.028), null, shadow, radius + i, radius + i);
             }
-            context.DrawRoundedRectangle(Fill(Glass), new Media.Pen(Fill(Shade, LineShade), 1), body, radius, radius);
+            context.DrawRoundedRectangle(Fill(Glass), new Media.Pen(Fill(Overlay, .08), 1), body, radius, radius);
         }
 
         /// <summary>One line of text in the interface's font, cut short with an ellipsis if it is wider than allowed.</summary>

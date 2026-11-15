@@ -487,6 +487,11 @@ namespace RhinoSketchingTool
             if (!controller.CursorVisible) return;
             Point3d origin = controller.Cursor;
             double length = AxisLength(e.Viewport);
+            Plane plane = controller.CursorDrawPlane;
+            double side = length * 1.5;
+            var corners = new[] { plane.PointAt(-side, -side), plane.PointAt(side, -side), plane.PointAt(side, side), plane.PointAt(-side, side) };
+            e.Display.DrawPolygon(corners, Color.FromArgb(24, 151, 49, 176), true);
+            e.Display.DrawPolyline(new[] { corners[0], corners[1], corners[2], corners[3], corners[0] }, Color.FromArgb(110, 151, 49, 176), 1);
             e.Display.DrawLine(origin, origin + Vector3d.XAxis * length, AxisX, 2);
             e.Display.DrawLine(origin, origin + Vector3d.YAxis * length, AxisY, 2);
             e.Display.DrawLine(origin, origin + Vector3d.ZAxis * length, AxisZ, 2);
@@ -503,9 +508,9 @@ namespace RhinoSketchingTool
     }
 
     /// <summary>
-    /// While the sketch tools are on, makes the plain number keys 0-3 switch views, and
-    /// passes on Esc: one press goes back to the Select tool, two in a row turn the
-    /// tools off.
+    /// While the sketch tools are on, observes Rhino's own Esc handling: one press
+    /// cancels placement or returns to Select, two in a row turn the tools off.
+    /// Crayon registers no digit handler, so every number key stays with Rhino.
     ///
     /// Rhino sends every typed key to its command line and offers no way to claim one, so
     /// this watches the keyboard directly (Windows only). A number key is taken only when
@@ -661,7 +666,7 @@ namespace RhinoSketchingTool
                       : -1;
             bool modifier = Down(VK_SHIFT) || Down(VK_CONTROL) || Down(VK_MENU) || Down(VK_LWIN) || Down(VK_RWIN);
 
-            if (digit >= 0 && !modifier && !typing)
+            if (onDigit != null && digit >= 0 && !modifier && !typing)
             {
                 // Act once the key message is out of the way, not from inside the hook.
                 if (!repeat) Eto.Forms.Application.Instance.AsyncInvoke(() => onDigit?.Invoke(digit));

@@ -38,13 +38,20 @@ namespace RhinoSketchingTool
             web.OpenNewWindow += (s, e) => e.Cancel = true;
             using (Stream stream = GetType().Assembly.GetManifestResourceStream("RhinoSketchingTool.sidebar.html"))
             using (var reader = new StreamReader(stream))
-                web.LoadHtml(reader.ReadToEnd().Replace("{{MODE}}", header ? "header" : "body").Replace("{{LOGO}}", SketchPlugin.BrandSvg));
+                web.LoadHtml(reader.ReadToEnd().Replace("{{MODE}}", header ? "header" : "body").Replace("{{LOGO}}", SketchPlugin.BrandSvg).Replace("{{WORDMARK_FONT}}", WordmarkFont()));
             timer.Elapsed += (s, e) => Tick();
             timer.Start();
             KeyHook.TextEntry.Add(() => Loaded && Visible && web.HasFocus);
         }
 
         public void RefreshState() => dirty = true;
+
+        static string WordmarkFont()
+        {
+            using (var stream = typeof(SidebarView).Assembly.GetManifestResourceStream("RhinoSketchingTool.InstrumentSans.ttf"))
+            using (var bytes = new MemoryStream())
+            { stream.CopyTo(bytes); return Convert.ToBase64String(bytes.ToArray()); }
+        }
 
         void Tick()
         {
@@ -80,8 +87,13 @@ namespace RhinoSketchingTool
                 state["opacityPressure"] = brush.OpacityByPressure;
                 state["hardnessPressure"] = brush.HardnessByPressure;
                 state["preset"] = brush.Preset;
+                state["presets"] = BrushPresets.AsJson();
+                state["presetEdited"] = BrushPresets.Edited(controller);
                 state["snap"] = controller.SnapShapes;
                 state["cursor"] = new List<object> { controller.Cursor.X, controller.Cursor.Y, controller.Cursor.Z };
+                state["cursorPlane"] = controller.CursorPlaneMode;
+                state["placingCursor"] = controller.PlacingCursor;
+                state["cursorSectionVisible"] = controller.CursorSectionVisible;
                 state["views"] = new List<object>();
                 foreach (string view in controller.NamedViewNames) ((List<object>)state["views"]).Add(view);
                 state["view"] = controller.CurrentViewName ?? "";
@@ -156,7 +168,16 @@ namespace RhinoSketchingTool
         {
             string type = Json.Text(action.At("type")), value = Json.Text(action.At("value"));
             if (type == "tab") { shellAction(type, value); return; }
+            if (type == "theme") { CrayonAppearance.Toggle(); return; }
             if (type == "power") { controller.Active = !controller.Active; return; }
+            if (type == "cursorVisible") { controller.CursorSectionVisible = value == "true"; return; }
+            if (type == "cursorPlane") { controller.SetCursorPlaneMode(value); return; }
+            if (type == "cursorPlace") { controller.BeginPlaceCursor(); return; }
+            if (type == "cursorLook") { controller.LookAtCursor(); return; }
+            if (type == "cursorReset") { controller.ResetCursor(); return; }
+            if (type == "cursorDraw") { if (controller.Method == DrawMethod.Cursor) controller.Method = DrawMethod.Plane; else controller.DrawOnCursorPlane(); return; }
+            if (type == "presetSave" || type == "presetNew" || type == "presetDelete" || type == "presetRename")
+            { BrushPresets.Edit(controller, type, value, Json.Text(action.At("name"))); return; }
             if (type == "activeOnly" || type == "newGroup") { AnnotationGroups.ToggleOption(RhinoDoc.ActiveDoc, type == "activeOnly"); return; }
             if (type == "hideUsed") { AnnotationGroups.ToggleHideUsed(RhinoDoc.ActiveDoc); return; }
             if (type == "groupActive" || type == "groupVisible")
@@ -196,7 +217,7 @@ namespace RhinoSketchingTool
                     case "hardness": controller.Brush.Hardness = number / 100; break;
                 }
             }
-            else if (type == "preset") ApplyPreset(value);
+            else if (type == "preset") BrushPresets.Apply(controller, value);
             else if (type == "visible" || type == "layer" || type == "delete" || type == "rename" || type == "select") EditModel(type, value, Json.Text(action.At("name")));
         }
 
@@ -204,24 +225,6 @@ namespace RhinoSketchingTool
         {
             bool valid = double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out number);
             return valid && !double.IsInfinity(number) && !double.IsNaN(number);
-        }
-
-        void ApplyPreset(string value)
-        {
-            if (value != "crayon" && value != "pencil" && value != "marker" && value != "soft") return;
-            Brush brush = controller.Brush;
-            brush.Preset = value;
-            brush.HardnessByPressure = false;
-            if (value == "crayon")
-            {
-                brush.Size = 6; brush.Opacity = 0.8; brush.Hardness = 0.6; brush.Pressure = 0.7;
-                brush.SizeByPressure = brush.OpacityByPressure = true;
-                controller.StrokeColor = System.Drawing.Color.FromArgb(151, 49, 176);
-            }
-            else if (value == "pencil") { brush.Size = 3; brush.Opacity = 0.8; brush.Hardness = 0.8; brush.Pressure = 0.7; brush.SizeByPressure = brush.OpacityByPressure = true; }
-            else if (value == "marker") { brush.Size = 12; brush.Opacity = 0.55; brush.Hardness = 0.9; brush.Pressure = 0.2; brush.SizeByPressure = brush.OpacityByPressure = false; }
-            else if (value == "soft") { brush.Size = 24; brush.Opacity = 0.45; brush.Hardness = 0.15; brush.Pressure = 0.8; brush.SizeByPressure = brush.OpacityByPressure = true; }
-            controller.Tool = SketchTool.Draw;
         }
 
         void EditModel(string type, string value, string name)

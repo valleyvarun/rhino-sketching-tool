@@ -575,6 +575,7 @@ namespace RhinoSketchingTool
 
         LabelPicture Cached(string key, Func<LabelPicture> make)
         {
+            key = (CrayonAppearance.Dark ? "dark\n" : "light\n") + key;
             if (labels.TryGetValue(key, out LabelPicture picture)) return picture;
             if (labels.Count > 400)
             {
@@ -699,8 +700,8 @@ namespace RhinoSketchingTool
                 Text = text ?? "",
                 PlaceholderText = "Add a comment, then Return",
                 ShowBorder = false,
-                BackgroundColor = Eto.Drawing.Colors.White,
-                TextColor = Eto.Drawing.Color.FromArgb(0x15, 0x17, 0x1c),
+                BackgroundColor = Eto.Drawing.Color.FromArgb(Picture.Glass.R, Picture.Glass.G, Picture.Glass.B),
+                TextColor = Eto.Drawing.Color.FromArgb(Picture.Ink.R, Picture.Ink.G, Picture.Ink.B),
                 Font = new Eto.Drawing.Font("Segoe UI", 8.6f),
             };
             form = new Eto.Forms.Form
@@ -710,7 +711,7 @@ namespace RhinoSketchingTool
                 Resizable = false,
                 Minimizable = false,
                 Maximizable = false,
-                BackgroundColor = Eto.Drawing.Colors.White,
+                BackgroundColor = Eto.Drawing.Color.FromArgb(Picture.Glass.R, Picture.Glass.G, Picture.Glass.B),
                 Padding = 0,
                 Content = box,
                 ClientSize = new Eto.Drawing.Size((int)width, (int)height),

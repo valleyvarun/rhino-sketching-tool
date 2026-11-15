@@ -114,6 +114,22 @@ try:
         controller_type.GetProperty(name).SetValue(controller, value, None)
     def enum_value(name, value):
         return System.Enum.Parse(assembly.GetType("RhinoSketchingTool." + name), value)
+    # The options belong to the selected tool, rather than always showing drawing modes.
+    def option_parts():
+        return list(toolbar.GetType().GetMethod("OptionParts", flags).Invoke(toolbar, System.Array[System.Object]([view])))
+    set_property("Tool", enum_value("SketchTool", "Select"))
+    doc.Objects.UnselectAll()
+    check(len(option_parts()) == 0, "Select has no option row when nothing is selected")
+    set_property("Tool", enum_value("SketchTool", "Erase"))
+    check("ClearSketches" in option_parts() and "Object" not in option_parts(), "Eraser shows its own actions")
+    set_property("Tool", enum_value("SketchTool", "Comment"))
+    check(option_parts() == ["Help"], "Comments show the anchored-comment hint")
+    toolbar_type = toolbar.GetType()
+    part_type = toolbar_type.GetNestedType("Part", BindingFlags.NonPublic)
+    toolbar_type.GetMethod("Click", flags).Invoke(toolbar, System.Array[System.Object]([System.Enum.Parse(part_type,"Views")]))
+    check("SaveView" in option_parts() and "SyncViews" in option_parts(), "Camera opens native named-view actions")
+    set_property("Tool", enum_value("SketchTool", "Draw"))
+    check(all(p in option_parts() for p in ["Object","Plane","Cursor","View","PickFace","Color","Snap"]), "Pen retains all drawing methods and adds surface picking")
     set_property("Active", True)
     set_property("Method", enum_value("DrawMethod", "View"))
     set_property("Tool", enum_value("SketchTool", "Draw"))
@@ -172,6 +188,16 @@ try:
     finally:
         reopened.Dispose()
     check(doc.NamedViews.Delete("Renamed QA view") and not shown(attributes), "Deleted view hides orphaned overlay")
+    # Destructive toolbar action is deliberate and never touches ordinary model curves.
+    ordinary = doc.Objects.AddCurve(PolylineCurve(System.Array[Point3d]([Point3d(0, 2, 0), Point3d(1, 2, 0)])))
+    set_property("Tool", enum_value("SketchTool", "Erase"))
+    erase_action = toolbar_type.GetMethod("ClickOptions", flags)
+    clear_args = System.Array[System.Object]([System.Enum.Parse(part_type,"ClearSketches"), view, System.Drawing.Point(0,0)])
+    count_before = len(list(call("StrokeObjects",doc)))
+    erase_action.Invoke(toolbar, clear_args)
+    check(len(list(call("StrokeObjects",doc))) == count_before, "Clear sketches first click requests confirmation")
+    erase_action.Invoke(toolbar, clear_args)
+    check(len(list(call("StrokeObjects",doc))) == 0 and doc.Objects.FindId(ordinary) is not None, "Clear sketches confirmation preserves ordinary model geometry")
     write(str(checks) + " native Rhino checks passed.")
 except:
     write(traceback.format_exc())

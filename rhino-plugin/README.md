@@ -28,12 +28,15 @@ this folder when local PowerShell scripts are disabled.
 ## Drawing and views
 
 The tools dock contains Select, Draw, Erase, Comments, and Capture view. Drag its grip
-to dock it; the companion drawing bar stays beside it, or along the viewport bottom for a side dock. Small
-viewports wrap and scale the bars to keep their controls reachable.
+to dock it or float it; double-click its grip to return to the bottom centre. Options
+follow the active tool, beside a side dock and above/below a horizontal dock. Small
+viewports wrap and scale the bars to keep their controls reachable. Saved views offers
+save, restore, rename and delete; erasing all sketches requires a second click.
 
 - **Object** follows the surface under the pointer.
 - **Plane** uses the construction plane.
-- **3D cursor** uses a camera-facing plane through the cursor coordinates.
+- **3D cursor** uses its Surface, Top, Front or Side plane. Place it with a viewport
+  click, edit its coordinates, reset it, or look straight at its plane from Sketch.
 - **View** annotates a captured camera, over the model. Capture a named view with the
   camera button and return to it using the adjacent dropdown. Existing Rhino Named
   Views appear there too. Drawing in an unsaved view captures it automatically.
@@ -53,6 +56,18 @@ The colour picker offers presets, saturation/value, hue and hex entry. Colours b
 to individual sketches. Snap shapes conservatively recognizes lines, rectangles and
 ellipses for Plane, Cursor and View. Object drawing stays on its surface, so it remains
 freehand. Brush pressure, opacity, hardness and presets are available in Sketch.
+Hold the pen still for 650 ms to preview a clean line or circle, then keep dragging
+to adjust its endpoint or radius before releasing. Pressure variation is retained.
+
+The Sketch tab follows the design prototype: preset samples, editable stroke bars,
+colour picker and 3D cursor controls. Save edits into a preset or save a new one;
+double-click its name to rename it and use its delete button to remove it. Size,
+opacity and hardness each retain an independent pressure-sensitivity control.
+
+The header's light/dark button changes Crayon's sidebar, viewport controls and comment
+labels without changing Rhino's viewport. The choice is remembered; before a choice
+is made Crayon follows Rhino. Crayon's on/off state is also remembered. The Agent
+integration and the grouped sketch/comment layers keep their existing behavior.
 
 ## Assistants and attachments
 

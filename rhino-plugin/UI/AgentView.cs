@@ -93,7 +93,7 @@ namespace RhinoSketchingTool
                 lastMcpMessage = RhinoMcpConnection.Message;
                 dirty = true;
             }
-            bool appearance = Rhino.Runtime.HostUtils.RunningInDarkMode;
+            bool appearance = CrayonAppearance.Dark;
             if (lastDark != appearance) { lastDark = appearance; dirty = true; }
             try
             {
@@ -152,7 +152,7 @@ namespace RhinoSketchingTool
                 ["provider"] = Agent.Provider,
                 ["mcpMessage"] = RhinoMcpConnection.Message,
                 ["mcpMissing"] = RhinoMcpConnection.Missing,
-                ["dark"] = Rhino.Runtime.HostUtils.RunningInDarkMode,
+                ["dark"] = CrayonAppearance.Dark,
                 ["providerChosen"] = Agent.ProviderChosen,
                 ["providerLabel"] = Agent.Label,
                 ["attachments"] = Agent.Attachments.Select(file => (object)new JsonMap { ["id"] = file.Id, ["name"] = file.Name, ["size"] = file.Size, ["image"] = file.IsImage }).ToList(),
