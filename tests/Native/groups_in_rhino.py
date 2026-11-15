@@ -1,0 +1,180 @@
+# Isolated native tests: /scheme=CrayonValidation /notemplate only.
+import os
+import json
+import traceback
+import System
+import Rhino
+from System.Reflection import Assembly, BindingFlags
+from Rhino.Geometry import Point3d, Vector3d, LineCurve
+
+root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+output = os.path.join(root, "tests", "Native", "bin")
+System.IO.Directory.CreateDirectory(output)
+log = open(os.path.join(output, "groups-rhino.log"), "w")
+checks = 0
+controller = None
+doc = None
+def check(value, description):
+    global checks
+    assert value, description
+    checks += 1
+    log.write("PASS " + description + "\n")
+    log.flush()
+try:
+    assert "/scheme=crayonvalidation" in System.Environment.CommandLine.lower()
+    doc = Rhino.RhinoDoc.ActiveDoc
+    assert doc is not None and doc.Objects.Count == 0
+    assembly = Assembly.LoadFile(os.path.join(root, "rhino-plugin", "bin", "Validation", "RhinoSketchingTool.rhp"))
+    flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance
+    def typ(name): return assembly.GetType("RhinoSketchingTool." + name, True)
+    def call(name, method, *args):
+        return typ(name).GetMethod(method, flags).Invoke(None, System.Array[System.Object](list(args)))
+    def field(obj, name): return obj.GetType().GetField(name, flags).GetValue(obj)
+    def setfield(obj, name, value): obj.GetType().GetField(name, flags).SetValue(obj, value)
+    def state(): return call("AnnotationGroups", "Read", doc)
+    def active(comment, group): call("AnnotationGroups", "SetActive", doc, comment, System.Int32(group))
+    def visible(comment, group):
+        return next(field(g, "Visible") for g in field(state(), "Comments" if comment else "Sketches") if field(g, "Id") == group)
+    def context(target=doc):
+        text = str(call("DrawingContext", "Build", target))
+        return json.loads(text.split("<crayon_drawing_context>\n")[1].split("\n</crayon_drawing_context>")[0])
+    def stroke(x):
+        attributes = call("SketchController", "StrokeAttributes", doc)
+        return doc.Objects.AddCurve(LineCurve(Point3d(x, 0, 0), Point3d(x, 10, 0)), attributes)
+    controller = System.Activator.CreateInstance(typ("SketchController"))
+    typ("SketchController").GetMethod("StartPainting", flags).Invoke(controller, None)
+    def comment(number, text):
+        mark = System.Activator.CreateInstance(typ("Comment"))
+        setfield(mark, "Number", System.Int32(number))
+        setfield(mark, "Point", Point3d(number, 0, 0))
+        setfield(mark, "Normal", Vector3d.ZAxis)
+        typ("SketchController").GetMethod("AddComment", flags).Invoke(controller, System.Array[System.Object]([doc, doc.Views.ActiveView, mark, text]))
+    check(field(state(), "ActiveOnly") and field(state(), "NewGroup"), "Both context toggles default on")
+    check(field(state(), "HideUsed"), "Visibility off after context used defaults on")
+    check(field(state(), "ActiveSketch") == 1 and field(state(), "ActiveComment") == 1, "Exactly one default active group per collection")
+    call("AnnotationGroups", "Advance", doc)
+    check(field(state(), "ActiveSketch") == 1 and field(state(), "ActiveComment") == 1, "Initially empty groups remain active")
+    old = stroke(0)
+    comment(1, "previous comment")
+    check(doc.Objects.FindId(old).Attributes.GetUserString("Crayon.Group") == "1", "New strokes are tagged with their active group")
+    call("AnnotationGroups", "Advance", doc)
+    new = stroke(20)
+    comment(2, "current comment")
+    check(field(state(), "ActiveSketch") == 2 and field(state(), "ActiveComment") == 2, "Rollover activates fresh groups for both collections")
+    snapshot = context()
+    check(len(snapshot["sketches"]) == 1 and snapshot["sketches"][0]["id"] == str(new), "Active-only context excludes previous strokes")
+    check(len(snapshot["comments"]) == 1 and snapshot["comments"][0]["text"] == "current comment", "Active-only context excludes previous comments")
+    active(True, 1)
+    check(field(state(), "ActiveSketch") == 2 and field(state(), "ActiveComment") == 1, "Manual sketch/comment active choices are independent")
+    check(context()["comments"][0]["text"] == "previous comment", "Changing active comment group changes prompt context")
+    active(True, 2)
+    call("AnnotationGroups", "ToggleOption", doc, True)
+    check(len(context()["sketches"]) == 2 and len(context()["comments"]) == 2, "Context toggle off includes all groups")
+    call("AnnotationGroups", "ToggleOption", doc, True)
+    attributes = doc.Objects.FindId(new).Attributes.Duplicate()
+    attributes.SetUserString("Crayon.Hidden", "1")
+    doc.Objects.ModifyAttributes(new, attributes, True)
+    check(not call("SketchController", "OnVisibleLayer", doc, doc.Objects.FindId(new)), "Individual eye hides stroke")
+    call("AnnotationGroups", "ToggleGroup", doc, False, System.Int32(2))
+    call("AnnotationGroups", "ToggleGroup", doc, False, System.Int32(2))
+    check(not call("SketchController", "OnVisibleLayer", doc, doc.Objects.FindId(new)), "Group eye preserves individual hidden state")
+    call("AnnotationGroups", "ToggleGroup", doc, False, System.Int32(1))
+    check(not call("SketchController", "OnVisibleLayer", doc, doc.Objects.FindId(old)), "Group eye hides its strokes")
+    check(field(state(), "ActiveSketch") == 2, "Visibility never changes active group")
+
+    # Exercise production completion handler: only a successful submitted prompt rotates.
+    agent = typ("Agent")
+    prompts = agent.GetField("prompts", flags).GetValue(None)
+    def pending(denied=False):
+        prompt = System.Activator.CreateInstance(agent.GetNestedType("PromptGroup", flags), True)
+        transcript = System.Activator.CreateInstance(typ("Transcript"), True)
+        if denied:
+            notice = System.Activator.CreateInstance(typ("Notice"), True)
+            setfield(notice, "Error", True)
+            setfield(notice, "Text", "Tool failed")
+            entries = field(transcript, "Entries")
+            entries.GetType().GetMethod("Add").Invoke(entries, System.Array[System.Object]([notice]))
+        setfield(prompt, "Document", System.UInt32(doc.RuntimeSerialNumber))
+        setfield(prompt, "Transcript", transcript)
+        setfield(prompt, "Entry", System.Int32(0))
+        setfield(prompt, "Advance", True)
+        setfield(prompt, "HideUsed", field(state(), "HideUsed"))
+        setfield(prompt, "Context", call("DrawingContext", "Capture", doc))
+        prompts.GetType().GetProperty("Item").SetValue(prompts, prompt, System.Array[System.Object](["codex"]))
+    pending()
+    call("Agent", "Completed", "codex", False)
+    check(field(state(), "ActiveSketch") == 2, "Failed/interrupted prompt does not rotate")
+    check(visible(False, 2) and visible(True, 2), "Failed prompt preserves context group visibility")
+    pending(True)
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 2, "A turn with a tool failure does not rotate")
+    check(visible(False, 2) and visible(True, 2), "Tool failure preserves context group visibility")
+    pending()
+    call("Agent", "Completed", "codex", True)
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 3 and field(state(), "Sketches").Count == 3, "Successful prompt rotates exactly once")
+    check(not visible(False, 2) and not visible(True, 2) and visible(False, 3) and visible(True, 3), "Successful prompt hides used groups and leaves fresh groups visible")
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 3 and field(state(), "ActiveComment") == 3, "Another successful prompt reuses both empty groups")
+    stroke(40)
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 4 and field(state(), "ActiveComment") == 3, "Only populated sketch group advances; empty comment group stays active")
+    comment(3, "third comment")
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 4 and field(state(), "ActiveComment") == 4, "Only populated comment group advances; empty sketch group stays active")
+    deleted = stroke(60)
+    check(doc.Objects.Delete(doc.Objects.FindId(deleted), True, True), "Delete hidden test stroke using Crayon's deletion path")
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 4, "Deleted strokes do not make an empty group advance")
+    call("AnnotationGroups", "ToggleOption", doc, False)
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(field(state(), "ActiveSketch") == 4, "New-group toggle off prevents rotation")
+    active(False, 2)
+    active(True, 2)
+    call("AnnotationGroups", "ToggleGroup", doc, False, System.Int32(2))
+    call("AnnotationGroups", "ToggleGroup", doc, True, System.Int32(2))
+    call("AnnotationGroups", "ToggleHideUsed", doc)
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(visible(False, 2) and visible(True, 2), "Disabled hide-used toggle preserves used groups")
+    call("AnnotationGroups", "ToggleHideUsed", doc)
+    pending()
+    active(False, 4)
+    active(True, 4)
+    call("Agent", "Completed", "codex", True)
+    check(not visible(False, 2) and not visible(True, 2) and visible(False, 4) and visible(True, 4), "Hides captured context groups, not groups selected while a prompt runs")
+    check(field(state(), "ActiveSketch") == 4, "Auto-hide works with new-group creation disabled")
+    call("AnnotationGroups", "ToggleGroup", doc, False, System.Int32(1))
+    call("AnnotationGroups", "ToggleOption", doc, True)
+    pending()
+    call("Agent", "Completed", "codex", True)
+    check(not visible(False, 1) and not visible(True, 1) and visible(False, 4) and visible(True, 4), "All-group context hides populated groups but leaves empty groups visible")
+    call("AnnotationGroups", "ToggleOption", doc, True)
+    call("AnnotationGroups", "ToggleHideUsed", doc)
+    active(False, 2)
+    active(True, 2)
+    path = os.path.join(output, "groups.3dm")
+    options = Rhino.FileIO.FileWriteOptions()
+    options.SuppressDialogBoxes = True
+    check(doc.WriteFile(path, options), "Grouped model saves")
+    reopened = Rhino.RhinoDoc.OpenHeadless(path)
+    try:
+        saved = call("AnnotationGroups", "Read", reopened)
+        check(field(saved, "Sketches").Count == 4 and field(saved, "ActiveSketch") == 2 and not field(saved, "NewGroup"), "Groups, active choices and toggles survive reopen")
+        check(not field(saved, "HideUsed"), "Hide-used preference survives reopen")
+        check(len(context(reopened)["sketches"]) == 1 and len(context(reopened)["comments"]) == 1, "Context filtering survives reopen")
+        check(reopened.Objects.FindId(new).Attributes.GetUserString("Crayon.Hidden") == "1", "Item eye state survives reopen")
+    finally: reopened.Dispose()
+    log.write(str(checks) + " group checks passed.\n")
+except:
+    log.write(traceback.format_exc())
+finally:
+    if controller is not None:
+        typ("SketchController").GetMethod("Shutdown", flags).Invoke(controller, None)
+    if doc is not None: doc.Modified = False
+    log.close()

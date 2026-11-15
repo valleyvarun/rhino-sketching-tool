@@ -1,0 +1,2195 @@
+<meta charset="utf-8">
+<style>[hidden]{ display:none !important; } /* added for local preview: the artifact host provides this */</style>
+<title>Rhino Sketch Modes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  /* Layout: short intro, then one Rhino for Mac window (title bar, toolbar, command line, palette | live viewport | panel, status bar), then a mode guide. */
+  --page:#e6e8eb; --page-ink:#1b1e23; --page-muted:#596170; --page-line:#cfd4da;
+  --win:#f5f5f6; --win-2:#ececee; --win-3:#e1e1e5; --win-line:#cfcfd4; --win-ink:#1d1d1f; --win-muted:#6c6c74; --title:#e8e8ea; --field:#ffffff; --hover:rgba(0,0,0,.06);
+  --accent:#2557d6; --accent-ink:#ffffff; --accent-soft:rgba(37,87,214,.12);
+  --float:rgba(250,250,251,.94); --float-line:rgba(0,0,0,.10); --shadow:0 8px 24px rgba(16,20,28,.16),0 1px 3px rgba(16,20,28,.12);
+  --vp-bg:#a8abaf; --vp-grid:#9c9fa3; --vp-grid-major:#878a8f; --vp-obj:#e3e3e1; --vp-edge:#141414;
+  --paper:#fbfaf6; --paper-fill:#e4e1da; --paper-edge:#1a1a1a; --paper-ink:#1a1a1a;
+  --sel:#f2c200; --ok:#1d7f46; --warn:#9a6c00;
+  --c-add:#3fae6a; --c-chg:#3a7bd5; --c-rem:#e0443a;
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;
+  --f-text:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --page:#131417; --page-ink:#e8eaee; --page-muted:#99a0ab; --page-line:#2b2e34;
+  --win:#28282b; --win-2:#212124; --win-3:#1b1b1e; --win-line:#3a3a3f; --win-ink:#ececef; --win-muted:#9b9ba4; --title:#2e2e32; --field:#1a1a1d; --hover:rgba(255,255,255,.07);
+  --accent:#6b95ff; --accent-ink:#0b1022; --accent-soft:rgba(107,149,255,.18);
+  --float:rgba(38,38,42,.94); --float-line:rgba(255,255,255,.10); --shadow:0 8px 24px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
+  --vp-bg:#4a4d51; --vp-grid:#56595d; --vp-grid-major:#686b70; --vp-obj:#cbcccd; --vp-edge:#0d0d0d;
+  --ok:#4cc27e; --warn:#e2b23a;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --page:#131417; --page-ink:#e8eaee; --page-muted:#99a0ab; --page-line:#2b2e34;
+  --win:#28282b; --win-2:#212124; --win-3:#1b1b1e; --win-line:#3a3a3f; --win-ink:#ececef; --win-muted:#9b9ba4; --title:#2e2e32; --field:#1a1a1d; --hover:rgba(255,255,255,.07);
+  --accent:#6b95ff; --accent-ink:#0b1022; --accent-soft:rgba(107,149,255,.18);
+  --float:rgba(38,38,42,.94); --float-line:rgba(255,255,255,.10); --shadow:0 8px 24px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
+  --vp-bg:#4a4d51; --vp-grid:#56595d; --vp-grid-major:#686b70; --vp-obj:#cbcccd; --vp-edge:#0d0d0d;
+  --ok:#4cc27e; --warn:#e2b23a;
+  color-scheme:dark }
+
+html,body{ background:var(--page); color:var(--page-ink); }
+body{ font:15px/1.55 var(--f-text); padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px)); padding-block:20px 48px; }
+button{ font:inherit; color:inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+.page{ max-width:1480px; margin:0 auto; display:flex; flex-direction:column; gap:22px; }
+
+.intro{ display:flex; flex-wrap:wrap; gap:16px 40px; align-items:flex-end; justify-content:space-between; }
+.intro-text{ min-width:0; flex:1 1 420px; }
+.eyebrow{ font:500 11.5px/1 var(--f-mono); letter-spacing:.08em; text-transform:uppercase; color:var(--page-muted); margin:0 0 10px; }
+h1{ font:600 30px/1.1 var(--f-text); letter-spacing:-.01em; margin:0 0 8px; text-wrap:balance; }
+.lede{ margin:0; max-width:64ch; color:var(--page-muted); }
+.keys{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px 20px; margin:0; font-size:12.5px; flex:1 1 380px; max-width:620px; }
+.keys div{ min-width:0; } .keys dt{ font:500 10.5px var(--f-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--page-muted); } .keys dd{ margin:2px 0 0; }
+
+/* ---------- Rhino window ---------- */
+.rw{ display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; height:clamp(620px, calc(100vh - 110px), 900px); border-radius:10px; overflow:hidden; border:1px solid var(--win-line); background:var(--win); color:var(--win-ink); box-shadow:0 22px 50px rgba(10,14,20,.20),0 2px 6px rgba(10,14,20,.10); font:12px/1.35 var(--f-ui); }
+.rw-title{ height:30px; display:flex; align-items:center; padding:0 12px; background:var(--title); border-bottom:1px solid var(--win-line); position:relative; }
+.lights{ display:flex; gap:8px; } .lights i{ width:12px; height:12px; border-radius:50%; background:#ff5f57; box-shadow:inset 0 0 0 .5px rgba(0,0,0,.2); } .lights i:nth-child(2){ background:#febc2e; } .lights i:nth-child(3){ background:#28c840; }
+.ttl{ position:absolute; left:50%; transform:translateX(-50%); font-weight:600; font-size:12.5px; white-space:nowrap; }
+.ttl small{ font-weight:400; color:var(--win-muted); margin-left:6px; font-size:12px; }
+.rw-tools{ display:flex; align-items:center; gap:2px; padding:4px 8px; border-bottom:1px solid var(--win-line); background:var(--win-2); overflow-x:auto; scrollbar-width:none; }
+.tb{ flex:none; height:26px; min-width:28px; display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:5px; border:0; background:transparent; cursor:pointer; padding:0 5px; }
+.tb:hover{ background:var(--hover); } .tb svg{ width:18px; height:18px; }
+.tb.wide{ padding:0 9px; font-weight:500; }
+.tb.on{ background:var(--accent-soft); color:var(--accent); }
+.tb-sep{ flex:none; width:1px; height:18px; background:var(--win-line); margin:0 6px; }
+.tb-gap{ flex:1; }
+.rw-cmd{ border-bottom:1px solid var(--win-line); background:var(--field); font:11.5px/1.55 var(--f-mono); padding:4px 10px 5px; }
+.cmd-hist{ height:54px; overflow-y:auto; color:var(--win-muted); }
+.cmd-hist div{ white-space:pre-wrap; }
+.cmd-prompt{ display:flex; gap:4px 6px; align-items:center; flex-wrap:wrap; }
+.cmd-prompt .opt{ font:inherit; color:var(--accent); background:none; border:0; padding:0 1px; cursor:pointer; text-decoration:underline; text-underline-offset:2px; text-decoration-thickness:1px; }
+#cmdInput{ flex:1; min-width:90px; font:inherit; border:0; outline:0; background:transparent; color:var(--win-ink); padding:0; }
+.rw-body{ display:grid; grid-template-columns:42px minmax(0,1fr) 300px; min-height:0; }
+.rw-palette{ background:var(--win-2); border-right:1px solid var(--win-line); display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 0; overflow-y:auto; scrollbar-width:none; }
+.rw-palette .tb{ width:32px; height:30px; }
+.pal-sep{ width:22px; height:1px; background:var(--win-line); margin:4px 0; flex:none; }
+.vp-wrap{ display:grid; grid-template-rows:minmax(0,1fr) 28px; min-width:0; min-height:0; }
+.vp{ position:relative; min-width:0; min-height:0; overflow:hidden; background:var(--vp-bg); }
+#vpc{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; outline:0; }
+.vp-ov{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.vp-name{ position:absolute; left:0; top:0; z-index:3; pointer-events:none; font:600 11.5px var(--f-ui); color:var(--win-ink); background:var(--float); border:1px solid var(--float-line); border-radius:5px; padding:2px 7px; white-space:nowrap; }
+.vp-name span{ font-weight:400; color:var(--win-muted); }
+.vp-div{ position:absolute; background:var(--win-line); z-index:2; pointer-events:none; }
+
+.modebar{ position:absolute; top:10px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:2px; padding:4px; background:var(--float); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border:1px solid var(--float-line); border-radius:10px; box-shadow:var(--shadow); z-index:6; max-width:calc(100% - 16px); overflow-x:auto; scrollbar-width:none; }
+.mb{ flex:none; display:flex; align-items:center; gap:6px; height:30px; padding:0 10px; border:0; border-radius:7px; background:transparent; font:500 12px var(--f-ui); white-space:nowrap; cursor:pointer; }
+.mb:hover{ background:var(--hover); }
+.mb svg{ width:17px; height:17px; flex:none; }
+.mb[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+.mb-sep{ flex:none; width:1px; height:18px; background:var(--float-line); margin:0 3px; }
+.mb-ring{ flex:none; font-size:11px; color:var(--win-muted); padding:0 8px 0 4px; white-space:nowrap; }
+kbd{ font:500 10px var(--f-mono); border:1px solid var(--float-line); border-bottom-width:2px; border-radius:4px; padding:0 4px; background:var(--field); color:var(--win-ink); }
+.vp.compact .mb span, .vp.compact .mb-ring{ display:none; }
+.vp.compact .mb{ padding:0 8px; }
+.subbar{ position:absolute; top:52px; left:50%; transform:translateX(-50%); display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:6px 8px; padding:4px 8px; background:var(--float); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border:1px solid var(--float-line); border-radius:9px; box-shadow:var(--shadow); z-index:6; max-width:calc(100% - 16px); font-size:11.5px; }
+.sb-l{ color:var(--win-muted); white-space:nowrap; }
+.sb-div{ width:1px; height:16px; background:var(--float-line); }
+.sb-t{ border:1px solid var(--float-line); background:var(--field); border-radius:6px; height:24px; padding:0 8px; font:500 11.5px var(--f-ui); cursor:pointer; white-space:nowrap; }
+.sb-t.on{ background:var(--accent-soft); color:var(--accent); border-color:transparent; }
+.seg{ display:inline-flex; background:var(--win-3); border-radius:7px; padding:2px; gap:2px; flex-wrap:wrap; }
+.seg button{ border:0; background:transparent; padding:3px 9px; border-radius:5px; font:500 11.5px var(--f-ui); cursor:pointer; white-space:nowrap; }
+.seg button[aria-pressed="true"]{ background:var(--field); box-shadow:0 1px 2px rgba(0,0,0,.18); }
+.sw-b{ width:18px; height:18px; border-radius:50%; border:2px solid var(--field); background:var(--c); box-shadow:0 0 0 1px var(--float-line); cursor:pointer; padding:0; }
+.sw-b.on{ box-shadow:0 0 0 2px var(--accent); }
+
+.hint{ position:absolute; left:50%; bottom:10px; transform:translateX(-50%); width:max-content; max-width:min(700px, calc(100% - 24px)); padding:6px 12px; border-radius:8px; background:rgba(20,22,26,.74); color:#f4f5f7; font:12px/1.4 var(--f-ui); text-align:center; pointer-events:none; z-index:4; transition:opacity .2s; }
+.hint.quiet{ opacity:0; }
+.toast{ position:absolute; left:0; top:0; z-index:9; pointer-events:none; transform:translate(14px,-30px); padding:3px 8px; border-radius:6px; background:var(--accent); color:var(--accent-ink); font:600 11px var(--f-ui); white-space:nowrap; }
+.snapchip{ position:absolute; left:0; top:0; z-index:9; pointer-events:none; transform:translate(12px,10px); padding:1px 6px; border-radius:4px; background:#111; color:#fff; font:500 10.5px var(--f-mono); }
+.mlabel{ position:absolute; left:0; top:0; transform:translate(-9999px,-9999px); }
+.mlabel .in{ position:absolute; left:0; top:0; display:inline-flex; align-items:center; gap:6px; transform:translate(-50%, calc(-100% - 10px)); padding:2px 8px 2px 2px; border-radius:999px; background:var(--float); border:1px solid var(--float-line); box-shadow:var(--shadow); font:500 11.5px var(--f-ui); color:var(--win-ink); white-space:nowrap; }
+.mnum{ width:18px; height:18px; border-radius:50%; display:grid; place-items:center; color:#fff; background:var(--mc); font:600 10.5px var(--f-ui); }
+.mlabel.done .in{ opacity:.55; } .mlabel.done .mt::after{ content:" ✓"; }
+.mlabel.hl .in{ box-shadow:0 0 0 2px var(--sel), var(--shadow); }
+.mlabel input{ pointer-events:auto; font:500 11.5px var(--f-ui); border:0; outline:0; background:transparent; color:var(--win-ink); width:170px; padding:2px 0; }
+.ring{ position:absolute; width:0; height:0; z-index:8; }
+.ring-c{ position:absolute; transform:translate(-50%,-50%); width:46px; height:46px; border-radius:50%; background:var(--float); border:1px solid var(--float-line); box-shadow:var(--shadow); display:grid; place-items:center; font:500 9.5px var(--f-mono); color:var(--win-muted); pointer-events:none; }
+.ring-item{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:76px; padding:7px 4px 6px; border-radius:10px; background:var(--float); border:1px solid var(--float-line); box-shadow:var(--shadow); font:500 11px var(--f-ui); cursor:pointer; }
+.ring-item svg{ width:19px; height:19px; }
+.ring-item.cur{ border-color:var(--accent); }
+.ring-item.hot{ background:var(--accent); color:var(--accent-ink); }
+.sheet{ position:absolute; z-index:2; pointer-events:none; color:var(--paper-ink); font-family:var(--f-ui); }
+.sheet-frame{ position:absolute; inset:10px; border:1.5px solid var(--paper-ink); }
+.sheet-tb{ position:absolute; right:10px; bottom:10px; width:min(230px, 60%); border-left:1.5px solid var(--paper-ink); border-top:1.5px solid var(--paper-ink); background:var(--paper); padding:6px 8px; display:grid; gap:2px; font-size:10.5px; }
+.sheet-tb b{ font-size:13px; }
+.sheet-tb .row{ display:flex; justify-content:space-between; gap:8px; font-family:var(--f-mono); font-size:10px; }
+.sheet-n{ position:absolute; right:22px; top:20px; display:grid; justify-items:center; font:600 11px var(--f-ui); }
+.sheet-n svg{ width:22px; height:28px; }
+.sheet-scale{ position:absolute; left:22px; bottom:22px; font:10px var(--f-mono); }
+.sheet-scale i{ display:block; height:5px; border:1.5px solid var(--paper-ink); border-top:0; margin-bottom:2px; background:linear-gradient(90deg, var(--paper-ink) 50%, transparent 50%); }
+.vp-fail{ position:absolute; inset:0; display:grid; place-items:center; padding:24px; text-align:center; color:var(--win-ink); z-index:10; }
+.vtabs{ display:flex; align-items:flex-end; gap:2px; padding:0 6px; background:var(--win-2); border-top:1px solid var(--win-line); overflow-x:auto; scrollbar-width:none; }
+.vt{ flex:none; height:22px; padding:0 12px; margin-bottom:3px; border:0; border-radius:5px; background:transparent; color:var(--win-muted); font:11.5px var(--f-ui); cursor:pointer; white-space:nowrap; }
+.vt:hover{ background:var(--hover); }
+.vt[aria-selected="true"]{ background:var(--win); color:var(--win-ink); font-weight:600; box-shadow:0 0 0 1px var(--win-line); }
+.vt .nb{ font:600 9px var(--f-ui); text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin-left:5px; }
+
+/* panel */
+.rw-panel{ border-left:1px solid var(--win-line); background:var(--win); display:flex; flex-direction:column; min-height:0; min-width:0; }
+.ptabs{ display:flex; border-bottom:1px solid var(--win-line); background:var(--win-2); flex:none; }
+.ptab{ flex:1; height:32px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--win-muted); font:500 12px var(--f-ui); cursor:pointer; white-space:nowrap; padding:0 4px; }
+.ptab[aria-selected="true"]{ color:var(--win-ink); border-bottom-color:var(--accent); }
+.badge{ display:inline-grid; place-items:center; min-width:16px; height:16px; border-radius:8px; background:var(--accent); color:var(--accent-ink); font:600 10px var(--f-ui); padding:0 4px; margin-left:3px; }
+.badge:empty{ display:none; }
+.pane{ flex:1; min-height:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:16px; }
+.psec{ display:flex; flex-direction:column; gap:7px; min-width:0; }
+.psec-h{ display:flex; justify-content:space-between; align-items:baseline; }
+.psec h3{ font:600 10.5px var(--f-ui); text-transform:uppercase; letter-spacing:.07em; color:var(--win-muted); margin:0; }
+.count{ font:11px var(--f-mono); color:var(--win-muted); }
+.pen-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.swatches{ display:flex; gap:7px; }
+.rng{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--win-muted); }
+.rng input{ width:90px; accent-color:var(--accent); }
+.rng output{ font:11px var(--f-mono); color:var(--win-ink); min-width:30px; }
+.chk{ display:flex; gap:8px; align-items:flex-start; font-size:12px; cursor:pointer; }
+.chk input{ margin:1px 0 0; accent-color:var(--accent); }
+.slist{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; border:1px solid var(--win-line); border-radius:8px; overflow:hidden; background:var(--field); }
+.aib{ height:20px; min-width:26px; padding:0 5px; border-radius:5px; border:1px solid var(--win-line); background:var(--win); color:var(--win-muted); font:600 10px var(--f-ui); cursor:pointer; }
+.aib:hover{ border-color:var(--accent); color:var(--accent); }
+.aib[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.aichips{ display:flex; flex-wrap:wrap; gap:5px; }
+.aichips .none{ font-size:12px; color:var(--win-muted); }
+.aipre{ margin:0; max-height:220px; overflow:auto; white-space:pre-wrap; font:11px/1.5 var(--f-mono); background:var(--field); border:1px solid var(--win-line); border-radius:7px; padding:8px; color:var(--win-ink); }
+.mlabel.ai .in::after{ content:"AI"; font:600 9px var(--f-ui); color:var(--accent-ink); background:var(--accent); border-radius:4px; padding:1px 4px; margin-left:2px; }
+.srow{ display:grid; grid-template-columns:10px minmax(0,1fr) auto auto auto; align-items:center; gap:6px 7px; padding:6px 4px 6px 9px; border-top:1px solid var(--win-line); cursor:pointer; }
+.srow:first-child{ border-top:0; }
+.srow:hover{ background:var(--hover); }
+.srow.sel{ background:var(--accent-soft); }
+.srow .sn input{ font:600 12px var(--f-ui); width:100%; border:1px solid var(--accent); border-radius:4px; background:var(--field); color:var(--win-ink); padding:1px 4px; }
+.chev svg{ width:14px; height:14px; transition:transform .15s; }
+.srow.exp .chev svg{ transform:rotate(180deg); }
+.pill{ font:600 9.5px var(--f-ui); text-transform:uppercase; letter-spacing:.05em; border-radius:999px; padding:2px 7px; white-space:nowrap; border:1px solid transparent; }
+.pill.open{ color:var(--accent); background:var(--accent-soft); }
+.pill.sent{ color:var(--win-muted); border-color:var(--win-line); }
+.pill.preview{ color:var(--warn); border-color:var(--warn); }
+.pill.done{ color:var(--ok); border-color:var(--ok); }
+.pill.dismissed{ color:var(--win-muted); text-decoration:line-through; }
+.pill.ink{ color:var(--win-muted); border-color:var(--win-line); }
+.sdet{ grid-column:1 / -1; display:flex; flex-direction:column; gap:7px; padding:4px 4px 4px 18px; cursor:default; }
+.means{ margin:0; font:12.5px/1.45 var(--f-text); }
+.frow{ display:flex; gap:6px 10px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--win-muted); }
+.frow label{ display:flex; align-items:center; gap:5px; }
+.frow select, .frow input{ font:11.5px var(--f-ui); border:1px solid var(--win-line); background:var(--field); color:var(--win-ink); border-radius:5px; padding:2px 5px; }
+.frow input[type="number"]{ width:64px; }
+.frow input[type="text"]{ flex:1; min-width:0; }
+.dv{ margin:0; font-size:11px; color:var(--win-muted); }
+.thread{ display:flex; flex-direction:column; gap:3px; border-left:2px solid var(--win-line); padding-left:8px; }
+.thread p{ margin:0; font-size:11.5px; line-height:1.4; }
+.psec-tools{ display:flex; gap:8px; align-items:center; }
+.tgl{ display:flex; gap:5px; align-items:center; font-size:11.5px; color:var(--win-muted); cursor:pointer; white-space:nowrap; }
+.tgl input{ accent-color:var(--accent); margin:0; }
+.legend{ display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; color:var(--win-muted); }
+.legend i{ display:inline-block; width:9px; height:9px; border-radius:2px; background:var(--c); margin-right:4px; vertical-align:-1px; }
+.legend .dash{ border-bottom:1.5px dashed var(--win-muted); line-height:1.15; }
+.clist{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+.citem{ display:grid; grid-template-columns:8px minmax(0,1fr) auto; gap:8px; align-items:center; padding:6px 6px 6px 8px; border-radius:7px; background:var(--field); border:1px solid var(--win-line); cursor:pointer; }
+.citem:hover{ border-color:var(--accent); }
+.citem .k{ width:8px; height:8px; border-radius:2px; background:var(--c); }
+.ct{ font-weight:600; font-size:12px; }
+.cs{ font-size:11px; color:var(--win-muted); }
+.cempty{ font-size:12px; color:var(--win-muted); padding:8px 10px; border:1px dashed var(--win-line); border-radius:7px; }
+.counts{ margin:0; font-size:11.5px; color:var(--win-muted); }
+.counts b{ color:var(--win-ink); font-weight:600; }
+.seg-full{ display:flex; } .seg-full button{ flex:1; }
+.ofilter{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; padding:5px 6px 5px 9px; border-radius:7px; background:var(--accent-soft); }
+.glist2{ display:flex; flex-direction:column; gap:10px; }
+.grp{ display:flex; flex-direction:column; gap:4px; }
+.gh{ display:flex; justify-content:space-between; align-items:center; font:600 11px var(--f-ui); color:var(--win-muted); padding:0 2px; background:none; border:0; cursor:pointer; text-align:left; }
+.gh:hover{ color:var(--accent); }
+details.pen summary{ cursor:pointer; font:600 10.5px var(--f-ui); text-transform:uppercase; letter-spacing:.07em; color:var(--win-muted); }
+details.pen[open]{ gap:8px; }
+.mlabel .in{ pointer-events:auto; cursor:pointer; }
+.mlabel.sel .in{ box-shadow:0 0 0 2px var(--sel), var(--shadow); }
+.mlabel.dis .in{ opacity:.45; } .mlabel.dis .mt{ text-decoration:line-through; }
+.srow .sw{ width:10px; height:10px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--win-line); }
+.sn{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ss{ color:var(--win-muted); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sact{ display:flex; gap:4px; align-items:center; }
+.tag{ font:600 9.5px var(--f-ui); text-transform:uppercase; letter-spacing:.05em; color:var(--win-muted); border:1px solid var(--win-line); border-radius:4px; padding:1px 4px; white-space:nowrap; }
+.tag.mark{ color:var(--accent); border-color:var(--accent-soft); background:var(--accent-soft); }
+.mini{ border:1px solid var(--win-line); background:var(--win); border-radius:5px; height:22px; padding:0 7px; font:500 11px var(--f-ui); cursor:pointer; white-space:nowrap; }
+.mini:hover{ border-color:var(--accent); color:var(--accent); }
+.ix{ display:grid; place-items:center; width:22px; height:22px; border:0; background:transparent; border-radius:5px; color:var(--win-muted); cursor:pointer; font-size:15px; line-height:1; }
+.ix:hover{ background:var(--hover); color:var(--win-ink); }
+.empty{ padding:12px; color:var(--win-muted); font-size:12px; }
+.actions{ flex-direction:row; flex-wrap:wrap; gap:6px; }
+.btn{ height:28px; padding:0 11px; border-radius:6px; border:1px solid var(--win-line); background:var(--field); font:500 12px var(--f-ui); cursor:pointer; white-space:nowrap; }
+.btn:hover{ border-color:var(--win-muted); }
+.btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+.btn.ghost{ background:transparent; }
+.tip{ margin:0; font-size:11.5px; color:var(--win-muted); line-height:1.45; }
+.kv{ display:grid; grid-template-columns:auto 1fr auto 1fr auto 1fr; gap:6px; align-items:center; }
+.kv label{ font:500 11px var(--f-mono); color:var(--win-muted); }
+.kv input{ width:100%; min-width:0; font:11.5px var(--f-mono); border:1px solid var(--win-line); background:var(--field); color:var(--win-ink); border-radius:5px; padding:3px 5px; }
+.muted{ color:var(--win-muted); } .small{ font-size:11px; }
+.row{ flex-direction:row; flex-wrap:wrap; gap:6px; }
+.layers{ list-style:none; margin:0; padding:0; border:1px solid var(--win-line); border-radius:8px; background:var(--field); overflow:hidden; }
+.layers li{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-top:1px solid var(--win-line); }
+.layers li:first-child{ border-top:0; }
+.layers .sw{ width:12px; height:12px; border-radius:3px; background:var(--c); }
+.layers .nm{ flex:1; min-width:0; }
+.eye{ width:24px; height:22px; border:0; background:transparent; border-radius:5px; cursor:pointer; display:grid; place-items:center; color:var(--win-ink); }
+.eye svg{ width:16px; height:16px; }
+.eye[aria-pressed="false"]{ color:var(--win-muted); opacity:.5; }
+.ant{ gap:10px; }
+.ant-log{ flex:1; min-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.msg{ padding:8px 10px; border-radius:10px; background:var(--win-3); font:12.5px/1.45 var(--f-text); max-width:94%; }
+.msg p{ margin:0 0 4px; } .msg p:last-child{ margin-bottom:0; }
+.msg ul{ margin:0 0 6px; padding-left:16px; }
+.msg .mh{ font:600 10.5px var(--f-ui); text-transform:uppercase; letter-spacing:.06em; color:var(--win-muted); }
+.msg.me{ align-self:flex-end; background:var(--accent-soft); }
+.msg-act{ display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap; }
+.dots{ display:inline-flex; gap:3px; } .dots i{ width:5px; height:5px; border-radius:50%; background:var(--win-muted); animation:blink 1s infinite; } .dots i:nth-child(2){ animation-delay:.15s; } .dots i:nth-child(3){ animation-delay:.3s; }
+@keyframes blink{ 0%,100%{ opacity:.25; } 50%{ opacity:1; } }
+.ant-box{ border:1px solid var(--win-line); border-radius:10px; background:var(--field); padding:8px; display:flex; flex-direction:column; gap:6px; flex:none; }
+.ant-att{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+.ant-att .lbl{ font-size:11px; color:var(--win-muted); margin-right:2px; }
+.chips{ display:contents; }
+.chip{ border:1px solid var(--win-line); background:var(--win); border-radius:999px; height:22px; padding:0 8px 0 6px; font:500 11px var(--f-ui); cursor:pointer; display:inline-flex; align-items:center; gap:5px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.chip i{ width:8px; height:8px; border-radius:50%; background:var(--c); flex:none; }
+.chip.off{ opacity:.45; text-decoration:line-through; }
+#antText{ width:100%; resize:none; border:0; outline:0; background:transparent; color:var(--win-ink); font:13px/1.4 var(--f-text); padding:2px; }
+.sugg{ display:flex; flex-wrap:wrap; gap:5px; }
+.sugg button{ border:0; background:var(--win-3); border-radius:6px; padding:3px 7px; font:11px var(--f-ui); cursor:pointer; }
+.sugg button:hover{ background:var(--accent-soft); color:var(--accent); }
+.ant-send{ display:flex; justify-content:space-between; align-items:center; }
+.sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+.rw-status{ display:flex; align-items:center; gap:12px; padding:4px 10px; border-top:1px solid var(--win-line); background:var(--win-2); font-size:11.5px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+.mono{ font-family:var(--f-mono); font-size:11px; }
+.st{ border:0; background:none; padding:0; color:var(--win-muted); cursor:pointer; font:inherit; }
+.st.on{ color:var(--win-ink); font-weight:600; }
+.st.new.on{ color:var(--accent); }
+.st-sep{ width:1px; height:14px; background:var(--win-line); flex:none; }
+
+/* guide */
+.guide h2, .next h2{ font:600 18px/1.3 var(--f-text); margin:0 0 12px; }
+.glist{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); column-gap:28px; list-style:none; margin:0; padding:0; border-top:1px solid var(--page-line); }
+.glist li{ border-bottom:1px solid var(--page-line); padding:14px 0; display:flex; flex-direction:column; gap:6px; min-width:0; }
+.gbtn{ align-self:flex-start; display:inline-flex; align-items:center; gap:8px; font:600 14.5px var(--f-text); background:none; border:0; padding:0; cursor:pointer; text-align:left; }
+.gbtn svg{ width:20px; height:20px; color:var(--accent); flex:none; }
+.gbtn:hover span{ text-decoration:underline; text-underline-offset:3px; }
+.glist p{ margin:0; font-size:13.5px; color:var(--page-muted); }
+.how{ font-size:12.5px; display:grid; grid-template-columns:auto 1fr; gap:2px 10px; margin:0; }
+.how dt{ font:500 10.5px var(--f-mono); text-transform:uppercase; letter-spacing:.06em; color:var(--page-muted); padding-top:2px; }
+.how dd{ margin:0; }
+.next ul{ margin:0; padding-left:18px; columns:2 340px; column-gap:44px; font-size:13.5px; color:var(--page-muted); }
+.next li{ margin:0 0 7px; break-inside:avoid; }
+.next li b{ color:var(--page-ink); font-weight:600; }
+
+@media (max-width:1100px){ .rw-body{ grid-template-columns:40px minmax(0,1fr) 270px; } }
+@media (max-width:780px){
+  .rw{ height:auto; }
+  .rw-body{ grid-template-columns:minmax(0,1fr); }
+  .rw-palette{ display:none; }
+  .vp-wrap{ height:62vh; min-height:380px; }
+  .rw-panel{ border-left:0; border-top:1px solid var(--win-line); height:500px; }
+  .cmd-hist{ height:36px; }
+  .rw-status .wide{ display:none; }
+  .ttl small{ display:none; }
+  h1{ font-size:26px; }
+}
+@media (prefers-reduced-motion: reduce){ .dots i{ animation:none; } .hint{ transition:none; } }
+</style>
+
+<div class="page">
+  <header class="intro">
+    <div class="intro-text">
+      <p class="eyebrow">Concept mockup · Rhino</p>
+      <h1>Sketch Modes</h1>
+      <p class="lede">Sketch straight into the model. Drop a 3D cursor to say “here”, draw on planes, objects and drawings, and pick which sketches to give an AI as context. The viewport below is live: try every mode.</p>
+    </div>
+    <dl class="keys">
+      <div><dt>Orbit</dt><dd>Right-drag or Option-drag</dd></div>
+      <div><dt>Pan · Zoom</dt><dd>Shift + right-drag · scroll</dd></div>
+      <div><dt>Ring menu</dt><dd>Hold Space, or press and hold the pen</dd></div>
+      <div><dt>Place 3D cursor</dt><dd>Shift + right-click, any mode</dd></div>
+    </dl>
+  </header>
+
+  <div class="rw" id="rw">
+    <div class="rw-title">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="ttl">Pavilion.3dm <small>Edited</small></div>
+    </div>
+    <div class="rw-tools" id="tools"></div>
+    <div class="rw-cmd">
+      <div class="cmd-hist" id="cmdHist" aria-live="polite"></div>
+      <div class="cmd-prompt"><span id="cmdPrompt"></span><label class="sr" for="cmdInput">Command</label><input id="cmdInput" autocomplete="off" spellcheck="false" placeholder="Type a command, e.g. Marks"></div>
+    </div>
+    <div class="rw-body">
+      <nav class="rw-palette" id="palette" aria-label="Rhino tools"></nav>
+      <div class="vp-wrap">
+        <div class="vp" id="vp">
+          <canvas id="vpc" aria-label="Rhino viewport"></canvas>
+          <div class="vp-ov" id="vpOv"></div>
+          <div class="sheet" id="sheet" hidden>
+            <div class="sheet-frame"></div>
+            <div class="sheet-n"><svg viewBox="0 0 22 28" aria-hidden="true"><path d="M11 2l7 22-7-5-7 5z" fill="currentColor"/></svg>N</div>
+            <div class="sheet-scale" id="sheetScale"><i></i><span>0 · 10 m</span></div>
+            <div class="sheet-tb"><span>Pavilion</span><b>Site plan · redlines</b><div class="row"><span>A-100</span><span>1:200</span><span>14.11.2026</span></div></div>
+          </div>
+          <div class="vp-div" id="vpDiv" hidden></div>
+          <div class="vp-name" id="vpNameMain">Perspective <span>· Shaded</span></div>
+          <div class="vp-name" id="vpNamePlan" hidden>A-100 Site plan <span>· Drawing</span></div>
+          <div class="modebar" id="modebar" role="toolbar" aria-label="Sketch modes"></div>
+          <div class="subbar" id="subbar" hidden></div>
+          <div class="hint" id="hint"></div>
+          <div class="ring" id="ring" hidden></div>
+          <div class="toast" id="toast" hidden></div>
+          <div class="snapchip" id="snapChip" hidden></div>
+          <div class="vp-fail" id="vpFail" hidden><p>The 3D viewer could not start in this browser. Reload the page, or try a browser with WebGL turned on.</p></div>
+        </div>
+        <div class="vtabs" role="tablist" aria-label="Viewports">
+          <button class="vt" data-view="perspective" role="tab">Perspective</button>
+          <button class="vt" data-view="top" role="tab">Top</button>
+          <button class="vt" data-view="front" role="tab">Front</button>
+          <button class="vt" data-view="right" role="tab">Right</button>
+          <button class="vt" data-view="plan" role="tab">A-100 Site plan<span class="nb">Sketch</span></button>
+        </div>
+      </div>
+      <aside class="rw-panel" aria-label="Panels">
+        <div class="ptabs" role="tablist">
+          <button class="ptab" role="tab" data-tab="sketch" aria-selected="true">Sketch</button>
+          <button class="ptab" role="tab" data-tab="cursor" aria-selected="false">3D Cursor</button>
+          <button class="ptab" role="tab" data-tab="layers" aria-selected="false">Layers</button>
+        </div>
+
+        <section class="pane" id="pane-sketch">
+          <div class="psec">
+            <div class="psec-h"><h3>What changed</h3><div class="psec-tools"><label class="tgl"><input type="checkbox" id="showChanges"> Show in model</label><button type="button" class="mini" id="copySummary">Copy</button></div></div>
+            <div class="legend" id="chgLegend" hidden><span><i style="--c:var(--c-add)"></i>Added</span><span><i style="--c:var(--c-chg)"></i>Changed</span><span><i style="--c:var(--c-rem)"></i>Removed</span><span class="dash">Dashed = before</span></div>
+            <ul class="clist" id="changeList"></ul>
+            <p class="counts" id="sCounts"></p>
+          </div>
+          <div class="psec">
+            <div class="psec-h"><h3>Sketch</h3><label class="tgl"><input type="checkbox" id="openOnly"> Only open</label></div>
+            <div class="seg seg-full" id="groupSeg"><button type="button" data-group="object">By object</button><button type="button" data-group="kind">By kind</button><button type="button" data-group="order">In order</button></div>
+            <div class="ofilter" id="objFilter" hidden></div>
+            <div class="glist2" id="strokeList"></div>
+          </div>
+          <div class="psec">
+            <div class="psec-h"><h3>AI context</h3><span class="count" id="aiCount"></span></div>
+            <div class="aichips" id="aiChips"></div>
+            <div class="row">
+              <button type="button" class="mini" id="aiShow" aria-expanded="false">Show what the AI gets</button>
+              <button type="button" class="mini" id="aiCopy">Copy</button>
+              <button type="button" class="mini" id="aiClear">Clear</button>
+            </div>
+            <pre class="aipre" id="aiPre" hidden></pre>
+          </div>
+          <div class="psec actions">
+            <button class="btn ghost" id="btnClear">Clear sketch</button>
+          </div>
+          <details class="psec pen">
+            <summary>Pen settings</summary>
+            <div class="pen-row">
+              <div class="swatches" id="penSw"></div>
+              <label class="rng" for="penWidth">Width <input id="penWidth" type="range" min="1" max="8" step="1" value="3"><output id="penWidthOut">3 px</output></label>
+            </div>
+            <label class="chk"><input type="checkbox" id="penPressure" checked> Pen pressure changes the width</label>
+            <label class="chk"><input type="checkbox" id="penSmart" checked> Hold still at the end of a stroke to snap it to a line or circle</label>
+          </details>
+          <p class="tip">Click a row to fly back to where you drew it, and click again to zoom in. Double-click a name to rename it. Press AI on a row to add it to the AI context. In Navigate mode, click a sketch or an object in the viewport to find it here.</p>
+        </section>
+
+        <section class="pane" id="pane-cursor" hidden>
+          <div class="psec">
+            <h3>Position</h3>
+            <div class="kv">
+              <label for="curX">X</label><input id="curX" type="number" step="0.1">
+              <label for="curY">Y</label><input id="curY" type="number" step="0.1">
+              <label for="curZ">Z</label><input id="curZ" type="number" step="0.1">
+            </div>
+            <p class="tip" id="curOn"></p>
+          </div>
+          <div class="psec">
+            <h3>Line up with</h3>
+            <div class="seg" id="alignSeg">
+              <button data-align="surface">Surface</button><button data-align="world">World</button><button data-align="view">View</button>
+            </div>
+          </div>
+          <div class="psec">
+            <h3>Use the cursor as</h3>
+            <label class="chk"><input type="checkbox" id="optFollow"> Construction plane: the grid moves to the cursor</label>
+            <label class="chk"><input type="checkbox" id="optPivot" checked> Pivot for Rotate, Scale and Mirror</label>
+            <label class="chk"><input type="checkbox" id="optAI" checked> AI context: tells the AI where “here” is</label>
+            <label class="chk"><input type="checkbox" id="optSnap" checked> Snap to corners while placing</label>
+          </div>
+          <div class="psec row">
+            <button class="btn primary" id="curMode">Place the cursor</button>
+            <button class="btn" id="curReset">Back to world origin</button>
+          </div>
+          <p class="tip">Shift + right-click anywhere in the viewport places the cursor without leaving the mode you're in.</p>
+        </section>
+
+        <section class="pane" id="pane-layers" hidden>
+          <ul class="layers" id="layerList"></ul>
+          <p class="tip">Sketch ink and marks live on a new kind of layer. They don't print or export.</p>
+        </section>
+      </aside>
+    </div>
+    <div class="rw-status" id="status">
+      <span class="mono" id="coords">x 0.00  y 0.00  z 0.00</span>
+      <span class="wide">Meters</span>
+      <span class="st-sep wide"></span>
+      <button class="st wide" data-st>Grid Snap</button>
+      <button class="st wide" data-st>Ortho</button>
+      <button class="st wide" data-st>Planar</button>
+      <button class="st on wide" data-st>Osnap</button>
+      <button class="st wide" data-st>SmartTrack</button>
+      <button class="st wide" data-st>Gumball</button>
+      <button class="st wide" data-st>Record History</button>
+      <span class="st-sep"></span>
+      <button class="st on new" id="stCursor">3D Cursor</button>
+      <button class="st on new" id="stSketch">Sketch layer</button>
+    </div>
+  </div>
+
+  <section class="guide" aria-labelledby="guideH">
+    <h2 id="guideH">The modes</h2>
+    <ul class="glist" id="guide"></ul>
+  </section>
+
+  <section class="next" aria-labelledby="nextH">
+    <h2 id="nextH">Questions to explore next</h2>
+    <ul>
+      <li><b>Saving ink.</b> Should sketches be saved in the .3dm as their own object type (like annotations), or only as a sketch layer that never exports?</li>
+      <li><b>Symmetry.</b> Mirror ink live across a plane through the 3D cursor while you draw.</li>
+      <li><b>Marks into Grasshopper.</b> A circled region could become a surface input, an arrow a number slider.</li>
+      <li><b>Talk while drawing.</b> Words spoken during a stroke attach to the mark drawn at that moment.</li>
+      <li><b>iPad as a sketch pad.</b> Use Sidecar or an iPad app as a pen surface that draws into the Mac viewport.</li>
+      <li><b>Client redlines.</b> Clients mark up a shared web view, and their marks come back into Rhino on the same objects.</li>
+    </ul>
+  </section>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const fmt = (n) => (Math.round(n * 10) / 10).toFixed(1);
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const cycle = (arr, v) => arr[(arr.indexOf(v) + 1) % arr.length];
+const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+const SV = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+
+const ICON = {
+  navigate: SV('<ellipse cx="12" cy="12" rx="9" ry="4.2"/><path d="M12 3.5v17"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>'),
+  cursor: SV('<circle cx="12" cy="12" r="6" stroke-dasharray="2.6 2.2"/><path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5"/>'),
+  plane: SV('<path d="M2.5 17l5-9h14l-5 9z"/><path d="M5 12.5h14M10 8l-3 9M15 8l-3 9" opacity=".55"/>'),
+  object: SV('<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/><path d="M14 16c1-1.6 2.1-.2 3.4-1.9" stroke-width="2"/>'),
+  marks: SV('<path d="M8.5 13.2C5.3 12.6 3 10.9 3 8.9 3 6.2 7 4 12 4s9 2.2 9 4.9-4 4.9-9 4.9"/><path d="M12 13.8l-4 6.7M8 20.5l-.4-3.4M8 20.5l3.1-1.3"/>'),
+  drawing: SV('<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M7 7h6v5H7zM13 9.5h4"/><path d="M13 20.5v-4h7.5"/>'),
+  eraser: SV('<path d="M14.6 4.6l4.8 4.8-9.2 9.2H6.4L3.8 16z"/><path d="M8.9 10.3l4.8 4.8M11 20.5h9"/>'),
+  pen: SV('<path d="M4 20l1.2-4.6L16 4.6a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/><path d="M14.5 6l3.5 3.5"/>'),
+  eye: SV('<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/>')
+};
+
+const rw = $('#rw'), vp = $('#vp'), canvas = $('#vpc'), ov = $('#vpOv'), logEl = $('#cmdHist');
+let quiet = false;
+function log(t, cls){
+  if (quiet) return;
+  const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = t;
+  logEl.appendChild(d);
+  while (logEl.childElementCount > 80) logEl.firstElementChild.remove();
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+let renderer = null;
+try { if (window.THREE) renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); } catch (err) { renderer = null; }
+if (!renderer){ $('#vpFail').hidden = false; log('The 3D viewer could not start in this browser.'); return; }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+const V3 = THREE.Vector3;
+const ZUP = new V3(0, 0, 1);
+const PEN = [{ name:'Graphite', c:'#23262c' }, { name:'Blue', c:'#1f5fd1' }, { name:'Red', c:'#d0352b' }, { name:'Green', c:'#14845a' }];
+const REDLINE = '#d0352b';
+const MARK = {
+  region: { c:'#e08600', name:'Region' }, arrow: { c:'#1d6ad6', name:'Pull' }, cross: { c:'#d63a2f', name:'Remove' },
+  cut: { c:'#7a4bd9', name:'Cut' }, note: { c:'#b98a00', name:'Note' }
+};
+const MARK_TOOLS = ['auto', 'region', 'arrow', 'cross', 'cut', 'note'];
+const MARK_TOOL_LABEL = { auto:'Auto', region:'Region', arrow:'Pull', cross:'Remove', cut:'Cut', note:'Note' };
+const MODES = ['navigate', 'cursor', 'plane', 'object', 'marks', 'drawing', 'eraser'];
+const MODE_LABEL = { navigate:'Navigate', cursor:'3D Cursor', plane:'Plane', object:'On object', marks:'Marks', drawing:'Drawing', eraser:'Eraser' };
+const MODE_KEY = { navigate:'1', cursor:'2', plane:'3', object:'4', marks:'5', drawing:'6', eraser:'E' };
+const CMD_NAME = { navigate:'Navigate', cursor:'Cursor3D', plane:'SketchOnPlane', object:'SketchOnObject', marks:'SketchMarks', drawing:'SketchOnDrawing', eraser:'SketchErase' };
+const CURVE_COLOR = '#101113';
+
+const S = {
+  mode:'object', view:'perspective', planeKind:'cursor', markTool:'auto', drawTool:'redline', align:'surface',
+  pen:{ i:0, width:3, pressure:true, smart:true }, snap:true,
+  cplaneFollows:false, sketchUI:true, cursorOn:true,
+  strokes:[], inkN:0, redN:0, markN:0, uid:0,
+  cur:{ p:new V3(), n:ZUP.clone(), q:new THREE.Quaternion(), on:'World origin' },
+  overVp:false, overRw:false, lastPtr:null, ai:new Set(), aiCursor:true, tab:'sketch',
+  lockedPlane:null, eraseArm:false, clearArm:false,
+  sel:null, group:'object', openOnly:false, expanded:new Set(), changes:[], showChanges:false, objFilter:null,
+  layers:{ model:true, ink:true, marks:true, curves:true, preview:true, grid:true }
+};
+
+/* ---------- scene ---------- */
+const scene = new THREE.Scene();
+const G = {};
+['grid', 'model', 'changes', 'curves', 'ink', 'marks', 'preview', 'helpers'].forEach((k) => { G[k] = new THREE.Group(); scene.add(G[k]); });
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f96, 0.72); hemi.position.set(0, 0, 10); scene.add(hemi);
+const head = new THREE.DirectionalLight(0xffffff, 0.5); scene.add(head); scene.add(head.target);
+
+const M = {
+  obj: new THREE.MeshLambertMaterial({ color:0xe3e3e1, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1 }),
+  edge: new THREE.LineBasicMaterial({ color:0x141414 }),
+  planFill: new THREE.MeshBasicMaterial({ color:0xe4e1da, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1 }),
+  planEdge: new THREE.LineBasicMaterial({ color:0x1a1a1a }),
+  gridMinor: new THREE.LineBasicMaterial({ color:0x9c9fa3 }),
+  gridMajor: new THREE.LineBasicMaterial({ color:0x878a8f }),
+  axisX: new THREE.LineBasicMaterial({ color:0xb8322a }),
+  axisY: new THREE.LineBasicMaterial({ color:0x2f8f3a }),
+  ghost: new THREE.MeshLambertMaterial({ color:0xf5c518, transparent:true, opacity:0.6, side:THREE.DoubleSide, depthWrite:false }),
+  ghostRed: new THREE.MeshBasicMaterial({ color:0xe0443a, transparent:true, opacity:0.42, side:THREE.DoubleSide, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2 }),
+  ghostEdge: new THREE.LineBasicMaterial({ color:0x8a6a00 }),
+  added: new THREE.MeshLambertMaterial({ color:0x7fd19c, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1 }),
+  changed: new THREE.MeshLambertMaterial({ color:0x8fb4ee, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1 }),
+  removed: new THREE.MeshBasicMaterial({ color:0xe0443a, transparent:true, opacity:0.32, side:THREE.DoubleSide, depthWrite:false }),
+  before: new THREE.LineDashedMaterial({ color:0x1d2633, dashSize:0.35, gapSize:0.22 })
+};
+const COL = { bg:new THREE.Color(0xa8abaf), paper:new THREE.Color(0xfbfaf6) };
+
+(function buildGrid(){
+  const ext = 30, minor = [], major = [];
+  for (let i = -ext; i <= ext; i++){
+    if (i === 0) continue;
+    (i % 5 === 0 ? major : minor).push(-ext, i, 0, ext, i, 0, i, -ext, 0, i, ext, 0);
+  }
+  const mk = (arr, mat) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); return new THREE.LineSegments(g, mat); };
+  G.grid.add(mk(minor, M.gridMinor), mk(major, M.gridMajor), mk([-ext, 0, 0, ext, 0, 0], M.axisX), mk([0, -ext, 0, 0, ext, 0], M.axisY));
+})();
+
+/* ---------- model ---------- */
+const modelMeshes = [];
+function addModel(geom, name, kind, params, pos){
+  const mesh = new THREE.Mesh(geom, M.obj);
+  if (pos) mesh.position.copy(pos);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom, 30), M.edge);
+  mesh.add(edges);
+  mesh.userData = Object.assign({ name, kind, alive:true, edges }, params || {});
+  G.model.add(mesh); modelMeshes.push(mesh);
+  return mesh;
+}
+function boxMesh(name, w, d, h, cx, cy, z0){
+  return addModel(new THREE.BoxGeometry(w, d, h), name, 'box', { w, d, h, cx, cy, z0 }, new V3(cx, cy, z0 + h / 2));
+}
+function rebuildBox(m){
+  const u = m.userData;
+  m.geometry.dispose(); m.geometry = new THREE.BoxGeometry(u.w, u.d, u.h);
+  m.position.set(u.cx, u.cy, u.z0 + u.h / 2);
+  u.edges.geometry.dispose(); u.edges.geometry = new THREE.EdgesGeometry(m.geometry, 30);
+}
+const mainBlock = boxMesh('Main block', 12, 8, 4, -1, 0, 0);
+const tower = boxMesh('Tower', 4, 4, 10, 9, 3, 0);
+const CW = { cx:-12, cy:7, r:6, h:3.6, t0:-Math.PI / 4 - Math.PI / 3, tl:2 * Math.PI / 3 };
+const wallGeom = new THREE.CylinderGeometry(CW.r, CW.r, CW.h, 72, 1, true, CW.t0, CW.tl);
+wallGeom.rotateX(Math.PI / 2); wallGeom.translate(CW.cx, CW.cy, CW.h / 2);
+const curvedWall = addModel(wallGeom, 'Curved wall', 'surface', {});
+const sphereGeom = new THREE.SphereGeometry(1.8, 48, 32); sphereGeom.translate(6, -9.5, 1.8);
+addModel(sphereGeom, 'Sculpture', 'surface', {});
+function boxCorners(m){
+  const u = m.userData, out = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [0, 1]) out.push(new V3(u.cx + sx * u.w / 2, u.cy + sy * u.d / 2, u.z0 + sz * u.h));
+  return out;
+}
+function faceName(obj, n){
+  if (!obj || obj.userData.kind !== 'box') return 'surface';
+  const a = Math.abs(n.x), b = Math.abs(n.y), c = Math.abs(n.z);
+  if (c >= a && c >= b) return n.z > 0 ? 'top face' : 'bottom face';
+  if (a >= b) return n.x > 0 ? 'east face' : 'west face';
+  return n.y > 0 ? 'north face' : 'south face';
+}
+
+/* ---------- basis helpers ---------- */
+function basisFromNormal(n){
+  const z = n.clone().normalize();
+  let y;
+  if (Math.abs(z.z) < 0.9) y = ZUP.clone().addScaledVector(z, -z.z).normalize();
+  else y = new V3(0, 1, 0).addScaledVector(z, -z.y).normalize();
+  const x = new V3().crossVectors(y, z).normalize();
+  return { x, y, z };
+}
+function quatFromBasis(b){ return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(b.x, b.y, b.z)); }
+function centroid(pts){ const c = new V3(); pts.forEach((p) => c.add(p)); return c.multiplyScalar(1 / Math.max(1, pts.length)); }
+function avgN(ns){ const c = new V3(); ns.forEach((n) => c.add(n)); return c.lengthSq() < 1e-9 ? ZUP.clone() : c.normalize(); }
+function pathLen3(pts){ let L = 0; for (let i = 1; i < pts.length; i++) L += pts[i].distanceTo(pts[i - 1]); return L; }
+function scrLen(P){ let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y); return L; }
+function regionInfo(pts, nrms, nOv){
+  const c = centroid(pts), n = (nOv ? nOv.clone() : avgN(nrms)).normalize(), b = basisFromNormal(n), d = new V3();
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  pts.forEach((p) => { d.subVectors(p, c); const u = d.dot(b.x), v = d.dot(b.y); u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); });
+  return { c, n, b, u:[u0, u1], v:[v0, v1], w:u1 - u0, h:v1 - v0 };
+}
+
+/* ---------- 3D cursor ---------- */
+function buildCursor(alpha, axes){
+  const grp = new THREE.Group();
+  const mk = (c) => new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:alpha, depthTest:false, depthWrite:false, side:THREE.DoubleSide });
+  const red = mk(0xe5352b), white = mk(0xffffff), black = mk(0x15171a);
+  const N = 16;
+  for (let i = 0; i < N; i++) grp.add(new THREE.Mesh(new THREE.RingGeometry(0.84, 1.0, 4, 1, i * 2 * Math.PI / N, 2 * Math.PI / N), i % 2 ? white : red));
+  for (let i = 0; i < 4; i++){
+    const a = i * Math.PI / 2, bar = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.075), black);
+    bar.position.set(Math.cos(a) * 0.95, Math.sin(a) * 0.95, 0); bar.rotation.z = a; grp.add(bar);
+  }
+  if (axes){
+    const ax = (color, rot) => {
+      const m = mk(color), L = 1.7;
+      const shaft = new THREE.CylinderGeometry(0.035, 0.035, L, 8); shaft.translate(0, L / 2, 0);
+      const tip = new THREE.ConeGeometry(0.1, 0.3, 12); tip.translate(0, L + 0.15, 0);
+      [shaft, tip].forEach((g) => { rot(g); grp.add(new THREE.Mesh(g, m)); });
+    };
+    ax(0xe5352b, (g) => g.rotateZ(-Math.PI / 2));
+    ax(0x3aa64a, () => {});
+    ax(0x2f6fe0, (g) => g.rotateX(Math.PI / 2));
+    grp.add(new THREE.Mesh(new THREE.CircleGeometry(0.09, 16), black));
+  }
+  grp.traverse((o) => { o.renderOrder = 1000; });
+  return grp;
+}
+const cursor = buildCursor(1, true); G.helpers.add(cursor);
+const ghost = buildCursor(0.45, false); ghost.visible = false; G.helpers.add(ghost);
+let curAnim = null;
+
+const patch = new THREE.Group();
+(function(){
+  const H = 6;
+  patch.add(new THREE.Mesh(new THREE.PlaneGeometry(H * 2, H * 2), new THREE.MeshBasicMaterial({ color:0x2557d6, transparent:true, opacity:0.10, side:THREE.DoubleSide, depthWrite:false })));
+  const ls = []; for (let i = -H; i <= H; i++) ls.push(-H, i, 0, H, i, 0, i, -H, 0, i, H, 0);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(ls, 3));
+  patch.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color:0x2557d6, transparent:true, opacity:0.45, depthWrite:false })));
+  patch.traverse((o) => { o.renderOrder = 4; });
+  patch.visible = false; G.helpers.add(patch);
+})();
+
+function readColors(){
+  const cs = getComputedStyle(document.documentElement);
+  const col = (n, d) => { const v = cs.getPropertyValue(n).trim(); try { return new THREE.Color(v || d); } catch (e){ return new THREE.Color(d); } };
+  COL.bg = col('--vp-bg', '#a8abaf'); COL.paper = col('--paper', '#fbfaf6');
+  M.obj.color.copy(col('--vp-obj', '#e3e3e1')); M.edge.color.copy(col('--vp-edge', '#141414'));
+  M.gridMinor.color.copy(col('--vp-grid', '#9c9fa3')); M.gridMajor.color.copy(col('--vp-grid-major', '#878a8f'));
+  M.planFill.color.copy(col('--paper-fill', '#e4e1da')); M.planEdge.color.copy(col('--paper-edge', '#1a1a1a'));
+  const acc = col('--accent', '#2557d6'); patch.children.forEach((c) => c.material.color.copy(acc));
+}
+
+/* ---------- cameras + rects ---------- */
+let VPW = 1, VPH = 1, RECTS = { main:{ x:0, y:0, w:1, h:1 } };
+const persp = new THREE.PerspectiveCamera(38, 1, 0.5, 3000); persp.up.copy(ZUP);
+const orbit = { t:new V3(-1.5, 0, 5), d:54, th:-2.2, ph:1.13 };
+function placePersp(){
+  const s = Math.sin(orbit.ph);
+  persp.position.set(orbit.t.x + orbit.d * s * Math.cos(orbit.th), orbit.t.y + orbit.d * s * Math.sin(orbit.th), orbit.t.z + orbit.d * Math.cos(orbit.ph));
+  persp.up.copy(ZUP); persp.lookAt(orbit.t); persp.updateMatrixWorld();
+}
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 3000);
+const planCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 3000);
+const OV = {
+  top:{ dir:new V3(0, 0, 1), up:new V3(0, 1, 0), t:new V3(-2, -1, 0), hh:16, name:'Top' },
+  front:{ dir:new V3(0, -1, 0), up:new V3(0, 0, 1), t:new V3(-2, 0, 4), hh:10, name:'Front' },
+  right:{ dir:new V3(1, 0, 0), up:new V3(0, 0, 1), t:new V3(0, -1, 4), hh:10, name:'Right' },
+  plan:{ dir:new V3(0, 0, 1), up:new V3(0, 1, 0), t:new V3(-4, -1.5, 0), hh:15, name:'Site plan' }
+};
+function placeOrtho(cam, v, aspect){
+  cam.left = -v.hh * aspect; cam.right = v.hh * aspect; cam.top = v.hh; cam.bottom = -v.hh;
+  cam.up.copy(v.up); cam.position.copy(v.t).addScaledVector(v.dir, 400); cam.lookAt(v.t);
+  cam.near = 1; cam.far = 2000; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
+}
+function camFor(which){ return which === 'plan' ? planCam : (S.view === 'perspective' ? persp : ortho); }
+function viewFor(which){ return which === 'plan' ? OV.plan : OV[S.view]; }
+function setupCam(which){
+  const r = RECTS[which] || RECTS.main, cam = camFor(which), a = r.w / Math.max(1, r.h);
+  if (cam === persp){ persp.aspect = a; persp.updateProjectionMatrix(); placePersp(); }
+  else placeOrtho(cam, viewFor(which), a);
+  return cam;
+}
+function computeRects(){
+  const w = VPW, h = VPH;
+  if (S.mode === 'drawing'){
+    if (w >= 620){ const hw = Math.floor(w / 2); return { plan:{ x:0, y:0, w:hw, h }, main:{ x:hw, y:0, w:w - hw, h } }; }
+    const hh = Math.floor(h / 2); return { plan:{ x:0, y:0, w, h:hh }, main:{ x:0, y:hh, w, h:h - hh } };
+  }
+  return { main:{ x:0, y:0, w, h } };
+}
+function resize(){
+  const w = Math.max(1, vp.clientWidth), h = Math.max(1, vp.clientHeight);
+  if (w === VPW && h === VPH) return;
+  VPW = w; VPH = h; renderer.setSize(w, h, false);
+  vp.classList.toggle('compact', w < 880);
+}
+function whichRect(px, py){
+  const p = RECTS.plan;
+  return (p && px >= p.x && px < p.x + p.w && py >= p.y && py < p.y + p.h) ? 'plan' : 'main';
+}
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const _v = new V3(), _d = new V3();
+function rayAt(px, py, which){
+  const r = RECTS[which] || RECTS.main, cam = setupCam(which);
+  ndc.set(((px - r.x) / r.w) * 2 - 1, -((py - r.y) / r.h) * 2 + 1);
+  ray.setFromCamera(ndc, cam);
+  return ray;
+}
+function aliveMeshes(){ return modelMeshes.filter((m) => m.userData.alive && m.visible); }
+function hitModel(rc){
+  if (!G.model.visible) return null;
+  scene.updateMatrixWorld();
+  const hs = rc.intersectObjects(aliveMeshes(), false);
+  if (!hs.length) return null;
+  const h = hs[0], n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+  if (n.dot(rc.ray.direction) > 0) n.negate();
+  return { point:h.point.clone(), normal:n, object:h.object };
+}
+function hitPlane(rc, o, n){
+  const pl = new THREE.Plane().setFromNormalAndCoplanarPoint(n, o), p = new V3();
+  return rc.ray.intersectPlane(pl, p) ? p : null;
+}
+function gridPlane(){ return { o:G.grid.position.clone(), n:ZUP.clone().applyQuaternion(G.grid.quaternion) }; }
+function camToward(cam, p){ return cam.isPerspectiveCamera ? cam.position.clone().sub(p).normalize() : cam.getWorldDirection(new V3()).negate(); }
+function wpp(p, cam, r){
+  if (cam.isPerspectiveCamera){
+    cam.getWorldDirection(_d);
+    const dist = Math.max(0.5, _v.copy(p).sub(cam.position).dot(_d));
+    return 2 * dist * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) / r.h;
+  }
+  return (cam.top - cam.bottom) / cam.zoom / r.h;
+}
+function toScreen(p, which){
+  const r = RECTS[which]; if (!r) return null;
+  _v.copy(p).project(camFor(which));
+  if (_v.z > 1 || _v.z < -1) return null;
+  return { x:r.x + (_v.x + 1) / 2 * r.w, y:r.y + (1 - _v.y) / 2 * r.h };
+}
+
+/* ---------- cursor placement ---------- */
+function orientFor(n, which){
+  if (S.align === 'world') return new THREE.Quaternion();
+  if (S.align === 'view') return camFor(which).quaternion.clone();
+  return quatFromBasis(basisFromNormal(n));
+}
+function snapAt(px, py, which){
+  if (!S.snap) return null;
+  let best = null, bd = 12;
+  aliveMeshes().forEach((m) => {
+    if (m.userData.kind !== 'box') return;
+    boxCorners(m).forEach((c) => {
+      const sp = toScreen(c, which); if (!sp) return;
+      const d = Math.hypot(sp.x - px, sp.y - py);
+      if (d < bd){ bd = d; best = { p:c, obj:m }; }
+    });
+  });
+  return best;
+}
+function cursorTargetAt(px, py, which){
+  const rc = rayAt(px, py, which), h = hitModel(rc), sn = snapAt(px, py, which);
+  if (sn) return { p:sn.p.clone(), n:h ? h.normal : ZUP.clone(), on:sn.obj.userData.name + ' · corner', snap:true };
+  if (h) return { p:h.point, n:h.normal, on:h.object.userData.name + ' · ' + faceName(h.object, h.normal) };
+  const gp = gridPlane(), p = hitPlane(rc, gp.o, gp.n);
+  return p ? { p, n:gp.n, on:'CPlane' } : null;
+}
+function setCursor(p, n, on, which, anim){
+  const q = orientFor(n, which || 'main');
+  if (anim) curAnim = { p0:cursor.position.clone(), q0:cursor.quaternion.clone(), t0:performance.now(), dur:200 };
+  else { cursor.position.copy(p); cursor.quaternion.copy(q); curAnim = null; }
+  S.cur.p.copy(p); S.cur.q.copy(q); S.cur.n = ZUP.clone().applyQuaternion(q); S.cur.on = on;
+  if (S.cplaneFollows) syncGrid();
+  syncCursorPane(); refreshAI();
+}
+function placeCursorAt(px, py, which, anim){
+  const t = cursorTargetAt(px, py, which);
+  if (t) setCursor(t.p, t.n, t.on, which, anim);
+  return t;
+}
+function logCursor(){ const p = S.cur.p; log(`3D cursor placed on ${S.cur.on} (${fmt(p.x)}, ${fmt(p.y)}, ${fmt(p.z)}).`); }
+function syncGrid(){
+  if (S.cplaneFollows){ G.grid.position.copy(S.cur.p); G.grid.quaternion.copy(S.cur.q); return; }
+  G.grid.position.set(0, 0, 0);
+  if (S.view === 'front') G.grid.quaternion.setFromUnitVectors(ZUP, new V3(0, -1, 0));
+  else if (S.view === 'right') G.grid.quaternion.setFromUnitVectors(ZUP, new V3(1, 0, 0));
+  else G.grid.quaternion.set(0, 0, 0, 1);
+}
+function currentPlane(cam){
+  if (S.planeKind === 'cplane') return { o:G.grid.position.clone(), n:ZUP.clone().applyQuaternion(G.grid.quaternion), q:G.grid.quaternion.clone(), name:S.cplaneFollows ? 'CPlane at the 3D cursor' : 'CPlane' };
+  if (S.planeKind === 'cursor') return { o:S.cur.p.clone(), n:S.cur.n.clone(), q:S.cur.q.clone(), name:'Cursor plane' };
+  const q = cam.quaternion.clone();
+  return { o:S.cur.p.clone(), n:ZUP.clone().applyQuaternion(q), q, name:'View plane' };
+}
+
+/* ---------- strokes ---------- */
+function ribbon(pts, nrms, widths, lift){
+  const n = pts.length, L = lift === undefined ? 0.015 : lift;
+  const pos = new Float32Array(n * 6), idx = [];
+  const t = new V3(), side = new V3(), a = new V3(), b = new V3();
+  for (let i = 0; i < n; i++){
+    const p = pts[i], nn = nrms[i] || ZUP;
+    t.subVectors(pts[Math.min(n - 1, i + 1)], pts[Math.max(0, i - 1)]);
+    if (t.lengthSq() < 1e-12) t.set(1, 0, 0);
+    t.normalize();
+    side.crossVectors(t, nn); if (side.lengthSq() < 1e-10) side.set(0, 0, 1).cross(t);
+    side.normalize();
+    const w = (widths[i] || widths[0] || 0.05) / 2;
+    a.copy(p).addScaledVector(nn, L).addScaledVector(side, w);
+    b.copy(p).addScaledVector(nn, L).addScaledVector(side, -w);
+    pos[i * 6] = a.x; pos[i * 6 + 1] = a.y; pos[i * 6 + 2] = a.z; pos[i * 6 + 3] = b.x; pos[i * 6 + 4] = b.y; pos[i * 6 + 5] = b.z;
+    if (i < n - 1){ const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeBoundingSphere();
+  return g;
+}
+function newStroke(o){
+  const s = Object.assign({ id:++S.uid, pts:[], nrms:[], widths:[], scr:[], alt:[], hits:{}, hitMeshes:{}, made:false, created:performance.now() }, o);
+  s.mat = new THREE.MeshBasicMaterial({ color:new THREE.Color(s.color), side:THREE.DoubleSide, transparent:true, opacity:0.96, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4 });
+  s.mesh = new THREE.Mesh(new THREE.BufferGeometry(), s.mat);
+  s.mesh.visible = false; s.mesh.renderOrder = 10; s.mesh.userData.stroke = s;
+  (s.kind === 'mark' ? G.marks : G.ink).add(s.mesh);
+  return s;
+}
+function rebuild(s){
+  const n = s.pts.length;
+  if (n < 2){ s.mesh.visible = false; return; }
+  const k = 5;
+  const w = s.widths.map((v, i) => {
+    let f = 1;
+    if (i < k) f = Math.min(f, 0.45 + 0.55 * i / k);
+    if (s.done && i > n - 1 - k) f = Math.min(f, 0.45 + 0.55 * (n - 1 - i) / k);
+    return v * f;
+  });
+  s.mesh.geometry.dispose(); s.mesh.geometry = ribbon(s.pts, s.nrms, w);
+  s.mesh.visible = !s.made;
+}
+function projectStroke(s, px, py){
+  const rc = rayAt(px, py, s.which), cam = camFor(s.which);
+  let p = null, n = null, obj = null;
+  if (s.target === 'plane'){ p = hitPlane(rc, s.planeO, s.planeN); n = s.planeN.clone(); }
+  else if (s.forceAlt && s.altPlane){ p = hitPlane(rc, s.altPlane.o, s.altPlane.n); n = s.altPlane.n.clone(); }
+  else {
+    const h = hitModel(rc);
+    if (h){ p = h.point; n = h.normal; obj = h.object; s.lastHit = h; }
+    else if (s.target === 'drawing'){ p = hitPlane(rc, new V3(), ZUP); n = ZUP.clone(); }
+    else if (s.lastHit){ p = hitPlane(rc, s.lastHit.point, s.lastHit.normal); n = s.lastHit.normal.clone(); }
+    else {
+      const gp = gridPlane(); p = hitPlane(rc, gp.o, gp.n); n = gp.n.clone();
+      if (!p){ const vn = camToward(cam, S.cur.p); p = hitPlane(rc, S.cur.p, vn); n = vn; }
+    }
+  }
+  if (!p) return null;
+  if (n.dot(camToward(cam, p)) < 0) n.negate();
+  return { p, n, obj };
+}
+function addSample(s, px, py, pressure, isPen){
+  if (s.frozen) return;
+  const last = s.scr[s.scr.length - 1];
+  if (last && Math.hypot(px - last.x, py - last.y) < 2.5) return;
+  const pr = projectStroke(s, px, py); if (!pr) return;
+  if (s.pts.length && pr.p.distanceTo(s.pts[s.pts.length - 1]) > 8) return;
+  const cam = camFor(s.which), r = RECTS[s.which] || RECTS.main;
+  let wpx = S.pen.width * (s.kind === 'mark' ? 1.35 : 1);
+  if (isPen && S.pen.pressure) wpx *= 0.3 + 1.4 * (pressure || 0.5);
+  s.pts.push(pr.p); s.nrms.push(pr.n); s.widths.push(wpx * wpp(pr.p, cam, r)); s.scr.push({ x:px, y:py });
+  if (pr.obj){ s.hits[pr.obj.id] = (s.hits[pr.obj.id] || 0) + 1; s.hitMeshes[pr.obj.id] = pr.obj; }
+  if (s.altPlane && !s.forceAlt){
+    const ap = hitPlane(ray, s.altPlane.o, s.altPlane.n);
+    s.alt.push(ap || (s.alt.length ? s.alt[s.alt.length - 1].clone() : pr.p.clone()));
+  }
+  rebuild(s);
+}
+function majorityObj(s){
+  let best = null, bc = 0;
+  Object.keys(s.hits).forEach((k) => { if (s.hits[k] > bc){ bc = s.hits[k]; best = s.hitMeshes[k]; } });
+  return best;
+}
+let drawing = null;
+function startStroke(e, px, py, which){
+  const markish = S.mode === 'marks' || (S.mode === 'drawing' && S.drawTool === 'marks');
+  const kind = markish ? 'mark' : 'ink';
+  const target = which === 'plan' ? 'drawing' : (S.mode === 'plane' ? 'plane' : 'object');
+  const color = kind === 'mark' ? (S.markTool !== 'auto' ? MARK[S.markTool].c : '#5a5f69') : (S.mode === 'drawing' ? REDLINE : PEN[S.pen.i].c);
+  const s = newStroke({ kind, target, which, color, isPen:e.pointerType === 'pen',
+    markType:kind === 'mark' && S.markTool !== 'auto' ? S.markTool : null, auto:kind === 'mark' && S.markTool === 'auto' });
+  s.view = snapNow(which);
+  if (target === 'plane'){ const pl = currentPlane(camFor(which)); s.planeO = pl.o; s.planeN = pl.n; s.planeName = pl.name; S.lockedPlane = pl; }
+  else {
+    const h = hitModel(rayAt(px, py, which));
+    if (h){
+      s.startHit = h;
+      if (kind === 'mark'){
+        const camDir = camToward(camFor(which), h.point);
+        const pn = camDir.clone().addScaledVector(h.normal, -camDir.dot(h.normal));
+        if (pn.length() > 0.15) s.altPlane = { o:h.point.clone(), n:pn.normalize() };
+        if (s.markType === 'arrow' && s.altPlane) s.forceAlt = true;
+      }
+    }
+  }
+  drawing = s;
+  addSample(s, px, py, e.pressure, s.isPen);
+}
+function disposeStroke(s){
+  if (s.mesh.parent) s.mesh.parent.remove(s.mesh);
+  s.mesh.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  if (s.curve){ G.curves.remove(s.curve); s.curve.geometry.dispose(); }
+  if (s.labels) s.labels.forEach((L) => L.el.remove());
+}
+function removeStroke(s){
+  disposeStroke(s);
+  if (S.sel === s.id) S.sel = null;
+  S.expanded.delete(s.id);
+  const i = S.strokes.indexOf(s); if (i >= 0) S.strokes.splice(i, 1);
+  S.ai.delete(s.id);
+  refresh();
+}
+function resample2(P, step){
+  const out = [P[0]]; let acc = 0;
+  for (let i = 1; i < P.length; i++){
+    let ax = P[i - 1].x, ay = P[i - 1].y; const bx = P[i].x, by = P[i].y;
+    let seg = Math.hypot(bx - ax, by - ay);
+    while (acc + seg >= step){
+      const t = (step - acc) / seg; ax += (bx - ax) * t; ay += (by - ay) * t;
+      out.push({ x:ax, y:ay }); seg = Math.hypot(bx - ax, by - ay); acc = 0;
+    }
+    acc += seg;
+  }
+  return out;
+}
+function recognize(P){
+  const L = scrLen(P); if (L < 8) return null;
+  const C = Math.hypot(P[P.length - 1].x - P[0].x, P[P.length - 1].y - P[0].y);
+  if (L > 60 && C < 0.22 * L) return 'region';
+  if (C / L > 0.8) return 'arrow';
+  const R = resample2(P, 12); let turns = 0, lastSign = 0;
+  for (let i = 1; i < R.length - 1; i++){
+    const ax = R[i].x - R[i - 1].x, ay = R[i].y - R[i - 1].y, bx = R[i + 1].x - R[i].x, by = R[i + 1].y - R[i].y;
+    const ang = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+    if (Math.abs(ang) > 0.8){ const sg = Math.sign(ang); if (sg !== lastSign){ turns++; lastSign = sg; } }
+  }
+  return turns >= 3 ? 'cut' : null;
+}
+function segX(a, b, c, d){
+  const o = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b);
+}
+function lastMark(){ for (let i = S.strokes.length - 1; i >= 0; i--) if (S.strokes[i].kind === 'mark') return S.strokes[i]; return null; }
+function finishStroke(s){
+  drawing = null; S.lockedPlane = null; clearTimeout(holdT);
+  if (scrLen(s.scr) < 6){
+    disposeStroke(s);
+    if (s.kind === 'mark' && s.auto && s.scr.length) makeNote(s.scr[0].x, s.scr[0].y, s.which);
+    return;
+  }
+  if (s.pts.length < 2){ disposeStroke(s); return; }
+  s.done = true; s.finished = performance.now();
+  if (s.kind === 'mark'){
+    if (!s.markType) s.markType = recognize(s.scr);
+    if (!s.markType){
+      s.kind = 'ink'; G.marks.remove(s.mesh); G.ink.add(s.mesh);
+      s.color = PEN[S.pen.i].c; s.mat.color.set(s.color);
+      finalizeInk(s);
+      const e = s.scr[s.scr.length - 1]; toast('Not a mark I know, kept as ink', e.x, e.y);
+      return;
+    }
+    if (s.markType === 'arrow' && s.auto){
+      const prev = lastMark();
+      if (prev && prev.markType === 'arrow' && prev.auto && prev.scr.length && s.finished - prev.finished < 3000 && prev.which === s.which &&
+          segX(prev.scr[0], prev.scr[prev.scr.length - 1], s.scr[0], s.scr[s.scr.length - 1])){ mergeCross(prev, s); return; }
+    }
+    finalizeMark(s);
+  } else finalizeInk(s);
+}
+function whereInk(s){
+  if (s.target === 'plane') return 'on ' + s.planeName;
+  if (s.target === 'drawing') return 'on A-100 Site plan';
+  const o = majorityObj(s); return o ? 'on ' + o.userData.name : 'on CPlane';
+}
+function finalizeInk(s){
+  s.done = true; s.thread = s.thread || [];
+  s.name = s.target === 'drawing' || s.color === REDLINE && S.mode === 'drawing' ? 'Redline ' + (++S.redN) : 'Ink ' + (++S.inkN);
+  s.where = s.where || whereInk(s);
+  const L = pathLen3(s.pts);
+  s.closed = L > 0.5 && s.pts[0].distanceTo(s.pts[s.pts.length - 1]) < 0.15 * L;
+  rebuild(s); S.strokes.push(s); refresh();
+  log(`${s.name} added ${s.where}${s.quick ? ' (snapped to a ' + s.quick + ')' : ''}.`);
+}
+function finalizeMark(s){
+  s.num = ++S.markN; s.status = s.status || 'open'; s.thread = s.thread || [];
+  s.obj = majorityObj(s) || s.obj || (s.startHit && s.startHit.object) || null;
+  s.color = MARK[s.markType].c; s.mat.color.set(s.color);
+  if (s.markType === 'arrow'){
+    if (s.auto && s.altPlane && s.alt.length === s.pts.length){
+      s.surf = { pts:s.pts, nrms:s.nrms }; s.pts = s.alt; s.nrms = s.alt.map(() => s.altPlane.n.clone()); s.outOfFace = true;
+    }
+    if (s.forceAlt) s.outOfFace = true;
+    const h = s.startHit;
+    s.pull = h ? (s.outOfFace ? s.pts[s.pts.length - 1].clone().sub(s.pts[0]).dot(h.normal) : pathLen3(s.pts)) : null;
+    s.obj = h ? h.object : null;
+    s.face = h ? faceName(h.object, h.normal) : '';
+    s.title = s.pull === null ? 'Arrow' : (s.pull >= 0 ? `Pull ${fmt(s.pull)} m` : `Push ${fmt(-s.pull)} m`);
+  } else if (s.markType === 'region'){
+    s.reg = regionInfo(s.pts, s.nrms);
+    s.face = s.obj ? faceName(s.obj, s.reg.n) : '';
+    s.title = `Region ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m`;
+  } else {
+    s.face = s.obj && s.startHit ? faceName(s.obj, s.startHit.normal) : '';
+    s.title = MARK[s.markType].name;
+  }
+  rebuild(s);
+  if (s.markType === 'arrow') addArrowHead(s);
+  makeLabel(s); S.strokes.push(s); refresh();
+  log(`Mark ${s.num}: ${s.title} ${whereMark(s)}.`);
+}
+function whereMark(s){
+  const f = s.face && s.face !== 'surface' ? ' · ' + s.face : '';
+  return s.obj ? `on ${s.obj.userData.name}${f}` : (s.target === 'drawing' ? 'on the site plan' : 'in the air');
+}
+function mergeCross(prev, s){
+  if (prev.surf){ prev.pts = prev.surf.pts; prev.nrms = prev.surf.nrms; prev.surf = null; prev.outOfFace = false; }
+  removeHead(prev);
+  prev.markType = 'cross'; prev.title = 'Remove'; prev.pull = null;
+  prev.color = MARK.cross.c; prev.mat.color.set(prev.color);
+  prev.obj = (prev.startHit && prev.startHit.object) || majorityObj(prev) || majorityObj(s) || null;
+  prev.face = '';
+  s.done = true; rebuild(s);
+  G.marks.remove(s.mesh); s.mesh.material = prev.mat; s.mesh.userData.stroke = prev; prev.mesh.add(s.mesh);
+  prev.extra = (prev.extra || []).concat([s]);
+  rebuild(prev); updateLabel(prev); refresh();
+  log(`Mark ${prev.num}: two crossing strokes read as Remove ${whereMark(prev)}.`);
+}
+function removeHead(s){ if (s.head){ s.head.forEach((m) => { s.mesh.remove(m); m.geometry.dispose(); }); s.head = null; } }
+function addArrowHead(s){
+  removeHead(s);
+  const n = s.pts.length; if (n < 2) return;
+  const end = s.pts[n - 1], L = pathLen3(s.pts);
+  let k = n - 1, acc = 0;
+  while (k > 0 && acc < L * 0.15){ acc += s.pts[k].distanceTo(s.pts[k - 1]); k--; }
+  const dir = end.clone().sub(s.pts[k]); if (dir.lengthSq() < 1e-10) return; dir.normalize();
+  const nn = s.nrms[n - 1], side = new V3().crossVectors(dir, nn).normalize();
+  const w = avg(s.widths), h = Math.min(Math.max(w * 7, L * 0.12), L * 0.45);
+  s.head = [1, -1].map((sg) => {
+    const a = end.clone().addScaledVector(dir, -h).addScaledVector(side, sg * h * 0.6);
+    const m = new THREE.Mesh(ribbon([a, end], [nn, nn], [w, w]), s.mat);
+    m.renderOrder = 10; m.userData.stroke = s; s.mesh.add(m); return m;
+  });
+}
+
+/* ---------- labels ---------- */
+function makeLabel(s){
+  s.labels = ['main', 'plan'].map((which) => {
+    const el = document.createElement('div'); el.className = 'mlabel';
+    el.innerHTML = '<span class="in"><span class="mnum"></span><span class="mt"></span></span>';
+    el.querySelector('.in').addEventListener('click', (ev) => { if (ev.target.closest('input')) return; ev.stopPropagation(); selectStroke(s, { fly:false, reveal:true }); });
+    ov.appendChild(el); return { el, which };
+  });
+  updateLabel(s);
+}
+function updateLabel(s){
+  if (!s.labels) return;
+  s.labels.forEach((L) => {
+    L.el.style.setProperty('--mc', s.color);
+    L.el.classList.toggle('done', s.status === 'done');
+    L.el.classList.toggle('dis', s.status === 'dismissed');
+    L.el.classList.toggle('sel', S.sel === s.id);
+    L.el.classList.toggle('ai', S.ai.has(s.id));
+    L.el.querySelector('.mnum').textContent = s.num;
+    const mt = L.el.querySelector('.mt'); if (mt) mt.textContent = s.label || (s.markType === 'note' ? (s.text || 'Note') : s.title);
+  });
+}
+function labelAnchor(s){
+  if (s.markType === 'arrow') return s.pts[s.pts.length - 1];
+  if (s.markType === 'region' && s.reg) return s.reg.c.clone().addScaledVector(s.reg.b.y, s.reg.v[1]).addScaledVector(s.reg.n, 0.1);
+  if (s.markType === 'note') return s.pts[0];
+  return centroid(s.pts);
+}
+function updateLabels(){
+  S.strokes.forEach((s) => {
+    if (!s.labels) return;
+    const a = labelAnchor(s);
+    s.labels.forEach((L) => {
+      const r = RECTS[L.which];
+      let sp = (G.marks.visible && r) ? toScreen(a, L.which) : null;
+      if (sp && (sp.x < r.x || sp.x > r.x + r.w || sp.y < r.y + 4 || sp.y > r.y + r.h)) sp = null;
+      L.el.style.transform = sp ? `translate(${sp.x.toFixed(1)}px, ${sp.y.toFixed(1)}px)` : 'translate(-9999px,-9999px)';
+    });
+  });
+}
+function makeNote(px, py, which){
+  const s = newStroke({ kind:'mark', markType:'note', target:which === 'plan' ? 'drawing' : 'object', which, color:MARK.note.c });
+  const pr = projectStroke(s, px, py);
+  if (!pr){ disposeStroke(s); return; }
+  s.pts = [pr.p]; s.nrms = [pr.n]; s.widths = [0]; s.done = true; s.num = ++S.markN; s.title = 'Note'; s.text = '';
+  s.status = 'open'; s.thread = []; s.view = snapNow(which);
+  s.obj = pr.obj; s.face = '';
+  s.mesh.geometry.dispose(); s.mesh.geometry = new THREE.SphereGeometry(0.16, 16, 12);
+  s.mesh.position.copy(pr.p).addScaledVector(pr.n, 0.16); s.mesh.visible = true;
+  makeLabel(s); S.strokes.push(s); refresh();
+  const L = s.labels.find((l) => l.which === which) || s.labels[0];
+  const inp = document.createElement('input'); inp.placeholder = 'Type a note, then Return'; inp.setAttribute('aria-label', 'Note text');
+  const mt = L.el.querySelector('.mt'); mt.hidden = true; mt.after(inp);
+  const commit = () => { if (!inp.isConnected) return; s.text = inp.value.trim() || 'Note'; inp.remove(); mt.hidden = false; updateLabel(s); refresh(); log(`Mark ${s.num}: note “${s.text}” ${whereMark(s)}.`); };
+  inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter'){ ev.preventDefault(); commit(); } ev.stopPropagation(); });
+  inp.addEventListener('blur', commit);
+  setTimeout(() => inp.focus(), 0);
+}
+
+/* ---------- smart shapes, eraser, curves ---------- */
+let holdT = null;
+function quickShape(s){
+  if (!s || s.frozen || s.kind !== 'ink' || s.scr.length < 4) return;
+  const P = s.scr, L = scrLen(P), first = P[0], last = P[P.length - 1], C = Math.hypot(last.x - first.x, last.y - first.y);
+  if (L < 30) return;
+  let Q = null, shape = '';
+  if (C / L > 0.75){ shape = 'line'; Q = resample2([first, last], 6); Q.push(last); }
+  else if (C < 0.3 * L){
+    let cx = 0, cy = 0; P.forEach((p) => { cx += p.x; cy += p.y; }); cx /= P.length; cy /= P.length;
+    const rs = P.map((p) => Math.hypot(p.x - cx, p.y - cy)), r = avg(rs);
+    const sd = Math.sqrt(avg(rs.map((x) => (x - r) * (x - r))));
+    if (sd / r < 0.22){
+      shape = 'circle'; Q = [];
+      const a0 = Math.atan2(first.y - cy, first.x - cx), N = Math.max(24, Math.round(2 * Math.PI * r / 6));
+      for (let i = 0; i <= N; i++){ const a = a0 + i / N * 2 * Math.PI; Q.push({ x:cx + r * Math.cos(a), y:cy + r * Math.sin(a) }); }
+    }
+  }
+  if (!Q) return;
+  const w = avg(s.widths); s.lastHit = s.startHit || null;
+  const pts = [], nrms = [], scr = [];
+  Q.forEach((q) => { const pr = projectStroke(s, q.x, q.y); if (pr && (!pts.length || pr.p.distanceTo(pts[pts.length - 1]) < 8)){ pts.push(pr.p); nrms.push(pr.n); scr.push(q); } });
+  if (pts.length < 2) return;
+  s.pts = pts; s.nrms = nrms; s.scr = scr; s.widths = pts.map(() => w); s.frozen = true; s.quick = shape;
+  rebuild(s); toast(cap(shape), last.x, last.y);
+}
+function strokeVisible(s){ return s.kind === 'mark' ? G.marks.visible : (s.made ? G.curves.visible : G.ink.visible); }
+function strokeAtScreen(px, py, which){
+  setupCam(which);
+  for (let i = S.strokes.length - 1; i >= 0; i--){
+    const s = S.strokes[i]; if (!strokeVisible(s)) continue;
+    const sets = [s.made && s.curvePts ? s.curvePts : s.pts].concat((s.extra || []).map((x) => x.pts));
+    for (const pts of sets){
+      const step = Math.max(1, Math.floor(pts.length / 80));
+      for (let k = 0; k < pts.length; k += step){
+        const sp = toScreen(pts[k], which);
+        if (sp && Math.hypot(sp.x - px, sp.y - py) < 12) return s;
+      }
+    }
+  }
+  return null;
+}
+function eraseAt(px, py, which){
+  const s = strokeAtScreen(px, py, which);
+  if (s){ removeStroke(s); log(`Erased ${nameOf(s)}.`); }
+}
+
+/* ---------- applying a mark by hand ---------- */
+function ghostMesh(g, mat){
+  const m = new THREE.Mesh(g, mat || M.ghost); m.renderOrder = 20;
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 30), M.ghostEdge); m.add(e);
+  m.userData.edges = e; G.preview.add(m); return m;
+}
+function dropGhosts(list){ list.forEach((m) => { G.preview.remove(m); if (!m.userData.shared) m.geometry.dispose(); if (m.userData.edges) m.userData.edges.geometry.dispose(); }); }
+function nameOfObj(m){ return m ? m.userData.name : 'nothing'; }
+// Each act* returns { apply() } ; apply() changes the model and returns a change record for "What changed".
+function actPull(arrow){
+  const m = arrow.obj;
+  if (!m || m.userData.kind !== 'box' || arrow.pull === null || !arrow.startHit) return null;
+  const n = arrow.startHit.normal, a = { x:Math.abs(n.x), y:Math.abs(n.y), z:Math.abs(n.z) };
+  const ax = a.z >= a.x && a.z >= a.y ? 'z' : (a.x >= a.y ? 'x' : 'y'), sg = Math.sign(n[ax]) || 1;
+  const u = m.userData;
+  const delta = (dd) => {
+    if (ax === 'x'){ u.w += dd; u.cx += sg * dd / 2; }
+    else if (ax === 'y'){ u.d += dd; u.cy += sg * dd / 2; }
+    else if (sg > 0) u.h += dd; else { u.z0 -= dd; u.h += dd; }
+    rebuildBox(m);
+  };
+  return { apply(){
+    const old = { x:u.w, y:u.d, z:u.h }[ax], d = Math.max(arrow.pull, 0.3 - old);
+    const before = { w:u.w, d:u.d, h:u.h, cx:u.cx, cy:u.cy, z0:u.z0 };
+    delta(d);
+    return { kind:'changed', text:`${u.name}: ${{ x:'length', y:'depth', z:'height' }[ax]} ${fmt(old)} → ${fmt(old + d)} m`, objects:[m], before, undo(){ delta(-d); } };
+  } };
+}
+function actRemove(cross){
+  const obj = cross.obj; if (!obj) return null;
+  return { apply(){
+    obj.visible = false; obj.userData.alive = false;
+    return { kind:'removed', text:`${obj.userData.name} removed`, objects:[obj], undo(){ obj.visible = true; obj.userData.alive = true; } };
+  } };
+}
+
+/* ---------- AI context ---------- */
+// S.ai holds the ids of sketches added as context; S.aiCursor adds the 3D cursor ("here").
+const v3txt = (p) => `(${fmt(p.x)}, ${fmt(p.y)}, ${fmt(p.z)})`;
+function aiItems(){ return S.strokes.filter((s) => S.ai.has(s.id)); }
+function contextLines(s){
+  const b = new THREE.Box3().setFromPoints(strokePts(s)), c = b.getCenter(new V3()), sz = b.getSize(new V3());
+  const kind = s.kind === 'mark' ? `${MARK[s.markType].name} mark, ${STATUS_LABEL[s.status].toLowerCase()}` : (s.target === 'drawing' ? 'redline on the site plan' : 'ink');
+  const lines = [`${nameOf(s)} (${kind})`, `  Means: ${meaning(s)}`];
+  if (s.kind === 'mark' && s.markType === 'arrow' && s.startHit) lines.push(`  Starts at ${v3txt(s.startHit.point)}, direction ${v3txt(s.startHit.normal)}`);
+  else if (s.kind === 'mark' && s.markType === 'note') lines.push(`  At ${v3txt(s.pts[0])}`);
+  else lines.push(`  Centre ${v3txt(c)}, size ${fmt(sz.x)} × ${fmt(sz.y)} × ${fmt(sz.z)} m`);
+  if (s.view) lines.push(`  Drawn in ${viewName(s.view)}`);
+  return lines;
+}
+function contextText(){
+  const items = aiItems();
+  const out = ['Model: Pavilion.3dm, meters, Z up'];
+  if (S.aiCursor) out.push(`3D cursor ("here"): ${v3txt(S.cur.p)} on ${S.cur.on}, pointing ${v3txt(S.cur.n)}`);
+  if (!items.length && !S.aiCursor) out.push('(nothing added yet)');
+  items.forEach((s) => { out.push(''); contextLines(s).forEach((l) => out.push(l)); });
+  return out.join('\n');
+}
+function toggleAI(s){
+  if (S.ai.has(s.id)){ S.ai.delete(s.id); log(`${nameOf(s)} removed from the AI context.`); }
+  else { S.ai.add(s.id); log(`${nameOf(s)} added to the AI context.`); }
+  updateLabel(s); refresh();
+}
+function refreshAI(){
+  const items = aiItems(), n = items.length + (S.aiCursor ? 1 : 0);
+  $('#aiCount').textContent = n ? `${n} item${n === 1 ? '' : 's'}` : '';
+  const chips = items.map((s) => `<button type="button" class="chip" data-aichip="${s.id}" style="--c:${s.color}" title="Remove from AI context"><i></i>${esc(nameOf(s))} ×</button>`);
+  if (S.aiCursor) chips.unshift('<button type="button" class="chip" data-aichip="cursor" style="--c:#e5352b" title="Remove from AI context"><i></i>3D cursor ×</button>');
+  $('#aiChips').innerHTML = chips.length ? chips.join('') : '<span class="none">Nothing added. Press AI on a row to add it.</span>';
+  const pre = $('#aiPre'); if (!pre.hidden) pre.textContent = contextText();
+}
+/* ---------- UI ---------- */
+const modebar = $('#modebar'), subbar = $('#subbar');
+function swatches(){ return PEN.map((p, i) => `<button type="button" class="sw-b${S.pen.i === i ? ' on' : ''}" data-act="pen:${i}" style="--c:${p.c}" aria-label="${p.name} pen" title="${p.name}"></button>`).join(''); }
+function seg(name, items, cur){ return `<div class="seg">${items.map(([v, l]) => `<button type="button" data-act="${name}:${v}" aria-pressed="${v === cur}">${l}</button>`).join('')}</div>`; }
+function renderSubbar(){
+  let h = '';
+  const marksSeg = seg('mark', MARK_TOOLS.map((k) => [k, MARK_TOOL_LABEL[k]]), S.markTool);
+  switch (S.mode){
+    case 'cursor': h = `<span class="sb-l">Line up with</span>${seg('align', [['surface', 'Surface'], ['world', 'World'], ['view', 'View']], S.align)}<button type="button" class="sb-t${S.cplaneFollows ? ' on' : ''}" data-act="follow">Grid follows cursor</button><button type="button" class="sb-t" data-act="reset">Reset</button>`; break;
+    case 'plane': h = `<span class="sb-l">Draw on</span>${seg('plane', [['cplane', 'CPlane'], ['cursor', 'Cursor plane'], ['view', 'View plane']], S.planeKind)}<span class="sb-div"></span>${swatches()}`; break;
+    case 'object': h = `${swatches()}<span class="sb-div"></span><button type="button" class="sb-t${S.pen.smart ? ' on' : ''}" data-act="smart">Smart shapes</button>`; break;
+    case 'marks': h = marksSeg; break;
+    case 'drawing': h = `${seg('draw', [['redline', 'Redline'], ['marks', 'Marks']], S.drawTool)}${S.drawTool === 'marks' ? marksSeg : '<span class="sb-l">Lands on the 3D model too</span>'}`; break;
+    case 'eraser': h = `<span class="sb-l">Drag over ink or marks</span><button type="button" class="sb-t" data-act="eraseall">${S.eraseArm ? 'Click again to erase all' : 'Erase all'}</button>`; break;
+  }
+  subbar.innerHTML = h; subbar.hidden = !h || !S.sketchUI;
+}
+function hintText(){
+  const stacked = RECTS.plan && RECTS.plan.w === VPW;
+  switch (S.mode){
+    case 'navigate': return 'Drag to orbit. Click a sketch or an object to find it in the panel. Pick a sketch mode above to draw.';
+    case 'cursor': return 'Click any surface to drop the 3D cursor. It lines up with the surface and snaps to corners. Drag to slide it.';
+    case 'plane': return ({ cplane:'Ink lands on the construction plane (the grid).', cursor:'Ink lands on the plane through the 3D cursor, shown in blue.', view:'Ink lands on a plane facing you, through the 3D cursor.' })[S.planeKind] + ' Right-drag or Option-drag to orbit.';
+    case 'object': return 'Draw on any object; ink wraps around curves. Hold still at the end of a stroke to snap a line or circle.';
+    case 'marks': return 'Circle = area · drag out of a face = pull · zigzag = cut · two crossing strokes = remove · tap = note';
+    case 'drawing': return stacked ? 'Redline the site plan above. Every stroke lands on the 3D model below.' : 'Redline the site plan on the left. Every stroke lands on the 3D model on the right.';
+    case 'eraser': return 'Drag over ink or marks to erase them. With a pen, flip it and use the eraser end.';
+  }
+  return '';
+}
+function renderHint(){ $('#hint').textContent = hintText(); }
+const yes = (b) => b ? 'Yes' : 'No';
+function promptSpec(){
+  const pen = PEN[S.pen.i].name;
+  const cyclePen = () => { S.pen.i = (S.pen.i + 1) % PEN.length; };
+  const cycleW = () => { S.pen.width = S.pen.width >= 8 ? 1 : S.pen.width + 1; };
+  switch (S.mode){
+    case 'cursor': return ['Click a surface to place the 3D cursor', [['Align', cap(S.align), () => { S.align = cycle(['surface', 'world', 'view'], S.align); }], ['GridFollows', yes(S.cplaneFollows), () => { S.cplaneFollows = !S.cplaneFollows; syncGrid(); }], ['SnapToCorners', yes(S.snap), () => { S.snap = !S.snap; }]]];
+    case 'plane': return ['Draw on a plane', [['Plane', { cplane:'CPlane', cursor:'Cursor', view:'View' }[S.planeKind], () => { S.planeKind = cycle(['cplane', 'cursor', 'view'], S.planeKind); }], ['Pen', pen, cyclePen], ['Width', S.pen.width, cycleW]]];
+    case 'object': return ['Draw on objects', [['Pen', pen, cyclePen], ['Width', S.pen.width, cycleW], ['Pressure', yes(S.pen.pressure), () => { S.pen.pressure = !S.pen.pressure; }], ['SmartShapes', yes(S.pen.smart), () => { S.pen.smart = !S.pen.smart; }]]];
+    case 'marks': return ['Draw a mark', [['Kind', MARK_TOOL_LABEL[S.markTool], () => { S.markTool = cycle(MARK_TOOLS, S.markTool); }]]];
+    case 'drawing': return ['Mark up drawing A-100', [['Tool', S.drawTool === 'redline' ? 'Redline' : 'Marks', () => { S.drawTool = S.drawTool === 'redline' ? 'marks' : 'redline'; }], ['ShowIn3D', 'Yes', () => {}]]];
+    case 'eraser': return ['Drag over ink to erase', [['All', null, eraseAll]]];
+  }
+  return null;
+}
+function renderPrompt(){
+  const el = $('#cmdPrompt'), p = promptSpec();
+  el.innerHTML = '';
+  if (!p){ el.textContent = 'Command:'; return; }
+  el.append(p[0] + ' ( ');
+  p[1].forEach(([k, v, act]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = v === null ? k : `${k}=${v}`;
+    b.addEventListener('click', () => { act(); syncAll(); });
+    el.append(b, ' ');
+  });
+  el.append('):');
+}
+function renderTabs(){
+  $$('.vt').forEach((t) => t.setAttribute('aria-selected', String(S.mode === 'drawing' ? t.dataset.view === 'plan' : t.dataset.view === S.view)));
+  const n = $('#vpNameMain'); n.innerHTML = `${S.view === 'perspective' ? 'Perspective' : OV[S.view].name} <span>· Shaded</span>`;
+}
+function setTab(tab){
+  S.tab = tab;
+  $$('.ptab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  ['sketch', 'cursor', 'layers'].forEach((k) => { $('#pane-' + k).hidden = k !== tab; });
+}
+function nameOf(s){ return s.kind === "mark" ? `${s.num} · ${s.label || (s.markType === "note" ? (s.text || "Note") : s.title)}` : (s.label || s.name); }
+const LAYERS = [['model', 'Massing', '#8a919c'], ['ink', 'Sketch ink', '#23262c', 'Sketch'], ['marks', 'Marks', '#e08600', 'Sketch'], ['grid', 'Grid', '#9c9fa3']];
+function renderLayers(){
+  $('#layerList').innerHTML = LAYERS.map(([k, name, c, tag]) => `<li><button type="button" class="eye" data-layer="${k}" aria-pressed="${S.layers[k]}" aria-label="${S.layers[k] ? 'Hide' : 'Show'} ${name}">${ICON.eye}</button><span class="sw" style="--c:${c}"></span><span class="nm">${name}</span>${tag ? `<span class="tag mark">${tag}</span>` : ''}</li>`).join('');
+}
+function applyLayers(){
+  Object.keys(S.layers).forEach((k) => { G[k].visible = S.layers[k]; });
+  $('#stSketch').classList.toggle('on', S.layers.ink || S.layers.marks);
+  renderLayers();
+}
+function syncCursorPane(){
+  const p = S.cur.p;
+  [['#curX', p.x], ['#curY', p.y], ['#curZ', p.z]].forEach(([id, v]) => { const el = $(id); if (document.activeElement !== el) el.value = v.toFixed(2); });
+  $('#curOn').textContent = `On ${S.cur.on}. Blue axis = the direction new things grow.`;
+  $$('#alignSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.align === S.align)));
+  $('#optFollow').checked = S.cplaneFollows; $('#optSnap').checked = S.snap; $('#optAI').checked = S.aiCursor;
+}
+function syncPen(){
+  $('#penSw').innerHTML = swatches();
+  $('#penWidth').value = S.pen.width; $('#penWidthOut').textContent = S.pen.width + ' px';
+  $('#penPressure').checked = S.pen.pressure; $('#penSmart').checked = S.pen.smart;
+}
+function syncAll(){ renderSubbar(); renderHint(); renderPrompt(); syncPen(); syncCursorPane(); }
+let toastT = null;
+function toast(text, px, py){
+  const el = $('#toast'); el.textContent = text; el.style.left = px + 'px'; el.style.top = py + 'px'; el.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 1200);
+}
+function snapChip(text, px, py){
+  const el = $('#snapChip');
+  if (!text){ el.hidden = true; return; }
+  el.textContent = text; el.style.left = px + 'px'; el.style.top = py + 'px'; el.hidden = false;
+}
+function setMode(m){
+  if (!MODES.includes(m)) return;
+  if (drawing) finishStroke(drawing);
+  const prev = S.mode; S.mode = m; S.eraseArm = false;
+  if (m === 'drawing'){
+    if (S.view !== 'perspective'){ S.view = 'perspective'; syncGrid(); }
+    RECTS = computeRects(); const pr = RECTS.plan; OV.plan.hh = Math.max(12.5, 15.5 / (pr.w / pr.h));
+  }
+  vp.classList.toggle('split', m === 'drawing');
+  $$('.mb').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  ghost.visible = false; snapChip(null);
+  canvas.style.cursor = m === 'navigate' ? 'grab' : (m === 'eraser' ? 'cell' : 'crosshair');
+  $('#sheet').hidden = m !== 'drawing'; $('#vpNamePlan').hidden = m !== 'drawing'; $('#vpDiv').hidden = m !== 'drawing';
+  RECTS = computeRects();
+  renderTabs(); syncAll();
+  if (prev !== m) log(`Command: ${CMD_NAME[m]}`);
+}
+function setView(v, silent){
+  if (v === 'plan'){ setMode('drawing'); return; }
+  if (S.mode === 'drawing') setMode('object');
+  S.view = v; syncGrid(); renderTabs(); if (!silent) log(`Command: _${OV[v] ? OV[v].name : 'Perspective'}`);
+}
+function eraseAll(){
+  if (!S.eraseArm){ S.eraseArm = true; renderSubbar(); setTimeout(() => { S.eraseArm = false; renderSubbar(); }, 3000); return; }
+  S.eraseArm = false;
+  const n = S.strokes.filter((s) => !s.made).length;
+  S.strokes.filter((s) => !s.made).forEach((s) => removeStroke(s));
+  log(`Erased ${n} sketch item${n === 1 ? '' : 's'}.`);
+}
+function undo(){
+  const s = S.strokes[S.strokes.length - 1];
+  if (!s){ log('Nothing to undo.'); return; }
+  removeStroke(s); log(`Undo: removed ${nameOf(s)}.`);
+}
+
+/* ---------- ring menu ---------- */
+const RING = ['navigate', 'cursor', 'plane', 'object', 'marks', 'drawing', 'eraser'];
+const ringEl = $('#ring');
+let ringState = null;
+function openRing(cx, cy, via){
+  const R = VPW < 520 ? 76 : 94;
+  cx = Math.min(Math.max(cx, R + 42), VPW - R - 42); cy = Math.min(Math.max(cy, R + 30), VPH - R - 30);
+  ringEl.style.left = cx + 'px'; ringEl.style.top = cy + 'px';
+  ringEl.innerHTML = `<div class="ring-c">${via === 'key' ? 'Space' : 'Pen'}</div>` + RING.map((m, i) => {
+    const a = -Math.PI / 2 + i * 2 * Math.PI / RING.length;
+    return `<button type="button" class="ring-item${S.mode === m ? ' cur' : ''}" data-mode="${m}" style="left:${(Math.cos(a) * R).toFixed(1)}px;top:${(Math.sin(a) * R).toFixed(1)}px">${ICON[m]}<span>${MODE_LABEL[m]}</span></button>`;
+  }).join('');
+  ringEl.hidden = false;
+  ringState = { cx, cy, hot:null, via };
+}
+function closeRing(){ ringEl.hidden = true; ringState = null; }
+function ringHover(px, py){
+  if (!ringState) return;
+  const dx = px - ringState.cx, dy = py - ringState.cy;
+  let hot = null;
+  if (Math.hypot(dx, dy) > 28){
+    const step = 2 * Math.PI / RING.length;
+    let idx = Math.round((Math.atan2(dy, dx) + Math.PI / 2) / step);
+    idx = ((idx % RING.length) + RING.length) % RING.length; hot = RING[idx];
+  }
+  ringState.hot = hot;
+  $$('.ring-item', ringEl).forEach((b) => b.classList.toggle('hot', b.dataset.mode === hot));
+}
+ringEl.addEventListener('click', (e) => { const b = e.target.closest('.ring-item'); if (b){ setMode(b.dataset.mode); closeRing(); } });
+
+/* ---------- pointer ---------- */
+function loc(e){ const b = vp.getBoundingClientRect(); return { px:e.clientX - b.left, py:e.clientY - b.top }; }
+let drag = null, down = null, lpT = null, holdAnchor = null;
+function armHold(){ clearTimeout(holdT); if (drawing && drawing.kind === 'ink' && S.pen.smart) holdT = setTimeout(() => quickShape(drawing), 550); }
+function orbitBy(dx, dy){ if (S.view !== 'perspective') return; orbit.th -= dx * 0.0075; orbit.ph = THREE.MathUtils.clamp(orbit.ph - dy * 0.0075, 0.05, Math.PI - 0.05); }
+function panBy(dx, dy, which){
+  const r = RECTS[which] || RECTS.main, cam = setupCam(which);
+  if (cam === persp){
+    const k = wpp(orbit.t, persp, r);
+    const right = new V3().setFromMatrixColumn(persp.matrixWorld, 0), up = new V3().setFromMatrixColumn(persp.matrixWorld, 1);
+    orbit.t.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+  } else {
+    const v = viewFor(which), k = 2 * v.hh / r.h, right = new V3().crossVectors(v.up, v.dir).normalize();
+    v.t.addScaledVector(right, -dx * k).addScaledVector(v.up, dy * k);
+  }
+}
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+canvas.addEventListener('pointerdown', (e) => {
+  const { px, py } = loc(e), which = whichRect(px, py);
+  if (ringState){ closeRing(); return; }
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  down = { px, py };
+  $('#hint').classList.add('quiet');
+  const eraserEnd = e.pointerType === 'pen' && (e.buttons & 32);
+  const nav = e.button === 1 || e.button === 2 || e.altKey || (S.mode === 'navigate' && e.button === 0);
+  if (nav && !eraserEnd){
+    camAnim = null;
+    const flat = which === 'plan' || S.view !== 'perspective';
+    drag = { type:(e.button === 1 || e.shiftKey || flat) ? 'pan' : 'orbit', which, lx:px, ly:py, moved:0, button:e.button, shift:e.shiftKey };
+    if (S.mode === 'navigate') canvas.style.cursor = 'grabbing';
+    return;
+  }
+  if (e.button !== 0 && !eraserEnd) return;
+  if (eraserEnd || S.mode === 'eraser'){ drag = { type:'erase', which }; eraseAt(px, py, which); return; }
+  if (S.mode === 'cursor'){ drag = { type:'cursor', which }; placeCursorAt(px, py, which, true); return; }
+  const markish = S.mode === 'marks' || (S.mode === 'drawing' && S.drawTool === 'marks');
+  if (markish && S.markTool === 'note'){ drag = { type:'none' }; makeNote(px, py, which); return; }
+  drag = { type:'draw', which };
+  startStroke(e, px, py, which);
+  holdAnchor = { x:px, y:py }; armHold();
+  if (e.pointerType !== 'mouse'){
+    lpT = setTimeout(() => {
+      lpT = null;
+      if (drawing && scrLen(drawing.scr) < 6){ const s = drawing; drawing = null; clearTimeout(holdT); disposeStroke(s); drag = { type:'ring' }; openRing(px, py, 'pointer'); }
+    }, 520);
+  }
+});
+vp.addEventListener('pointermove', (e) => {
+  const { px, py } = loc(e); S.lastPtr = { px, py };
+  if (ringState){ ringHover(px, py); if (drag && drag.type === 'ring') return; if (!drag) return; }
+  if (drag){
+    if (drag.type === 'orbit' || drag.type === 'pan'){
+      const dx = px - drag.lx, dy = py - drag.ly; drag.lx = px; drag.ly = py; drag.moved += Math.abs(dx) + Math.abs(dy);
+      if (drag.type === 'orbit') orbitBy(dx, dy); else panBy(dx, dy, drag.which);
+      return;
+    }
+    if (drag.type === 'draw' && drawing){
+      const evs = (e.getCoalescedEvents && e.target === canvas) ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach((ev) => { const q = loc(ev); addSample(drawing, q.px, q.py, ev.pressure, ev.pointerType === 'pen'); });
+      if (Math.hypot(px - holdAnchor.x, py - holdAnchor.y) > 3){ holdAnchor = { x:px, y:py }; armHold(); }
+      if (lpT && Math.hypot(px - down.px, py - down.py) > 6){ clearTimeout(lpT); lpT = null; }
+      return;
+    }
+    if (drag.type === 'erase'){ eraseAt(px, py, drag.which); return; }
+    if (drag.type === 'cursor'){ placeCursorAt(px, py, drag.which, false); return; }
+    return;
+  }
+  if (e.target !== canvas){ ghost.visible = false; snapChip(null); return; }
+  const which = whichRect(px, py), rc = rayAt(px, py, which), gp = gridPlane(), p = hitPlane(rc, gp.o, gp.n);
+  if (p) $('#coords').textContent = `x ${p.x.toFixed(2)}  y ${p.y.toFixed(2)}  z ${p.z.toFixed(2)}`;
+  if (S.mode === 'cursor'){
+    const t = cursorTargetAt(px, py, which);
+    if (t){ ghost.visible = S.cursorOn; ghost.position.copy(t.p); ghost.quaternion.copy(orientFor(t.n, which)); snapChip(t.snap ? 'End' : null, px, py); }
+    else { ghost.visible = false; snapChip(null); }
+  }
+});
+vp.addEventListener('pointerenter', () => { S.overVp = true; });
+vp.addEventListener('pointerleave', () => { S.overVp = false; ghost.visible = false; snapChip(null); });
+rw.addEventListener('pointerenter', () => { S.overRw = true; });
+rw.addEventListener('pointerleave', () => { S.overRw = false; });
+function endPointer(e){
+  clearTimeout(lpT); lpT = null; clearTimeout(holdT);
+  $('#hint').classList.remove('quiet');
+  if (S.mode === 'navigate') canvas.style.cursor = 'grab';
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.type === 'ring'){ if (ringState && ringState.hot) setMode(ringState.hot); closeRing(); return; }
+  if ((d.type === 'orbit' || d.type === 'pan') && d.button === 2 && d.moved < 4 && d.shift){
+    const { px, py } = loc(e); if (placeCursorAt(px, py, d.which, true)) logCursor(); return;
+  }
+  if ((d.type === 'orbit' || d.type === 'pan') && d.button === 0 && d.moved < 4 && S.mode === 'navigate'){
+    const { px, py } = loc(e); pickAt(px, py, d.which); return;
+  }
+  if (d.type === 'draw' && drawing) finishStroke(drawing);
+  if (d.type === 'cursor') logCursor();
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault(); camAnim = null;
+  const { px, py } = loc(e), which = whichRect(px, py);
+  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+  const f = Math.exp(e.ctrlKey ? dy * 0.01 : dy * 0.0012);
+  if (which === 'main' && S.view === 'perspective') orbit.d = THREE.MathUtils.clamp(orbit.d * f, 4, 400);
+  else { const v = viewFor(which); v.hh = THREE.MathUtils.clamp(v.hh * f, 2, 200); }
+}, { passive:false });
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
+  if (e.key === 'Escape'){
+    if (ringState){ closeRing(); return; }
+    if (typing){ if (e.target.id !== 'cmdInput') return; e.target.blur(); return; }
+    if (S.overRw) setMode('navigate');
+    return;
+  }
+  if (typing) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z'){ if (S.overRw){ e.preventDefault(); undo(); } return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === 'Space' && S.overVp){
+    e.preventDefault();
+    if (!e.repeat && !ringState && !drawing){ const p = S.lastPtr || { px:VPW / 2, py:VPH / 2 }; openRing(p.px, p.py, 'key'); }
+    return;
+  }
+  if (!S.overRw) return;
+  const map = { '1':'navigate', '2':'cursor', '3':'plane', '4':'object', '5':'marks', '6':'drawing', 'e':'eraser' };
+  const m = map[e.key.toLowerCase()];
+  if (m){ e.preventDefault(); setMode(m); }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && ringState && ringState.via === 'key' && ringState.hot){ setMode(ringState.hot); closeRing(); }
+});
+
+/* ---------- render loop ---------- */
+const _d2 = new V3();
+let overlayKey = '';
+function placeOverlays(){
+  const m = RECTS.main, p = RECTS.plan;
+  const key = [VPW, VPH, m.x, m.y, p ? p.w : 0, p ? p.h : 0, OV.plan.hh.toFixed(2)].join(',');
+  if (key === overlayKey) return; overlayKey = key;
+  const nm = $('#vpNameMain'); nm.style.transform = `translate(${m.x + 8}px, ${m.y + 8}px)`;
+  if (p){
+    const sh = $('#sheet'); Object.assign(sh.style, { left:p.x + 'px', top:p.y + 'px', width:p.w + 'px', height:p.h + 'px' });
+    $('#vpNamePlan').style.transform = `translate(${p.x + 18}px, ${p.y + 18}px)`;
+    const dv = $('#vpDiv');
+    if (p.w === VPW) Object.assign(dv.style, { left:'0px', top:p.h + 'px', width:VPW + 'px', height:'1px' });
+    else Object.assign(dv.style, { left:p.w + 'px', top:'0px', width:'1px', height:VPH + 'px' });
+    const ppm = p.h / (2 * OV.plan.hh);
+    let len = 10; if (len * ppm > 170) len = 5; if (len * ppm > 170) len = 2; if (len * ppm < 50) len = 20; if (len * ppm < 50) len = 50;
+    $('#sheetScale i').style.width = (len * ppm).toFixed(1) + 'px';
+    $('#sheetScale span').textContent = `0 · ${len} m`;
+  }
+}
+function pass(which){
+  const r = RECTS[which], cam = setupCam(which), y = VPH - r.y - r.h;
+  renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h);
+  cursor.scale.setScalar(wpp(cursor.position, cam, r) * 24);
+  ghost.scale.setScalar(wpp(ghost.position, cam, r) * 24);
+  if (which === 'main' && S.mode === 'plane' && S.planeKind !== 'cplane'){
+    const pl = S.lockedPlane || currentPlane(cam);
+    patch.visible = true; patch.position.copy(pl.o); patch.quaternion.copy(pl.q);
+  } else patch.visible = false;
+  head.position.copy(cam.position); head.target.position.copy(cam.position).add(cam.getWorldDirection(_d2));
+  const plan = which === 'plan';
+  if (plan){ modelMeshes.forEach((m) => { m.material = M.planFill; m.userData.edges.material = M.planEdge; }); G.grid.visible = false; }
+  renderer.setClearColor(plan ? COL.paper : COL.bg, 1);
+  renderer.render(scene, cam);
+  if (plan){ modelMeshes.forEach((m) => { m.material = m.userData.mat || M.obj; m.userData.edges.material = M.edge; }); G.grid.visible = S.layers.grid; }
+}
+function frame(now){
+  resize(); RECTS = computeRects(); stepCamAnim(now);
+  if (curAnim){
+    const k = Math.min(1, (now - curAnim.t0) / curAnim.dur), e = 1 - Math.pow(1 - k, 3);
+    cursor.position.lerpVectors(curAnim.p0, S.cur.p, e); cursor.quaternion.copy(curAnim.q0).slerp(S.cur.q, e);
+    if (k >= 1) curAnim = null;
+  }
+  cursor.visible = S.cursorOn;
+  renderer.setScissorTest(true);
+  if (RECTS.plan) pass('plan');
+  pass('main');
+  renderer.setScissorTest(false);
+  updateLabels(); placeOverlays();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- chrome: toolbar, palette, guide ---------- */
+const TOOLBAR = [
+  ['New', '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'], ['Open', '<path d="M3 7h6l2 2h10v10H3z"/>'],
+  ['Save', '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>'], '|',
+  ['Undo', '<path d="M9 6L4 11l5 5"/><path d="M4 11h9.5a5 5 0 0 1 0 10H11"/>', 'undo'], ['Redo', '<path d="M15 6l5 5-5 5"/><path d="M20 11h-9.5a5 5 0 0 0 0 10H13"/>'], '|',
+  ['Select', '<path d="M5 3l14 8-6 1.5L10 19z"/>'], ['Polyline', '<path d="M3 18l5-9 5 6 4-10 4 5"/>'], ['Curve', '<path d="M3 17c3-10 6-10 9-5s6 5 9-5"/>'],
+  ['Circle', '<circle cx="12" cy="12" r="8"/>'], ['Rectangle', '<rect x="4" y="6" width="16" height="12"/>'], '|',
+  ['Extrude', '<path d="M4 9l8-4 8 4-8 4zM4 9v6l8 4 8-4V9M12 13v6"/>'], ['Boolean union', '<circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/>'],
+  ['Gumball', '<path d="M12 12V4M12 12l7 4M12 12l-7 4"/>'], ['Render', '<circle cx="12" cy="12" r="8"/><path d="M8 9a5 5 0 0 1 4-2"/>'],
+  'gap', ['Sketch', ICON.pen, 'sketch']
+];
+$('#tools').innerHTML = TOOLBAR.map((t) => {
+  if (t === '|') return '<span class="tb-sep"></span>';
+  if (t === 'gap') return '<span class="tb-gap"></span>';
+  const [name, d, act] = t, wide = act === 'sketch';
+  const svg = d.startsWith('<svg') ? d : SV(d);
+  return `<button type="button" class="tb${wide ? ' wide' : ''}${act === 'sketch' ? ' on' : ''}" data-tool="${act || name}" title="${name}" aria-label="${name}"${act === 'sketch' ? ' aria-pressed="true"' : ''}>${svg}${wide ? `<span>${name}</span>` : ''}</button>`;
+}).join('');
+const PALETTE = [['Point', '<circle cx="12" cy="12" r="2.4" fill="currentColor"/>'], ['Line', '<path d="M5 19L19 5"/>'], ['Polyline', '<path d="M3 18l5-9 5 6 4-10 4 5"/>'],
+  ['Arc', '<path d="M4 17a9 9 0 0 1 16 0"/>'], ['Circle', '<circle cx="12" cy="12" r="8"/>'], ['Rectangle', '<rect x="4" y="6" width="16" height="12"/>'], '|',
+  ['Box', '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>'], ['Sphere', '<circle cx="12" cy="12" r="8"/><ellipse cx="12" cy="12" rx="8" ry="3"/>'],
+  ['Cylinder', '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/>'], '|',
+  ['Move', '<path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/>'], ['Rotate', '<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4"/>'],
+  ['Scale', '<rect x="4" y="10" width="10" height="10"/><path d="M10 4h10v10M14 10l6-6"/>'], ['Mirror', '<path d="M12 3v18" stroke-dasharray="2 2"/><path d="M9 7L4 17h5zM15 7l5 10h-5z"/>'],
+  ['Trim', '<path d="M6 6l12 12M18 6L6 18"/><circle cx="6" cy="6" r="2"/>'], ['Fillet', '<path d="M5 19V11a6 6 0 0 1 6-6h8"/>']];
+$('#palette').innerHTML = PALETTE.map((t) => t === '|' ? '<span class="pal-sep"></span>' : `<button type="button" class="tb" data-tool="${t[0]}" title="${t[0]}" aria-label="${t[0]}">${SV(t[1])}</button>`).join('');
+function onTool(e){
+  const b = e.target.closest('[data-tool]'); if (!b) return;
+  const t = b.dataset.tool;
+  if (t === 'undo') return undo();
+  if (t === 'sketch'){
+    S.sketchUI = !S.sketchUI; b.classList.toggle('on', S.sketchUI); b.setAttribute('aria-pressed', String(S.sketchUI));
+    modebar.hidden = !S.sketchUI; renderSubbar();
+    if (!S.sketchUI) setMode('navigate');
+    log(S.sketchUI ? 'Sketch modes on.' : 'Sketch modes off. The viewport works like plain Rhino.');
+    return;
+  }
+  log(`Command: ${t.replace(/\s/g, '')}`); log(`${t} works as in Rhino today; it isn't part of this mockup.`);
+}
+$('#tools').addEventListener('click', onTool); $('#palette').addEventListener('click', onTool);
+modebar.innerHTML = ['navigate', 'cursor', 'plane', 'object', 'marks', 'drawing', '|', 'eraser'].map((m) => m === '|' ? '<span class="mb-sep"></span>'
+  : `<button type="button" class="mb" data-mode="${m}" aria-pressed="false" title="${MODE_LABEL[m]} (${MODE_KEY[m]})">${ICON[m]}<span>${MODE_LABEL[m]}</span></button>`).join('')
+  + '<span class="mb-sep"></span><span class="mb-ring"><kbd>Space</kbd> ring menu</span>';
+modebar.addEventListener('click', (e) => { const b = e.target.closest('.mb'); if (b) setMode(b.dataset.mode); });
+const GUIDE = [
+  ['cursor', '3D cursor', 'Says “here”. Click a surface and the cursor sits on it, lined up with it. New sketch planes and rotate pivots start from it, and it can go to the AI as “here”.', 'Shift + right-click anywhere', 'Tap with the cursor tool'],
+  ['plane', 'Sketch on planes', 'Ink lands on a flat plane you choose: the grid, a plane through the 3D cursor, or a plane facing you. The blue patch shows where.', 'Draw with the left button', 'Draw; pressure sets the width'],
+  ['object', 'Sketch on objects', 'Ink wraps onto whatever is under the pen, curved surfaces too. Hold still at the end of a stroke to snap it into a clean line or circle.', 'Draw, then hold still', 'Draw, then hold the pen still'],
+  ['marks', 'Marks with meaning', 'Circle an area, drag out of a face to pull it, zigzag to cut, cross out to remove, tap to pin a note. Each mark gets a number, so the panel and the AI can refer to it.', 'Draw the gesture', 'Same gestures, plus the eraser end'],
+  ['drawing', 'Sketch on drawings', 'Redline the 2D site plan. Every stroke also lands on the 3D model in the same place, so nothing has to be redrawn.', 'Draw on the left half', 'Draw on the plan'],
+  ['navigate', 'Review panel', 'Click a row to fly back to a sketch. Marks have statuses, “What changed” lists every model change with its own Undo, and AI adds a sketch to the AI context.', 'Click rows, labels or objects', 'Tap rows and labels']
+];
+$('#guide').innerHTML = GUIDE.map(([m, t, p, mouse, pen]) => `<li><button type="button" class="gbtn" data-guide="${m}">${ICON[m === 'navigate' ? 'pen' : m]}<span>${t}</span></button><p>${p}</p><dl class="how"><dt>Mouse</dt><dd>${mouse}</dd><dt>Pen</dt><dd>${pen}</dd></dl></li>`).join('');
+$('#guide').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-guide]'); if (!b) return;
+  const m = b.dataset.guide;
+  if (m === 'navigate'){ setTab('sketch'); } else setMode(m);
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  rw.scrollIntoView({ behavior:smooth ? 'smooth' : 'auto', block:'start' });
+});
+
+/* ---------- panel: fly to, select, review ---------- */
+const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const CHEV = SV('<path d="M6 9l6 6 6-6"/>');
+const STATUS_LABEL = { open:'Open', sent:'Sent', preview:'Preview', done:'Done', dismissed:'Dismissed' };
+const KIND_C = { added:'var(--c-add)', changed:'var(--c-chg)', removed:'var(--c-rem)' };
+const KIND_ORDER = ['Open marks', 'Ink', 'Curves', 'Done and dismissed'];
+const strokeList = $('#strokeList');
+let camAnim = null, hoverId = null, chgN = 0;
+const byId = (id) => S.strokes.find((s) => s.id === id) || null;
+const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+
+function snapNow(which){
+  if (which === 'plan') return { view:'plan', t:OV.plan.t.clone(), hh:OV.plan.hh };
+  if (S.view === 'perspective') return { view:'perspective', t:orbit.t.clone(), d:orbit.d, th:orbit.th, ph:orbit.ph };
+  return { view:S.view, t:OV[S.view].t.clone(), hh:OV[S.view].hh };
+}
+function fitSnap(pts, th, ph){
+  const b = new THREE.Box3().setFromPoints(pts), c = b.getCenter(new V3());
+  const r = Math.max(1.6, b.getSize(new V3()).length() / 2);
+  const d = r / Math.sin(THREE.MathUtils.degToRad(persp.fov / 2)) * 1.2;
+  return { view:'perspective', t:c, d:THREE.MathUtils.clamp(d, 5, 300), th:th === undefined ? orbit.th : th, ph:ph === undefined ? orbit.ph : ph };
+}
+function viewName(v){ return v.view === 'plan' ? 'the site plan' : (v.view === 'perspective' ? 'Perspective' : OV[v.view].name); }
+function flyTo(snap){
+  const t0 = performance.now();
+  if (snap.view === 'plan'){
+    if (S.mode !== 'drawing') setMode('drawing');
+    camAnim = { kind:'ortho', v:OV.plan, t0, from:{ t:OV.plan.t.clone(), hh:OV.plan.hh }, to:{ t:snap.t.clone(), hh:snap.hh } };
+  } else if (snap.view === 'perspective'){
+    if (S.view !== 'perspective') setView('perspective', true);
+    camAnim = { kind:'persp', t0, from:{ t:orbit.t.clone(), d:orbit.d, th:orbit.th, ph:orbit.ph }, to:{ t:snap.t.clone(), d:snap.d, th:orbit.th - angDiff(orbit.th, snap.th), ph:snap.ph } };
+  } else {
+    if (S.mode === 'drawing') setMode('object');
+    if (S.view !== snap.view) setView(snap.view, true);
+    const v = OV[snap.view];
+    camAnim = { kind:'ortho', v, t0, from:{ t:v.t.clone(), hh:v.hh }, to:{ t:snap.t.clone(), hh:snap.hh } };
+  }
+  if (reduceMotion) stepCamAnim(t0 + 5000);
+}
+function stepCamAnim(now){
+  if (!camAnim) return;
+  const k = Math.min(1, (now - camAnim.t0) / 650), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  const a = camAnim.from, b = camAnim.to;
+  if (camAnim.kind === 'persp'){ orbit.t.lerpVectors(a.t, b.t, e); orbit.d = a.d + (b.d - a.d) * e; orbit.th = a.th + (b.th - a.th) * e; orbit.ph = a.ph + (b.ph - a.ph) * e; }
+  else { camAnim.v.t.lerpVectors(a.t, b.t, e); camAnim.v.hh = a.hh + (b.hh - a.hh) * e; }
+  if (k >= 1) camAnim = null;
+}
+function isAt(v){
+  if (!v || camAnim) return false;
+  if (v.view === 'plan') return S.mode === 'drawing' && OV.plan.t.distanceTo(v.t) < 0.2 && Math.abs(OV.plan.hh - v.hh) < 0.2;
+  if (v.view === 'perspective') return S.view === 'perspective' && orbit.t.distanceTo(v.t) < 0.15 && Math.abs(orbit.d - v.d) / v.d < 0.03 && Math.abs(angDiff(orbit.th, v.th)) < 0.03 && Math.abs(orbit.ph - v.ph) < 0.03;
+  return S.view === v.view && OV[v.view].t.distanceTo(v.t) < 0.2 && Math.abs(OV[v.view].hh - v.hh) < 0.2;
+}
+function strokePts(s){ const base = (s.made && s.curvePts) ? s.curvePts : s.pts; return base.concat(...(s.extra || []).map((x) => x.pts)); }
+function focusStroke(s, forceFit){
+  if (!forceFit && s.view && !isAt(s.view)){ flyTo(s.view); return 'view'; }
+  const pts = strokePts(s);
+  if (s.view && s.view.view === 'plan'){
+    const b = new THREE.Box3().setFromPoints(pts), c = b.getCenter(new V3()), sz = b.getSize(new V3());
+    c.z = 0; flyTo({ view:'plan', t:c, hh:Math.max(3, Math.max(sz.x, sz.y) * 0.75) }); return 'fit';
+  }
+  flyTo(fitSnap(pts)); return 'fit';
+}
+function fitObjects(objs){
+  const b = new THREE.Box3(); objs.forEach((o) => b.expandByObject(o));
+  if (b.isEmpty()) return;
+  const pts = [b.min, b.max, new V3(b.min.x, b.max.y, b.min.z), new V3(b.max.x, b.min.y, b.max.z)];
+  flyTo(fitSnap(pts));
+}
+function paint(s){
+  if (!s) return;
+  const on = S.sel === s.id || hoverId === s.id;
+  const mat = s.made ? s.curveMat : s.mat;
+  if (mat){ mat.color.set(on ? '#ffd400' : (s.made ? CURVE_COLOR : s.color)); mat.opacity = s.status === 'dismissed' && !on ? 0.4 : 0.96; }
+  if (s.labels) s.labels.forEach((L) => { L.el.classList.toggle('sel', S.sel === s.id); L.el.classList.toggle('hl', hoverId === s.id); });
+}
+function updateSelClasses(){ $$('.srow', strokeList).forEach((li) => li.classList.toggle('sel', +li.dataset.id === S.sel)); }
+function isOpenItem(s){ return s.kind === 'mark' ? (s.status === 'open' || s.status === 'sent' || s.status === 'preview') : !s.made; }
+function selectStroke(s, opts){
+  opts = opts || {};
+  const prev = byId(S.sel); S.sel = s ? s.id : null; paint(prev); if (s) paint(s);
+  if (s && opts.fly){
+    const how = focusStroke(s);
+    log(how === 'view' ? `Back to the view where you drew ${nameOf(s)}.` : `Zoomed to ${nameOf(s)}.`);
+  }
+  if (s && opts.reveal){
+    setTab('sketch'); S.expanded.add(s.id);
+    if (S.openOnly && !isOpenItem(s)){ S.openOnly = false; $('#openOnly').checked = false; }
+    if (S.objFilter && strokeObj(s) !== S.objFilter) S.objFilter = null;
+    refresh();
+    const row = strokeList.querySelector(`.srow[data-id="${s.id}"]`); if (row) row.scrollIntoView({ block:'nearest' });
+  } else updateSelClasses();
+}
+function strokeObj(s){ return s.kind === 'mark' ? s.obj : majorityObj(s); }
+function meaning(s){
+  const obj = s.obj ? s.obj.userData.name : null, f = s.face && s.face !== 'surface' ? `the ${s.face} of ` : '';
+  if (s.kind === 'ink'){
+    if (s.made) return `A Rhino ${s.curveType} ${s.where}.`;
+    if (s.closed){ const r = regionInfo(s.pts, s.nrms, s.planeN); return `A closed outline ${s.where}, about ${fmt(r.w)} × ${fmt(r.h)} m.`; }
+    return `Ink ${s.where}. It is a sketch, not part of the model.`;
+  }
+  switch (s.markType){
+    case 'region': return obj ? `An area on ${f}${obj}, about ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m.` : `An area about ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m.`;
+    case 'arrow': return s.pull === null ? 'An arrow that doesn\'t start on an object, so it has no distance.' : `${s.pull >= 0 ? 'Pull' : 'Push'} ${f}${obj} ${s.pull >= 0 ? 'out' : 'in'} by ${fmt(Math.abs(s.pull))} m.`;
+    case 'cross': return obj ? `Remove ${obj}.` : 'Remove, but it doesn\'t cross out an object.';
+    case 'cut': return obj ? `Split ${obj} along this line.` : 'A cut line in the air.';
+    case 'note': return `Note: “${s.text || 'Note'}”.`;
+  }
+  return '';
+}
+function retype(s, type){
+  if (s.kind !== 'mark' || s.markType === type || s.markType === 'note') return;
+  if (s.surf){ s.pts = s.surf.pts; s.nrms = s.surf.nrms; s.surf = null; s.outOfFace = false; }
+  removeHead(s);
+  s.markType = type; s.color = MARK[type].c;
+  s.obj = s.obj || majorityObj(s) || (s.startHit && s.startHit.object) || null;
+  if (type === 'region'){ s.reg = regionInfo(s.pts, s.nrms); s.face = s.obj ? faceName(s.obj, s.reg.n) : ''; s.title = `Region ${fmt(s.reg.w)} × ${fmt(s.reg.h)} m`; }
+  else if (type === 'arrow'){
+    const h = s.startHit; s.pull = h ? pathLen3(s.pts) : null;
+    if (h){ s.obj = h.object; s.face = faceName(h.object, h.normal); }
+    s.title = s.pull === null ? 'Arrow' : `Pull ${fmt(s.pull)} m`;
+  } else { s.title = MARK[type].name; s.pull = null; }
+  rebuild(s); if (type === 'arrow') addArrowHead(s);
+  paint(s); updateLabel(s);
+  log(`Mark ${s.num} now reads as ${MARK[type].name}.`);
+}
+function setPull(s, d){
+  if (!isFinite(d) || s.pull === null) return;
+  if (Math.abs(d) < 0.1) d = d < 0 ? -0.1 : 0.1;
+  s.pull = d;
+  if (s.outOfFace && s.startHit){
+    const n = s.startHit.normal, p0 = s.pts[0].clone(), nn = s.nrms[0].clone(), w = avg(s.widths);
+    s.pts = []; s.nrms = [];
+    for (let i = 0; i <= 12; i++){ s.pts.push(p0.clone().addScaledVector(n, d * i / 12)); s.nrms.push(nn.clone()); }
+    s.widths = s.pts.map(() => w); rebuild(s); addArrowHead(s);
+  }
+  s.title = d >= 0 ? `Pull ${fmt(d)} m` : `Push ${fmt(-d)} m`;
+  updateLabel(s); log(`Mark ${s.num} distance set to ${fmt(d)} m.`);
+}
+
+/* ---------- what changed ---------- */
+function recordChange(ch, by, src){
+  ch.id = ++chgN; ch.by = by; ch.src = src || null; ch.time = new Date();
+  S.changes.unshift(ch);
+  if (src){
+    (src.thread = src.thread || []).push({ text:'Applied: ' + ch.text });
+    if (src.kind === 'mark'){ src.status = 'done'; updateLabel(src); paint(src); }
+  }
+  log(`Applied: ${ch.text}.`);
+  applyChangeTint(); refresh();
+}
+function undoChange(id){
+  const i = S.changes.findIndex((c) => c.id === id); if (i < 0) return;
+  const ch = S.changes[i]; ch.undo(); S.changes.splice(i, 1);
+  if (ch.src){
+    ch.src.thread.push({ text:'Undid: ' + ch.text });
+    if (ch.src.kind === 'mark' && ch.src.status === 'done'){ ch.src.status = 'open'; updateLabel(ch.src); paint(ch.src); }
+  }
+  log(`Undid: ${ch.text}.`); applyChangeTint(); refresh();
+}
+function applyChangeTint(){
+  modelMeshes.forEach((m) => { m.userData.mat = null; });
+  while (G.changes.children.length){ const c = G.changes.children[0]; G.changes.remove(c); if (!c.userData.shared) c.geometry.dispose(); }
+  if (S.showChanges){
+    S.changes.forEach((ch) => {
+      if (ch.kind === 'added') ch.objects.forEach((o) => { o.userData.mat = M.added; });
+      if (ch.kind === 'changed'){
+        ch.objects.forEach((o) => { o.userData.mat = M.changed; });
+        if (ch.before){
+          const b = ch.before, g = new THREE.BoxGeometry(b.w, b.d, b.h);
+          const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), M.before); g.dispose();
+          e.position.set(b.cx, b.cy, b.z0 + b.h / 2); e.computeLineDistances(); e.renderOrder = 12; G.changes.add(e);
+        }
+      }
+      if (ch.kind === 'removed') ch.objects.forEach((o) => {
+        const g = new THREE.Mesh(o.geometry, M.removed); g.position.copy(o.position); g.quaternion.copy(o.quaternion);
+        g.userData.shared = true; g.renderOrder = 15; G.changes.add(g);
+      });
+    });
+  }
+  modelMeshes.forEach((m) => { m.material = m.userData.mat || M.obj; });
+  $('#chgLegend').hidden = !S.showChanges;
+}
+function srcText(ch){
+  const who = 'by you';
+  return ch.src ? `${ch.src.kind === 'mark' ? 'Mark ' + ch.src.num : nameOf(ch.src)}, ${who}` : who;
+}
+const timeStr = (d) => d.toTimeString().slice(0, 5);
+function renderChanges(){
+  const el = $('#changeList');
+  el.innerHTML = S.changes.length ? S.changes.map((ch) => `<li class="citem" data-chg="${ch.id}" title="Zoom to this change"><span class="k" style="--c:${KIND_C[ch.kind]}"></span><div style="min-width:0"><div class="ct">${esc(ch.text)}</div><div class="cs">${esc(srcText(ch))} · ${timeStr(ch.time)}</div></div><button type="button" class="mini" data-undo="${ch.id}">Undo</button></li>`).join('')
+    : '<li class="cempty">No changes to the model yet. Apply a mark (a pull or a remove) and it shows up here with its own Undo.</li>';
+  const marks = S.strokes.filter((s) => s.kind === 'mark');
+  const open = marks.filter(isOpenItem).length, done = marks.filter((s) => s.status === 'done').length;
+  const loose = S.strokes.filter((s) => s.kind === 'ink' && !s.made).length, curves = S.strokes.filter((s) => s.made).length;
+  const pl = (n, w) => `<b>${n}</b> ${w}${n === 1 ? '' : 's'}`;
+  $('#sCounts').innerHTML = [pl(open, 'open mark'), pl(loose, 'loose sketch').replace('sketchs', 'sketches'), `<b>${done}</b> done`].concat(curves ? [pl(curves, 'curve')] : []).join(' · ');
+}
+function summaryText(){
+  const lines = [`Pavilion.3dm · sketch summary · ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`, '', 'Changes to the model'];
+  if (!S.changes.length) lines.push('- None yet');
+  S.changes.slice().reverse().forEach((ch) => lines.push(`- ${ch.text} (${srcText(ch)})`));
+  const open = S.strokes.filter((s) => s.kind === 'mark' && isOpenItem(s));
+  lines.push('', 'Open marks'); if (!open.length) lines.push('- None');
+  open.forEach((s) => lines.push(`- Mark ${s.num}: ${meaning(s)}`));
+  const ink = S.strokes.filter((s) => s.kind === 'ink');
+  if (ink.length){ lines.push('', 'Sketches'); ink.forEach((s) => lines.push(`- ${nameOf(s)}, ${s.where}${s.made ? ' (now a ' + s.curveType + ')' : ''}`)); }
+  return lines.join('\n');
+}
+function copySummary(){ copyText(summaryText(), $('#copySummary'), 'Summary copied. Paste it into notes or an email.'); }
+function copyText(text, btn, okMsg){
+  const ok = () => { btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); log(okMsg); };
+  const fallback = () => {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); let done = false; try { done = document.execCommand('copy'); } catch (e) {}
+    ta.remove(); if (done) ok(); else log('Copying is blocked here. The text:\n' + text);
+  };
+  let settled = false;
+  const once = (fn) => () => { if (settled) return; settled = true; fn(); };
+  const okOnce = once(ok), fbOnce = once(fallback);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(okOnce, fbOnce); setTimeout(fbOnce, 800); }
+    else fbOnce();
+  } catch (e){ fbOnce(); }
+}
+
+/* ---------- list ---------- */
+function groupKey(s){
+  if (S.group === 'object'){
+    const o = strokeObj(s); if (o) return o.userData.name;
+    if (s.target === 'plane') return s.planeName || 'Plane';
+    if (s.target === 'drawing') return 'Site plan';
+    return s.kind === 'mark' ? 'In the air' : 'CPlane';
+  }
+  if (s.kind === 'mark') return isOpenItem(s) ? 'Open marks' : 'Done and dismissed';
+  return s.made ? 'Curves' : 'Ink';
+}
+function rowHTML(s){
+  const exp = S.expanded.has(s.id), sel = S.sel === s.id;
+  const pill = s.kind === 'mark' ? `<span class="pill ${s.status}">${STATUS_LABEL[s.status]}</span>` : `<span class="pill ink">${s.made ? cap(s.curveType) : 'Ink'}</span>`;
+  const sub = s.kind === 'mark' ? whereMark(s) : s.where + (s.label ? ` · ${s.name}` : '');
+  return `<li class="srow${sel ? ' sel' : ''}${exp ? ' exp' : ''}" data-id="${s.id}"><span class="sw" style="--c:${s.made ? CURVE_COLOR : s.color}"></span><div style="min-width:0"><div class="sn" title="Double-click to rename">${esc(nameOf(s))}</div><div class="ss">${esc(sub)}</div></div>${pill}<button type="button" class="aib" data-act="ai" aria-pressed="${S.ai.has(s.id)}" title="Add to AI context" aria-label="${S.ai.has(s.id) ? 'Remove from' : 'Add to'} AI context">AI</button><button type="button" class="ix chev" data-act="exp" aria-expanded="${exp}" aria-label="${exp ? 'Hide' : 'Show'} details">${CHEV}</button>${exp ? detailHTML(s) : ''}</li>`;
+}
+function detailHTML(s){
+  let h = `<div class="sdet"><p class="means">${esc(meaning(s))}</p>`;
+  const btn = (act, label) => `<button type="button" class="mini" data-act="${act}">${label}</button>`;
+  const aiBtn = btn('ai', S.ai.has(s.id) ? 'Remove from AI context' : 'Add as AI context');
+  if (s.kind === 'mark'){
+    if (s.markType === 'note') h += `<div class="frow"><input type="text" data-f="note" value="${esc(s.text || '')}" placeholder="Note text" aria-label="Note text"></div>`;
+    else {
+      h += `<div class="frow"><label>Reads as <select data-f="type">${['region', 'arrow', 'cross', 'cut'].map((t) => `<option value="${t}"${t === s.markType ? ' selected' : ''}>${MARK[t].name}</option>`).join('')}</select></label>`;
+      if (s.markType === 'arrow' && s.pull !== null) h += `<label>Distance <input type="number" step="0.1" data-f="pull" value="${s.pull.toFixed(1)}"> m</label>`;
+      h += '</div>';
+    }
+    const canApply = s.status !== 'done' && ((s.markType === 'arrow' && s.obj && s.obj.userData.kind === 'box' && s.pull !== null) || (s.markType === 'cross' && s.obj));
+    h += '<div class="frow">';
+    if (canApply) h += btn('apply', 'Apply');
+    h += btn('fit', 'Zoom to fit');
+    if (s.status === 'dismissed') h += btn('reopen', 'Reopen'); else if (s.status !== 'done') h += btn('dismiss', 'Dismiss');
+    h += aiBtn + btn('del', 'Delete');
+    h += '</div>';
+  } else {
+    h += '<div class="frow">';
+    h += btn('fit', 'Zoom to fit') + aiBtn + btn('del', 'Delete') + '</div>';
+  }
+  if (s.thread && s.thread.length) h += `<div class="thread"><p class="muted small">History</p>${s.thread.map((t) => `<p>${esc(t.text)}</p>`).join('')}</div>`;
+  if (s.view) h += `<p class="dv">Drawn in ${viewName(s.view)}. Click the row to go back to that view.</p>`;
+  return h + '</div>';
+}
+function refresh(){
+  renderChanges();
+  $$('#groupSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.group === S.group)));
+  let list = S.strokes.slice();
+  if (S.openOnly) list = list.filter(isOpenItem);
+  if (S.objFilter) list = list.filter((s) => strokeObj(s) === S.objFilter);
+  const of = $('#objFilter');
+  of.hidden = !S.objFilter;
+  if (S.objFilter) of.innerHTML = `<span>Sketches on <b>${esc(S.objFilter.userData.name)}</b></span><button type="button" class="mini" data-act="clearfilter">Show all</button>`;
+  if (!list.length) strokeList.innerHTML = `<p class="empty">${S.strokes.length ? 'Nothing matches. Turn off “Only open” or show all.' : 'Nothing sketched yet. Pick a mode above the viewport and draw.'}</p>`;
+  else if (S.group === 'order') strokeList.innerHTML = `<ul class="slist">${list.map(rowHTML).join('')}</ul>`;
+  else {
+    const groups = new Map();
+    list.forEach((s) => { const k = groupKey(s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+    let keys = Array.from(groups.keys());
+    if (S.group === 'kind') keys.sort((a, b) => KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b));
+    strokeList.innerHTML = keys.map((k) => `<div class="grp"><button type="button" class="gh" data-gkey="${esc(k)}" title="Zoom to ${esc(k)}"><span>${esc(k)}</span><span class="count">${groups.get(k).length}</span></button><ul class="slist">${groups.get(k).map(rowHTML).join('')}</ul></div>`).join('');
+  }
+  refreshAI();
+}
+function pickAt(px, py, which){
+  const s = strokeAtScreen(px, py, which);
+  if (s){ selectStroke(s, { fly:false, reveal:true }); log(`Selected ${nameOf(s)}.`); return; }
+  const h = hitModel(rayAt(px, py, which));
+  if (h){
+    S.objFilter = h.object; setTab('sketch'); selectStroke(null);
+    const n = S.strokes.filter((x) => strokeObj(x) === h.object).length;
+    log(`${h.object.userData.name}: ${n} sketch item${n === 1 ? '' : 's'} on it.`); refresh(); return;
+  }
+  if (S.objFilter || S.sel){ S.objFilter = null; selectStroke(null); refresh(); }
+}
+
+/* ---------- list + summary events ---------- */
+strokeList.addEventListener('mouseover', (e) => {
+  const li = e.target.closest('.srow'), id = li ? +li.dataset.id : null;
+  if (id === hoverId) return;
+  const prev = byId(hoverId); hoverId = id; paint(prev); paint(byId(id));
+});
+strokeList.addEventListener('mouseleave', () => { const prev = byId(hoverId); hoverId = null; paint(prev); });
+strokeList.addEventListener('click', (e) => {
+  const gh = e.target.closest('.gh');
+  if (gh){ const objs = aliveMeshes().filter((m) => m.userData.name === gh.dataset.gkey); const ss = S.strokes.filter((s) => groupKey(s) === gh.dataset.gkey);
+    if (objs.length) fitObjects(objs); else if (ss.length) flyTo(fitSnap([].concat(...ss.map(strokePts)))); return; }
+  const li = e.target.closest('.srow'); if (!li) return;
+  const s = byId(+li.dataset.id); if (!s) return;
+  const b = e.target.closest('[data-act]');
+  if (!b){ if (e.target.closest('input, select, .sdet')) return; selectStroke(s, { fly:true }); return; }
+  switch (b.dataset.act){
+    case 'exp': if (S.expanded.has(s.id)) S.expanded.delete(s.id); else S.expanded.add(s.id); refresh(); break;
+    case 'del': if (hoverId === s.id) hoverId = null; removeStroke(s); log(`Deleted ${nameOf(s)}.`); break;
+    case 'apply': { const a = s.markType === 'arrow' ? actPull(s) : actRemove(s); if (a) recordChange(a.apply(), 'you', s); break; }
+    case 'ai': toggleAI(s); break;
+    case 'fit': { const prev = byId(S.sel); S.sel = s.id; paint(prev); paint(s); focusStroke(s, true); updateSelClasses(); log(`Zoomed to ${nameOf(s)}.`); break; }
+    case 'dismiss': s.status = 'dismissed'; s.thread.push({ text:'Dismissed' }); updateLabel(s); paint(s); log(`Mark ${s.num} dismissed.`); refresh(); break;
+    case 'reopen': s.status = 'open'; s.thread.push({ text:'Reopened' }); updateLabel(s); paint(s); log(`Mark ${s.num} reopened.`); refresh(); break;
+  }
+});
+strokeList.addEventListener('change', (e) => {
+  const f = e.target.dataset.f; if (!f) return;
+  const s = byId(+e.target.closest('.srow').dataset.id); if (!s) return;
+  if (f === 'type') retype(s, e.target.value);
+  if (f === 'pull') setPull(s, parseFloat(e.target.value));
+  if (f === 'note'){ s.text = e.target.value.trim() || 'Note'; updateLabel(s); }
+  refresh();
+});
+strokeList.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input[data-f]')) e.target.blur(); });
+strokeList.addEventListener('dblclick', (e) => {
+  const sn = e.target.closest('.sn'); if (!sn || sn.querySelector('input')) return;
+  const s = byId(+sn.closest('.srow').dataset.id); if (!s) return;
+  const inp = document.createElement('input'); inp.value = s.label || ''; inp.placeholder = nameOf(s); inp.setAttribute('aria-label', 'Name');
+  sn.textContent = ''; sn.appendChild(inp); inp.focus(); inp.select();
+  let done = false;
+  const commit = (save) => { if (done) return; done = true; if (save){ s.label = inp.value.trim() || null; updateLabel(s); log(`Renamed to ${nameOf(s)}.`); } refresh(); };
+  inp.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') commit(true); if (ev.key === 'Escape') commit(false); });
+  inp.addEventListener('blur', () => commit(true));
+});
+$('#changeList').addEventListener('click', (e) => {
+  const u = e.target.closest('[data-undo]'); if (u){ undoChange(+u.dataset.undo); return; }
+  const it = e.target.closest('[data-chg]'); if (!it) return;
+  const ch = S.changes.find((c) => c.id === +it.dataset.chg); if (!ch) return;
+  fitObjects(ch.objects); log(`Zoomed to: ${ch.text}.`);
+});
+$('#showChanges').addEventListener('change', (e) => { S.showChanges = e.target.checked; applyChangeTint(); log(S.showChanges ? 'Showing changes: green = added, blue = changed, red = removed, dashed = before.' : 'Changes no longer tinted.'); });
+$('#copySummary').addEventListener('click', copySummary);
+$('#groupSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-group]'); if (b){ S.group = b.dataset.group; refresh(); } });
+$('#openOnly').addEventListener('change', (e) => { S.openOnly = e.target.checked; refresh(); });
+$('#objFilter').addEventListener('click', (e) => { if (e.target.closest('[data-act="clearfilter"]')){ S.objFilter = null; refresh(); } });
+
+/* ---------- panel + bar bindings ---------- */
+subbar.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const [act, val] = b.dataset.act.split(':');
+  switch (act){
+    case 'align': S.align = val; break;
+    case 'plane': S.planeKind = val; break;
+    case 'pen': S.pen.i = +val; break;
+    case 'smart': S.pen.smart = !S.pen.smart; break;
+    case 'mark': S.markTool = val; break;
+    case 'draw': S.drawTool = val; break;
+    case 'follow': S.cplaneFollows = !S.cplaneFollows; syncGrid(); log(S.cplaneFollows ? 'The grid now follows the 3D cursor.' : 'The grid is back on World Top.'); break;
+    case 'reset': setCursor(new V3(), ZUP.clone(), 'World origin', 'main', true); logCursor(); break;
+    case 'eraseall': eraseAll(); return;
+  }
+  syncAll();
+});
+$$('.ptab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+$$('.vt').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+$('#penSw').addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b){ S.pen.i = +b.dataset.act.split(':')[1]; syncAll(); } });
+$('#penWidth').addEventListener('input', (e) => { S.pen.width = +e.target.value; syncAll(); });
+$('#penPressure').addEventListener('change', (e) => { S.pen.pressure = e.target.checked; syncAll(); });
+$('#penSmart').addEventListener('change', (e) => { S.pen.smart = e.target.checked; syncAll(); });
+$('#btnClear').addEventListener('click', (e) => {
+  const b = e.currentTarget;
+  if (!S.clearArm){ S.clearArm = true; b.textContent = 'Click again to clear'; setTimeout(() => { S.clearArm = false; b.textContent = 'Clear sketch'; }, 3000); return; }
+  S.clearArm = false; b.textContent = 'Clear sketch';
+  const n = S.strokes.length; S.strokes.slice().forEach((s) => removeStroke(s)); log(`Cleared ${n} sketch item${n === 1 ? '' : 's'}.`);
+});
+$('#layerList').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-layer]'); if (!b) return;
+  S.layers[b.dataset.layer] = !S.layers[b.dataset.layer]; applyLayers();
+});
+$('#stSketch').addEventListener('click', () => { const on = !(S.layers.ink || S.layers.marks); S.layers.ink = on; S.layers.marks = on; applyLayers(); log(on ? 'Sketch layer shown.' : 'Sketch layer hidden. The model is unchanged.'); });
+$('#stCursor').addEventListener('click', (e) => { S.cursorOn = !S.cursorOn; e.currentTarget.classList.toggle('on', S.cursorOn); });
+$$('[data-st]').forEach((b) => b.addEventListener('click', () => b.classList.toggle('on')));
+$('#alignSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-align]'); if (b){ S.align = b.dataset.align; setCursor(S.cur.p.clone(), S.cur.n.clone(), S.cur.on, 'main', true); syncAll(); } });
+['#curX', '#curY', '#curZ'].forEach((id) => $(id).addEventListener('change', () => {
+  const p = new V3(+$('#curX').value || 0, +$('#curY').value || 0, +$('#curZ').value || 0);
+  setCursor(p, S.cur.n.clone(), 'typed position', 'main', true); logCursor();
+}));
+$('#optFollow').addEventListener('change', (e) => { S.cplaneFollows = e.target.checked; syncGrid(); syncAll(); });
+$('#optSnap').addEventListener('change', (e) => { S.snap = e.target.checked; syncAll(); });
+$('#optAI').addEventListener('change', (e) => { S.aiCursor = e.target.checked; refreshAI(); log(S.aiCursor ? '3D cursor added to the AI context.' : '3D cursor removed from the AI context.'); });
+$('#optPivot').addEventListener('change', (e) => log(e.target.checked ? 'Rotate, Scale and Mirror will use the 3D cursor as their pivot.' : 'Rotate, Scale and Mirror will ask for a pivot point.'));
+$('#curReset').addEventListener('click', () => { setCursor(new V3(), ZUP.clone(), 'World origin', 'main', true); logCursor(); });
+$('#curMode').addEventListener('click', () => setMode('cursor'));
+$('#aiChips').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-aichip]'); if (!b) return;
+  if (b.dataset.aichip === 'cursor'){ S.aiCursor = false; syncCursorPane(); refreshAI(); log('3D cursor removed from the AI context.'); return; }
+  const s = byId(+b.dataset.aichip); if (s) toggleAI(s);
+});
+$('#aiShow').addEventListener('click', (e) => {
+  const pre = $('#aiPre'), open = pre.hidden;
+  pre.hidden = !open; e.currentTarget.setAttribute('aria-expanded', String(open));
+  e.currentTarget.textContent = open ? 'Hide' : 'Show what the AI gets';
+  if (open) pre.textContent = contextText();
+});
+$('#aiCopy').addEventListener('click', (e) => copyText(contextText(), e.currentTarget, 'AI context copied.'));
+$('#aiClear').addEventListener('click', () => {
+  const list = aiItems(); S.ai.clear(); S.aiCursor = false;
+  list.forEach((s) => updateLabel(s)); syncCursorPane(); refresh(); log('AI context cleared.');
+});
+
+/* ---------- command line ---------- */
+const CMDS = {
+  navigate:() => setMode('navigate'), cursor:() => setMode('cursor'), cursor3d:() => setMode('cursor'), plane:() => setMode('plane'),
+  sketch:() => setMode('object'), onobject:() => setMode('object'), sketchonobject:() => setMode('object'), sketchonplane:() => setMode('plane'),
+  marks:() => setMode('marks'), mark:() => setMode('marks'), sketchmarks:() => setMode('marks'), drawing:() => setMode('drawing'), markup:() => setMode('drawing'),
+  sketchondrawing:() => setMode('drawing'), eraser:() => setMode('eraser'), erase:() => setMode('eraser'),
+  undo:() => undo(), summary:() => copySummary(), context:() => copyText(contextText(), $('#aiCopy'), 'AI context copied.'),
+  perspective:() => setView('perspective'), top:() => setView('top'), front:() => setView('front'), right:() => setView('right'),
+  zoom:() => flyTo({ view:'perspective', t:new V3(-1.5, 0, 5), d:54, th:-2.2, ph:1.13 }), zoomextents:() => flyTo({ view:'perspective', t:new V3(-1.5, 0, 5), d:54, th:-2.2, ph:1.13 })
+};
+$('#cmdInput').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const raw = e.target.value.trim(); e.target.value = '';
+  if (!raw){ log('Command:'); return; }
+  const k = raw.replace(/^[_!-]+/, '').toLowerCase().replace(/\s+/g, '');
+  log(`Command: ${raw}`);
+  if (CMDS[k]) CMDS[k](); else log(`Unknown command: ${raw}. Try Cursor, Plane, Sketch, Marks, Drawing, Summary or Context.`);
+});
+
+/* ---------- sample sketch ---------- */
+function seedStroke(o, pts, nrms, wWorld, label, view){
+  const s = newStroke(o);
+  s.pts = pts; s.nrms = nrms; s.widths = pts.map(() => wWorld); s.done = true;
+  if (o.objMesh){ s.hits[o.objMesh.id] = pts.length; s.hitMeshes[o.objMesh.id] = o.objMesh; }
+  if (label) s.label = label;
+  s.view = view || null;
+  if (s.kind === 'mark') finalizeMark(s); else finalizeInk(s);
+  return s;
+}
+const jit = (i, k) => Math.sin(i * 12.9898 + k * 78.233) * 0.5;
+function seed(){
+  quiet = true;
+  scene.updateMatrixWorld(true);
+  resize(); RECTS = computeRects(); setupCam('main'); placePersp();
+  setCursor(new V3(-3.2, -1.6, 4), ZUP.clone(), 'Main block · top face', 'main', false);
+  const toward = (p, n) => { const c = persp.position.clone().sub(p).normalize(); return c.addScaledVector(n, -c.dot(n)).normalize(); };
+  // Mark 1: pull the east face of the main block out 2 m (already applied)
+  const e0 = new V3(5, -1.5, 2), X = new V3(1, 0, 0), tE = toward(e0, X);
+  const P1 = []; for (let t = 0; t <= 1.001; t += 0.1) P1.push(new V3(5 + 2 * t, -1.5, 2 + jit(t * 20, 4) * 0.02));
+  const m1 = seedStroke({ kind:'mark', markType:'arrow', target:'object', which:'main', color:MARK.arrow.c, objMesh:mainBlock, forceAlt:true,
+    altPlane:{ o:e0.clone(), n:tE }, startHit:{ point:e0.clone(), normal:X.clone(), object:mainBlock } }, P1, P1.map(() => tE.clone()), 0.13, null,
+    fitSnap(P1.concat([new V3(5, -4, 0), new V3(5, 4, 4)]), -0.75, 1.2));
+  recordChange(actPull(m1).apply(), 'you', m1);
+  // Mark 2: an area on the south face of the main block
+  const P5 = [], N5 = [];
+  for (let t = 0.2; t <= Math.PI * 2 + 0.55; t += 0.07){ P5.push(new V3(-3.2 + 2.1 * Math.cos(t) * (1 + 0.03 * Math.sin(3 * t)), -4, 2.0 + 1.25 * Math.sin(t) * (1 + 0.04 * Math.cos(2 * t)))); N5.push(new V3(0, -1, 0)); }
+  const m2 = seedStroke({ kind:'mark', markType:'region', target:'object', which:'main', color:MARK.region.c, objMesh:mainBlock, obj:mainBlock }, P5, N5, 0.13, null, fitSnap(P5, -1.85, 1.3));
+  // Mark 3: pull the tower roof up 3 m
+  const top = new V3(9, 3, 10), tT = toward(top, ZUP);
+  const P6 = []; for (let t = 0; t <= 1.001; t += 0.1) P6.push(new V3(9 + jit(t * 30, 3) * 0.03, 3, 10 + 3 * t));
+  const m3 = seedStroke({ kind:'mark', markType:'arrow', target:'object', which:'main', color:MARK.arrow.c, objMesh:tower, forceAlt:true,
+    altPlane:{ o:top.clone(), n:tT }, startHit:{ point:top.clone(), normal:ZUP.clone(), object:tower } }, P6, P6.map(() => tT.clone()), 0.13, null,
+    fitSnap(P6.concat([new V3(7, 1, 10), new V3(11, 5, 10)]), -2.45, 1.15));
+  // window idea on the curved wall
+  const wp = (th, z) => new V3(CW.cx + CW.r * Math.sin(th), CW.cy - CW.r * Math.cos(th), z);
+  const wn = (th) => new V3(Math.sin(th), -Math.cos(th), 0);
+  const thc = -0.55, dth = 0.21, zb = 0.7, zs = 2.2, zt = 3.0, P = [], N = [];
+  const push = (th, z, i) => { P.push(wp(th, z + jit(i, 1) * 0.02)); N.push(wn(th)); };
+  let i = 0;
+  for (let t = 0; t <= 1; t += 0.04) push(thc - dth + 2 * dth * t, zb, i++);
+  for (let t = 0; t <= 1; t += 0.06) push(thc + dth, zb + (zs - zb) * t, i++);
+  for (let a = 0; a <= Math.PI; a += 0.1) push(thc + dth * Math.cos(a), zs + (zt - zs) * Math.sin(a), i++);
+  for (let t = 0; t <= 1.001; t += 0.06) push(thc - dth, zs - (zs - zb) * t, i++);
+  const wallView = fitSnap(P, -2.1, 1.3);
+  seedStroke({ kind:'ink', target:'object', which:'main', color:PEN[0].c, objMesh:curvedWall }, P, N, 0.07, 'Window idea', wallView);
+  const P2 = [], N2 = []; for (let t = 0; t <= 1.001; t += 0.05){ P2.push(wp(thc + jit(t * 40, 2) * 0.004, zb + (zt - zb) * t)); N2.push(wn(thc)); }
+  seedStroke({ kind:'ink', target:'object', which:'main', color:PEN[0].c, objMesh:curvedWall }, P2, N2, 0.06, 'Mullion', wallView);
+  // canopy outline on the cursor plane
+  const P3 = [], N3 = [];
+  for (let t = 0.3; t <= Math.PI * 2 + 0.55; t += 0.08){ P3.push(new V3(-3.0 + 2.7 * Math.cos(t) * (1 + 0.03 * Math.sin(3 * t)), 0.6 + 1.7 * Math.sin(t) * (1 + 0.04 * Math.cos(2 * t)), 4)); N3.push(ZUP.clone()); }
+  seedStroke({ kind:'ink', target:'plane', which:'main', color:PEN[1].c, planeO:new V3(-3.2, -1.6, 4), planeN:ZUP.clone(), planeName:'Cursor plane' }, P3, N3, 0.1, 'Canopy outline', fitSnap(P3, -2.2, 0.7));
+  // redline path on the site plan
+  const curve = new THREE.CatmullRomCurve3([new V3(-1.5, -4.6, 0), new V3(-0.6, -7, 0), new V3(1.6, -9.8, 0), new V3(3.6, -12, 0), new V3(6.4, -12.4, 0), new V3(9.5, -11, 0)]);
+  const P4 = curve.getPoints(70);
+  seedStroke({ kind:'ink', target:'drawing', which:'plan', color:REDLINE }, P4, P4.map(() => ZUP.clone()), 0.12, 'Garden path', { view:'plan', t:new V3(3.5, -8.5, 0), hh:7 });
+  S.expanded.add(m2.id);
+  S.ai.add(m2.id); S.ai.add(m3.id); updateLabel(m2); updateLabel(m3);
+  quiet = false;
+}
+
+/* ---------- init ---------- */
+readColors();
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+new MutationObserver(readColors).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme', 'class', 'style'] });
+seed();
+applyLayers();
+setMode('object');
+setTab('sketch');
+refresh();
+log('Command: _Open');
+log('Opened Pavilion.3dm: 4 objects, meters.');
+log('Sketch layer is on. Ink and marks stay separate from the model.');
+log('Command: SketchOnObject');
+requestAnimationFrame(frame);
+})();
+</script>

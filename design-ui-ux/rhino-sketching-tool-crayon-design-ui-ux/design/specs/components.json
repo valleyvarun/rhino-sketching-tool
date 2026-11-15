@@ -1,0 +1,224 @@
+{
+  "$description": "Crayon UI components, for building the interface without reading the prototype's HTML. Sizes are CSS px at 100 % zoom (WebView2 device-independent pixels). Every colour, radius and duration is a token from ../tokens/tokens.json (same names as the CSS variables). Behaviour details live in ../docs/behaviour.md; the prototype (../prototype/index.html) is the source of truth if anything here disagrees.",
+  "conventions": {
+    "font": "UI: var(--f-ui) (Segoe UI Variable on Windows). Wordmark only: Instrument Sans 600.",
+    "corners": "Slightly filleted, never pills: buttons 9-10, rows 8-10, bars 15-16, menus 12. Round only for colour swatches and comment pins.",
+    "selected": "Selected = soft grey (--soft-sel). The violet accent (--accent) is only for state: active-tool dot, comments, ticks, the Crayon switch, AI tags, the agent's icon, focus rings.",
+    "motion": "Easing --spring = cubic-bezier(.3,0,.2,1), no overshoot. 140 ms hover/press, 260 ms rows and panels. Skip all animation when the OS asks for reduced motion.",
+    "words": "A pen stroke is always a 'sketch' (Sketch 1, Sketch 2...), never 'ink'. Comments, not marks. Sentence case everywhere; no all-caps labels.",
+    "keys": "No keyboard shortcuts of Crayon's own (they would clash with Rhino's command line). Only Rhino's own keys and the usual ones inside text fields.",
+    "icons": "24 x 24 grid, round caps and joins, currentColor, stroke 1.6-1.8. Files in ../icons/."
+  },
+  "hosts": {
+    "toolbar-window": "A borderless, transparent WebView2 window that floats over the active Rhino viewport and follows it. Holds the toolbar and the option row.",
+    "panel": "A normal dockable Rhino panel (Rhino.UI.Panels) hosting a WebView2. Holds the side panel (Sketch, Layers, Agent).",
+    "conduit": "Rhino.Display.DisplayConduit. Draws sketches, comment pins, the drawing-plane tint, the 3D cursor and the snap dot in the viewport."
+  },
+  "components": [
+    {
+      "id": "toolbar",
+      "host": "toolbar-window",
+      "what": "The dock: five tools in a floating bar.",
+      "anatomy": ["grip (six dots, drag to move)", "tool buttons: Select, Pen, Eraser, Marks (comments), Saved views", "separator", "minimize chevron"],
+      "size": { "height": 56, "padding": "4px 6px", "toolButton": "44 x 42, radius 11", "iconSize": 20 },
+      "tokens": { "background": "--glass", "radius": "--r-dock (16)", "shadow": "--shadow-2", "icon": "--ink-2", "iconActive": "--ink" },
+      "states": {
+        "active": "A 4 px --accent dot under the icon (beside it when docked on a side). The dot glides only when you switch tools.",
+        "press": "scale .94",
+        "minimized": "Only the active tool and the chevron remain; the option row hides.",
+        "crayonOff": "Hidden (opacity 0, then visibility hidden after 180 ms)."
+      },
+      "docking": "Within 72 px of the left/right edge it docks there and turns vertical; near the top/bottom middle (80 px) it docks there horizontally; else it floats. Double-click the grip resets it to the bottom centre. Position is remembered.",
+      "motion": "Each tool icon plays one moment when it turns on: Pen draws its curve, Marks writes its two lines, the camera blinks its shutter.",
+      "behaviour": "../docs/behaviour.md#toolbar"
+    },
+    {
+      "id": "option-row",
+      "host": "toolbar-window",
+      "what": "The active tool's options, next to the toolbar.",
+      "size": { "height": 44, "padding": 5, "gap": 6, "radius": 15 },
+      "tokens": { "background": "--glass", "shadow": "--shadow-2", "label": "--muted" },
+      "placement": "Top/bottom dock: centred beside the toolbar (below a top dock, above a bottom one), 8 px gap. Side dock: level with the tool that opened it.",
+      "contents": {
+        "select": "Only when something is selected: 'N selected' · Send to agent (agent icon) · Clear",
+        "pen": "Object | Plane segmented toggle · plane chip 'On <layer>' x (when drawing on a picked face or the 3D cursor) · colour swatch · Snap shapes checkbox",
+        "eraser": "'Drag over sketches or comments' · Clear all sketches (second click confirms: 'Click again to clear')",
+        "marks": "One line of help: 'Click anywhere to comment. It sticks to surfaces and sketch lines.'",
+        "views": "Save view · one chip per saved view (x on hover deletes) · 'Named Views' with the sync arrows",
+        "cursor": "Plane: Surface | Top | Front | Side · Reset"
+      },
+      "rules": "Stays open while you draw; never closes on an outside click. At most one line of help text. No black hint bars anywhere."
+    },
+    {
+      "id": "segmented",
+      "what": "Two to four exclusive options (Object | Plane, Surface | Top | Front | Side).",
+      "size": { "padding": 3, "radius": 12, "button": "height 28, padding 0 11, radius 9, 500 12px" },
+      "tokens": { "track": "--well", "thumb": "--soft-sel", "text": "--ink-2", "textOn": "--ink" },
+      "motion": "The soft-grey thumb slides from the previous choice (260 ms) and never replays."
+    },
+    {
+      "id": "button",
+      "variants": {
+        "row": "Option-row button: height 30, padding 0 11, radius 10, --well, 500 12px; hover --press",
+        "panel": "Panel button: height 32, radius 10, --soft-sel, 600 12px",
+        "ghost": "Panel secondary: transparent with an inset 1 px --line-2 ring, 500 12px",
+        "icon": "Square 32 x 32 (panel) or 30 x 30 (header), icon 15-16",
+        "danger": "Text --danger; destructive actions always need a second click"
+      },
+      "rules": "No blue or black filled buttons. Selected = --soft-sel."
+    },
+    {
+      "id": "checkbox",
+      "what": "Every on/off setting except Crayon on/off.",
+      "size": { "box": "16 x 16, radius 4, inset 1.5 px --line-2 ring", "row": "padding 8 6, gap 11" },
+      "states": { "on": "A hand-drawn tick in --accent that overflows the box (../icons/check-tick.svg), drawn on when checked and rubbed out when unchecked." },
+      "rules": "Never an iOS switch."
+    },
+    {
+      "id": "crayon-switch",
+      "host": "panel",
+      "what": "Crayon on / off, in the panel header.",
+      "size": { "track": "32 x 18, radius 6", "knob": "14 x 14, radius 4, white, inset 2" },
+      "tokens": { "on": "--accent", "off": "--line-2" },
+      "behaviour": "Off hides the toolbar and option row, switches to plain selecting and rests Crayon's tool ring. Sketches stay on their layers. No message is shown; the grey switch is the only sign. Remembered.",
+      "rules": "Filleted corners and a square-ish knob: not an iOS pill."
+    },
+    {
+      "id": "panel",
+      "host": "panel",
+      "what": "The side panel.",
+      "size": { "width": "348 default, 300-640, drag the left edge; double-click the edge resets", "padding": "12 left/right" },
+      "tokens": { "background": "--surface-2", "edge": "--line-2" },
+      "anatomy": ["header", "tabs", "view (Sketch | Layers | Agent)", "footer (Sketch: preset save; Layers: selection bar)"]
+    },
+    {
+      "id": "panel-header",
+      "anatomy": ["lockup: Crayon mark + 'crayon' wordmark (Instrument Sans 600, 18.5 px), never in an app-icon tile", "Agent tab only: History, New chat, divider", "Crayon switch", "Light / dark (moon / sun)"],
+      "size": { "headerButton": "30 x 30, radius 9, icon --muted, hover --hover" },
+      "rules": "No status text (no 'Model ready')."
+    },
+    {
+      "id": "tabs",
+      "what": "Sketch · Layers · Agent.",
+      "size": { "track": "height 38, padding 4, radius 14, --well", "tab": "height 30, radius 11, 600 12.5px, icon 15" },
+      "tokens": { "thumb": "--soft-sel", "text": "--ink-2", "textOn": "--ink", "agentIcon": "--accent (always)" },
+      "icons": { "sketch": "../icons/tool-pen.svg", "layers": "../icons/tab-layers.svg", "agent": "../icons/tab-agent.svg (the Thinking loop)" },
+      "states": {
+        "switch": "The thumb slides; the chosen tab's icon plays its moment: pencil draws its line; top sheet lifts as the lower layer slides out; the agent's dot lands and its loop draws on.",
+        "agentCount": "A violet count badge (16 px, radius 99, 700 10px) = items sent to the agent.",
+        "agentBusy": "While the agent thinks, the tab's loop runs (see agent-icon)."
+      }
+    },
+    {
+      "id": "section-heading",
+      "what": "One heading style for every section in every tab (Presets, Stroke, 3D cursor, Rhino, Crayon).",
+      "size": { "height": 30, "padding": "0 4", "radius": 8, "gap": 7 },
+      "anatomy": ["chevron 12 px (--muted), rotated 90° when open", "title: 600 13px --ink, sentence case", "note on the right: 400 11.5px --muted (e.g. preset count, '4 objects', '1 item sent to the agent')", "optional action (⋯)"],
+      "states": { "open": "Every section starts open.", "hover": "--hover", "focus": "2 px --accent-ring", "keys": "Enter / Space toggles" }
+    },
+    {
+      "id": "stroke-preview",
+      "size": { "height": 84, "radius": 14 },
+      "tokens": { "background": "--surface", "ring": "--shadow-1" },
+      "what": "A sample stroke drawn with the current settings."
+    },
+    {
+      "id": "preset-row",
+      "size": { "height": 38, "radius": 10, "columns": "76 px sample stroke · name · actions · 20" },
+      "states": { "selected": "--soft-sel", "edited": "the Stroke heading note shows '<preset>, edited'; the footer offers Save to “<preset>” and Save as new" },
+      "behaviour": "Click to use. Double-click renames. Hover shows x to delete. Kept between sessions."
+    },
+    {
+      "id": "value-bar",
+      "what": "Weight (1-10 px) and opacity (20-100 %): a soft bar you drag, the value inside.",
+      "size": { "height": 28, "radius": 8 },
+      "tokens": { "track": "--well", "fill": "--soft-sel", "fillEdge": "2 px --ink-2 on the right edge of the fill", "value": "500 12px --ink, tabular numbers, UI font (not mono)" },
+      "keys": "Arrow keys nudge it while focused."
+    },
+    {
+      "id": "colour-swatch",
+      "size": { "swatch": "22 x 22 round", "selected": "2 px --surface-2 gap + 1.5 px --ink ring" },
+      "what": "Four swatches + a rainbow ring that opens the colour picker (turns slowly on hover)."
+    },
+    {
+      "id": "cursor-section",
+      "what": "Sketch › 3D cursor: a point that holds a drawing plane and is 'here' for the agent.",
+      "anatomy": ["X / Y / Z fields: 3 columns, height 30, radius 8, inset --line-2 ring, label 600 11px --muted, value 500 12px tabular", "Plane: segmented Surface | Top | Front | Side", "checkbox: Draw on its plane", "checkbox: Agent can use it as “here”", "buttons: Place cursor (panel) · Look at it (ghost) · reset (icon, 'Reset to origin')"],
+      "behaviour": "../docs/behaviour.md (Sketch › 3D cursor)",
+      "rhino": "A point + plane (like a CPlane origin). Draw on its plane = set the active CPlane to it. Look at it = set the view to that plane, centred on the cursor."
+    },
+    {
+      "id": "layer-row",
+      "size": { "layer": "height 32, radius 9", "item": "height 30, radius 9, 400 12.5px", "eye/lock": "24 x 24, radius 7, icon 15", "swatch": "10 x 10 radius 3", "dot": "8 x 8 round", "commentNumber": "16 x 16 round, --accent, white 700 9.5px" },
+      "anatomy": { "rhinoLayer": "eye · lock · colour swatch · name · count", "crayonLayer": "chevron · eye · lock · swatch · name · count (Sketches, Comments, Curves)", "item": "eye · dot or comment number · name (double-click renames) · AI · details chevron" },
+      "states": { "hover": "--hover", "selected": "--soft-sel", "hidden": "name and swatch at 38 % opacity", "new": "flashes --accent-soft once, the first time you see it", "eyeAndLock": "always visible (never hover-only)" },
+      "rules": "Flat rows, no card boxes, no thumbnails. No location text ('on Walls') in rows."
+    },
+    {
+      "id": "ai-button",
+      "what": "Sends one item to the agent. The deliberate way to give the agent context.",
+      "size": { "height": 20, "padding": "0 6", "radius": 6, "font": "700 9.5px, letter-spacing .04em" },
+      "states": { "off": "transparent, inset 1 px --line-2 ring, --muted", "on": "--accent fill, --accent-ink text", "focus": "2 px --accent-ring" }
+    },
+    {
+      "id": "details-drawer",
+      "what": "Opens under an item row from its details chevron (22 x 22).",
+      "anatomy": ["info: '<kind> · <length> m long · drawn in <view>' (400 11.5px --muted)", "comments only: a text field to edit the comment (height 28, radius 7)", "actions (height 26, radius 7, --well): Zoom to fit · Turn into curve (hand-drawn sketches only) · Delete (--danger)"],
+      "size": { "indent": "content lines up with the row's name (70 px)" }
+    },
+    {
+      "id": "selection-bar",
+      "host": "panel",
+      "what": "Layers footer while something is selected.",
+      "anatomy": ["'N selected' (count bold, 4 px gap) · Clear", "Send to agent (agent icon) · Turn into curves (when hand-drawn sketches are selected) · Delete"],
+      "rules": "Selecting never sends anything to the agent."
+    },
+    {
+      "id": "agent-icon",
+      "what": "The Thinking loop: a dot circled by one hand-drawn crayon loop. The agent's icon everywhere (tab, Send to agent, Layers note, every reply, the empty state).",
+      "file": "../icons/tab-agent.svg",
+      "parts": { "dot": "circle r 2.1, filled", "loop": "stroke 2.1, pathLength 1", "echo": "the same loop, stroke 1, 30 % opacity, offset (.45, .4): the faint second pass of the hand-drawn tick" },
+      "colour": "--accent, always",
+      "motion": {
+        "appear": "dot scales in (300 ms), then the loop draws on (500 ms, from 60 ms), the echo fades in last",
+        "thinking": "loop: a short stroke chases round it, growing and shrinking (1.4 s, infinite: dasharray .04/.96 → .62/.38 → .04/.96, dashoffset 0 → -1); dot breathes to 68 % scale; echo hidden",
+        "settle": "when the answer arrives the loop draws itself once, whole, and stays"
+      }
+    },
+    {
+      "id": "agent-composer",
+      "host": "panel",
+      "size": { "radius": 16, "padding": "12 12 9", "bar": "height 30" },
+      "tokens": { "background": "--surface", "ring": "1 px --line-2", "focus": "1.5 px --accent ring" },
+      "anatomy": ["chips of what was sent to the agent (height 24, radius 7, --accent-soft, x removes)", "attached files", "text field (Return sends, Shift+Return new line, placeholder 'Describe what to build…')", "bar: attach · voice · Skill menu · Model menu · send"],
+      "send": "30 x 30, radius 9; grey when empty, fills --accent when there is something to send; the arrow flies up on send",
+      "voice": "violet glow around the panel while listening",
+      "skills": ["Sketch to 3D (build)", "Edit model (edit)", "Variations (vary)", "Clean up (tidy)", "— divider —", "Ask (ask)"],
+      "model": "Shows the model's real name (e.g. 'Opus 5.5'). The list comes from the backend: window.Crayon.models."
+    },
+    {
+      "id": "agent-reply",
+      "anatomy": ["header: agent icon 22 px + 'Thinking' (shimmering --muted text) while working", "text: 400 13px", "steps: fold-out '<n> steps', each with a small spinner, then a dot", "result: check + title + detail · Undo (flips to Redo) · 'Refine it by telling me what to change'", "meta (fades in): copy · good · bad · time"],
+      "userMessage": "Right-aligned, --well, radius 14, max 86 % width; chips of what was sent sit above it; copy and time underneath",
+      "rules": "No suggested prompts. No 'what should the agent do' question."
+    },
+    {
+      "id": "comment-pin",
+      "host": "conduit",
+      "what": "A numbered --accent dot with a white label holding the comment.",
+      "hover": "A small dark tag above it names what it sticks to: 'Sketch · <name> ✎' (click to rename the sketch) or 'Layer · <layer name>'. Never an invented object name.",
+      "snap": "Sticks to a sketch line within 14 px of the pointer, else to the surface under it."
+    },
+    {
+      "id": "hover-hint",
+      "host": "conduit",
+      "what": "A small dark chip beside the pointer: 'Sketch · Window idea', 'Layer · Massing'. The layer name comes from Rhino (the object's layer full path)."
+    },
+    {
+      "id": "saved-view-chip",
+      "host": "toolbar-window",
+      "size": { "height": 30, "radius": 10, "background": "--well" },
+      "behaviour": "Click restores the view instantly (no fly-through), like Rhino's Named Views. Double-click renames. x deletes (the chip folds away, then the sync arrows turn once). Maps 1:1 to _-NamedView Save / Restore / Rename / Delete."
+    }
+  ]
+}

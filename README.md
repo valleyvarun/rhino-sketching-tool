@@ -1,1 +1,0 @@
-# rhino-sketching-tool

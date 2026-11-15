@@ -13,14 +13,30 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 
     <Version>1.0.0</Version>
-    <Title>Rhino Sketching Tool</Title>
-    <Description>Freehand 3D sketching: draw on object surfaces, on the construction plane, or at a 3D cursor, and erase whole strokes or parts of them.</Description>
+    <Title>Crayon for Rhino</Title>
+    <Description>Sketch on objects, planes, a 3D cursor or saved Rhino views, with Claude Code and Codex assistants.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Compile against the Rhino 8.0 API so the plug-in runs on every Rhino 8 service release.
          Rhino supplies these assemblies at run time, so they are not copied to the output. -->
     <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WPF's drawing, which the viewport toolbar is painted with (Toolbar.cs). Part of
+         Windows' .NET, and Rhino for Windows has it loaded already. -->
+    <Reference Include="PresentationCore" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Agent tab's page, carried inside the plug-in (AgentView.cs loads it). -->
+    <EmbeddedResource Include="UI/Web/agent.html" LogicalName="RhinoSketchingTool.agent.html" />
+    <EmbeddedResource Include="UI/Web/sidebar.html" LogicalName="RhinoSketchingTool.sidebar.html" />
+    <EmbeddedResource Include="Assets/Brand/crayon-mark.svg" LogicalName="RhinoSketchingTool.crayon-mark.svg" />
+    <None Update="Assets/Brand/*.svg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

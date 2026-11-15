@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Assistant</title>
+<!--
+  The Agent tab: a chat with Claude Code, made to look like Claude Code's own window.
+  AgentView.cs loads this page into Rhino's web view, hands it the state of the chat
+  (crayon.state) and collects what the user does here (crayon.take). Nothing in this
+  page talks to the network.
+-->
+<style>
+:root{
+  --bg:#1a1a1a; --card:#1f1f1f; --box:#2f2f2f; --line:#2e2e2e; --line2:#3a3a3a;
+  --text:#ececec; --text2:#c9c9c9; --muted:#8f8f8f; --faint:#6b6b6b;
+  --hover:rgba(255,255,255,.06); --press:rgba(255,255,255,.1);
+  --clay:#d97757; --blue:#4f8ff7; --red:#f0766b; --green:#6cc070;
+  --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{ background:var(--bg); color:var(--text); font:13px/1.5 var(--ui); overflow:hidden; -webkit-font-smoothing:antialiased; user-select:none; }
+button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+svg{ display:block; }
+::-webkit-scrollbar{ width:10px; }
+::-webkit-scrollbar-thumb{ background:#3a3a3a; border-radius:5px; border:2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover{ background:#4a4a4a; }
+
+#chat{ display:flex; flex-direction:column; height:100%; }
+#scroll{ flex:1; min-height:0; overflow-y:auto; padding:12px 12px 4px; display:flex; flex-direction:column; }
+
+/* ---------- the empty chat: the mascot on a small stack of cards ---------- */
+#welcome{ margin:auto 0; padding:8px 0 16px; width:100%; max-width:480px; align-self:center; }
+#mascot{ display:flex; justify-content:flex-end; padding-right:14px; margin-bottom:-3px; position:relative; z-index:1; }
+#mascot svg{ width:44px; height:auto; }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:14px; }
+.card + .card{ margin-top:8px; }
+.row{ display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:8px 14px; text-align:left; border-radius:13px; }
+button.row:hover{ background:var(--hover); }
+.row svg{ flex:none; width:16px; height:16px; color:var(--text2); }
+.row .t{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row .h{ color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.row .caret{ width:12px; height:12px; color:var(--muted); margin-left:-2px; }
+.row.go .t{ color:var(--text); font-weight:600; }
+
+/* ---------- the chat ---------- */
+#list{ display:flex; flex-direction:column; gap:12px; user-select:text; }
+.user{ align-self:flex-end; max-width:88%; background:var(--box); border-radius:14px; padding:7px 12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.text{ overflow-wrap:anywhere; }
+.text > :first-child{ margin-top:0; } .text > :last-child{ margin-bottom:0; }
+.text p{ margin:0 0 8px; }
+.text h1,.text h2,.text h3{ font-size:13.5px; font-weight:600; margin:12px 0 4px; }
+.text ul,.text ol{ margin:0 0 8px; padding-left:20px; }
+.text li{ margin:2px 0; }
+.text a{ color:#8ab4ff; text-decoration:none; } .text a:hover{ text-decoration:underline; }
+.text code{ font:12px var(--mono); background:#2a2a2a; border-radius:5px; padding:1px 5px; }
+.text pre{ margin:0 0 8px; background:#121212; border:1px solid var(--line); border-radius:10px; padding:9px 11px; overflow-x:auto; }
+.text pre code{ background:none; padding:0; white-space:pre; }
+.tool{ display:flex; align-items:center; gap:8px; color:var(--muted); min-width:0; }
+.tool .dot{ flex:none; width:7px; height:7px; border-radius:50%; background:var(--faint); }
+.tool.running .dot{ background:var(--clay); animation:pulse 1.1s ease-in-out infinite; }
+.tool.done .dot{ background:var(--green); } .tool.error .dot{ background:var(--red); }
+.tool b{ flex:none; color:var(--text2); font-weight:600; }
+.tool span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:12px var(--mono); }
+.ask{ border:1px solid var(--line2); border-radius:14px; background:var(--card); padding:11px 12px; }
+.ask .q{ font-weight:600; margin-bottom:6px; }
+.ask .d{ font:12px/1.45 var(--mono); color:var(--text2); background:#121212; border:1px solid var(--line); border-radius:9px; padding:7px 9px; margin-bottom:9px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:160px; overflow:auto; }
+.ask .b{ display:flex; flex-wrap:wrap; gap:6px; }
+.ask .b button{ height:28px; padding:0 11px; border-radius:8px; background:var(--box); font-weight:500; }
+.ask .b button:hover{ background:#3a3a3a; }
+.ask .b button.yes{ background:var(--text); color:#161616; } .ask .b button.yes:hover{ background:#fff; }
+.ask .a{ color:var(--muted); }
+.notice{ color:var(--muted); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.notice.error{ color:var(--red); }
+#activity{ display:flex; align-items:center; gap:8px; color:var(--muted); padding:12px 0 2px; }
+#activity .spark{ color:var(--clay); font-size:15px; line-height:1; animation:spark 1.6s ease-in-out infinite; }
+@keyframes spark{ 0%,100%{ transform:scale(.8) rotate(0deg); opacity:.6; } 50%{ transform:scale(1.15) rotate(90deg); opacity:1; } }
+@keyframes pulse{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+[hidden]{ display:none !important; }
+@media (max-width:260px){
+  #scroll{ padding:10px 8px 4px; }
+  #composer{ padding:6px 6px 6px; }
+  .row{ padding:8px 10px; gap:8px; }
+  .user{ max-width:94%; }
+}
+
+/* ---------- the message box, and the line of choices under it ---------- */
+#composer{ flex:none; padding:8px 10px 8px; }
+#box{ display:flex; align-items:flex-end; gap:4px; background:var(--box); border:1px solid #3b3b3b; border-radius:16px; padding:6px 6px 6px 6px; }
+#box:focus-within{ border-color:#565656; }
+#box button{ flex:none; width:30px; height:30px; border-radius:9px; display:grid; place-items:center; color:var(--text2); }
+#box button:hover{ background:var(--press); }
+#box button svg{ width:17px; height:17px; }
+#input{ flex:1; min-width:0; min-height:30px; resize:none; border:0; outline:0; background:transparent; color:var(--text); font:13.5px/1.45 var(--ui); padding:5px 2px; max-height:168px; user-select:text; overflow-y:hidden; }
+#input.tall{ overflow-y:auto; }
+#input::placeholder{ color:var(--muted); }
+#go{ background:var(--text) !important; color:#161616 !important; border-radius:50% !important; }
+#go:disabled{ background:transparent !important; color:var(--faint) !important; cursor:default; }
+#go.stop{ background:var(--text) !important; }
+#foot{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 4px; padding:6px 2px 0; }
+#foot .grow{ flex:1; }
+.chip{ display:flex; align-items:center; gap:6px; height:26px; padding:0 7px; border-radius:8px; color:var(--text2); max-width:100%; min-width:0; }
+.chip:hover{ background:var(--hover); }
+.chip svg{ flex:none; width:15px; height:15px; }
+.chip .t{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chip .dim{ color:var(--muted); }
+.chip .caret{ width:11px; height:11px; color:var(--muted); margin-left:-2px; }
+#ring{ flex:none; width:18px; height:18px; margin:0 4px 0 6px; border-radius:50%; border:2px solid #3d3d3d; border-top-color:var(--blue); }
+#ring.busy{ animation:spin .9s linear infinite; }
+
+/* ---------- pop-up menus ---------- */
+#menu{ position:fixed; z-index:10; min-width:190px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow:auto; background:#262626; border:1px solid #3a3a3a; border-radius:12px; padding:5px; box-shadow:0 14px 34px rgba(0,0,0,.5); }
+#menu button{ display:flex; align-items:baseline; gap:8px; width:100%; text-align:left; padding:6px 9px; border-radius:8px; overflow-wrap:anywhere; }
+#menu button:hover{ background:var(--press); }
+#menu button:disabled{ color:var(--muted); cursor:default; background:none; }
+#menu .tick{ flex:none; width:12px; color:var(--text2); }
+#menu .w{ display:flex; flex-direction:column; min-width:0; }
+#menu .s{ color:var(--muted); font-size:12px; line-height:1.35; }
+#menu hr{ border:0; border-top:1px solid #3a3a3a; margin:5px 4px; }
+
+#chat-head{display:flex;align-items:center;gap:6px;padding:10px 12px 6px;border-bottom:1px solid var(--line)}
+#provider{font-weight:600;flex:1;min-width:0;text-align:left;padding:5px 7px;border-radius:8px}
+#new-chat,#settings{width:29px;height:29px;border-radius:8px;font-size:18px;color:var(--text2)}
+#chat-head button:hover{background:var(--hover)}
+#chooser{margin:auto 0;max-width:480px;align-self:center;width:100%;padding:20px 0}
+#chooser h2{font-size:20px;line-height:1.25;margin:0 0 8px;font-weight:600;letter-spacing:-.3px}
+#chooser p{color:var(--muted);margin:0 0 20px}
+.provider-choice{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:16px;margin-top:10px;border:1px solid var(--line2);border-radius:14px;background:var(--card);text-align:left}
+.provider-choice:hover{border-color:var(--muted);background:var(--hover)}
+.provider-choice strong{font-size:14px}.provider-choice span{color:var(--muted);font-size:12px}
+#attachments{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
+.attachment{display:flex;align-items:center;gap:5px;max-width:100%;padding:4px 7px;border:1px solid var(--line2);border-radius:8px;background:var(--card);font-size:12px}
+.attachment span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.attachment button{width:19px;height:19px;border-radius:4px;color:var(--muted)}
+.attachment button:hover{background:var(--press);color:var(--text)}
+body.codex{--clay:#9d79f2;--blue:#9d79f2}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+:root.light{color-scheme:light;--bg:#f6f7f9;--card:#fff;--box:#fff;--line:#e3e5e9;--line2:#d9dde4;--text:#15171c;--text2:#4a505d;--muted:#878d99;--faint:#adb2bc;--hover:rgba(16,20,28,.045);--press:rgba(16,20,28,.08)}
+:root.light #menu{background:var(--card);border-color:var(--line2);box-shadow:0 12px 26px -16px rgba(16,20,28,.32)}
+:root.light #box{border-color:var(--line2)}:root.light #go{color:#fff!important}:root.light #menu hr{border-color:var(--line2)}.provider-choice{flex-direction:row;align-items:center;gap:14px;padding:14px 16px;min-height:62px}.provider-logo{width:30px;height:30px;object-fit:contain;flex:none}.logo-light{display:none}:root.light .logo-light{display:block}:root.light .logo-dark{display:none}</style>
+</head>
+<body>
+<div id="chat">
+  <div id="chat-head"><button id="provider" title="Choose assistant"></button><button id="new-chat" title="New chat" aria-label="New chat">&#x270E;</button><button id="settings" title="Account and settings" aria-label="Account and settings">&#x22EF;</button></div>
+  <div id="mcp-notice" class="card" role="status" hidden style="padding:10px 12px;font-size:12px;line-height:1.5;flex-shrink:0">
+    <div id="mcp-message"></div>
+    <button id="mcp-install" class="chip">Open Package Manager</button>
+    <button id="mcp-retry" class="chip">Retry</button>
+  </div>
+  <div id="scroll">
+    <div id="chooser">
+      <h2>Choose your assistant</h2>
+      <button class="provider-choice" data-provider="claude"><img class="provider-logo" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQ4IiBoZWlnaHQ9IjI0OCIgdmlld0JveD0iMCAwIDI0OCAyNDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01Mi40Mjg1IDE2Mi44NzNMOTguNzg0NCAxMzYuODc5TDk5LjU0ODUgMTM0LjYwMkw5OC43ODQ0IDEzMy4zMzRIOTYuNDkyMUw4OC43MjM3IDEzMi44NjJMNjIuMjM0NiAxMzIuMTUzTDM5LjMxMTMgMTMxLjIwN0wxNy4wMjQ5IDEzMC4wMjZMMTEuNDIxNCAxMjguODQ0TDYuMiAxMjEuODczTDYuNzA5NCAxMTguNDQ3TDExLjQyMTQgMTE1LjI1N0wxOC4xNzEgMTE1Ljg0N0wzMy4wNzExIDExNi45MTFMNTUuNDg1IDExOC40NDdMNzEuNjU4NiAxMTkuMzkyTDk1LjcyOCAxMjEuODczSDk5LjU0ODVMMTAwLjA1OCAxMjAuMzM3TDk4Ljc4NDQgMTE5LjM5Mkw5Ny43NjU2IDExOC40NDdMNzQuNTg3NyAxMDIuNzMyTDQ5LjQ5OTUgODYuMTkwNUwzNi4zODIzIDc2LjYyTDI5LjM3NzkgNzEuNzc1N0wyNS44MTIxIDY3LjI4NThMMjQuMjgzOSA1Ny4zNjA4TDMwLjY1MTUgNTAuMjcxNkwzOS4zMTEzIDUwLjg2MjNMNDEuNDc2MyA1MS40NTMxTDUwLjI2MzYgNTguMTg3OUw2OC45ODQyIDcyLjcyMDlMOTMuNDM1NyA5MC42ODA0TDk3LjAwMTUgOTMuNjM0M0w5OC40Mzc0IDkyLjY2NTJMOTguNjU3MSA5MS45ODAxTDk3LjAwMTUgODkuMjYyNUw4My43NTcgNjUuMjc3Mkw2OS42MjEgNDAuODE5Mkw2My4yNTM0IDMwLjY1NzlMNjEuNTk3OCAyNC42MzJDNjAuOTU2NSAyMi4xMDMyIDYwLjU3OSAyMC4wMTExIDYwLjU3OSAxNy40MjQ2TDY3LjgzODEgNy40OTk2NUw3MS45MTMzIDYuMTk5OTVMODEuNzE5MyA3LjQ5OTY1TDg1Ljc5NDYgMTEuMDQ0M0w5MS45MDc0IDI0Ljk4NjVMMTAxLjcxNCA0Ni44NDUxTDExNi45OTYgNzYuNjJMMTIxLjQ1MyA4NS40ODE2TDEyMy44NzMgOTMuNjM0M0wxMjQuNzY0IDk2LjExNTVIMTI2LjI5MlY5NC42OTc2TDEyNy41NjYgNzcuOTE5N0wxMjkuODU4IDU3LjM2MDhMMTMyLjE1IDMwLjg5NDJMMTMyLjkxNSAyMy40NTA1TDEzNi42MDggMTQuNDcwOEwxNDMuOTk0IDkuNjI2NDNMMTQ5LjcyNSAxMi4zNDRMMTU0LjQzNyAxOS4wNzg4TDE1My44IDIzLjQ1MDVMMTUwLjk5OCA0MS42NDYzTDE0NS41MjIgNzAuMTIxNUwxNDEuOTU3IDg5LjI2MjVIMTQzLjk5NEwxNDYuNDE0IDg2Ljc4MTNMMTU2LjA5MyA3NC4wMjA2TDE3Mi4yNjYgNTMuNjk4TDE3OS4zOTggNDUuNjYzNUwxODcuODAzIDM2LjgwMkwxOTMuMTUyIDMyLjU0ODRIMjAzLjM0TDIxMC43MjYgNDMuNjU0OUwyMDcuNDE1IDU1LjExNTlMMTk2Ljk3MiA2OC4zNDkyTDE4OC4zMTIgNzkuNTczOUwxNzUuODk2IDk2LjIwOTVMMTY4LjE5MSAxMDkuNTg1TDE2OC44ODIgMTEwLjY4OUwxNzAuNzM4IDExMC41M0wxOTguNzU1IDEwNC41MDRMMjEzLjkxIDEwMS43ODdMMjMxLjk5NCA5OC43MTQ5TDI0MC4xNDQgMTAyLjQ5NkwyNDEuMDM2IDEwNi4zOTVMMjM3Ljg1MiAxMTQuMzExTDIxOC40OTUgMTE5LjAzN0wxOTUuODI2IDEyMy42NDVMMTYyLjA3IDEzMS41OTJMMTYxLjY5NiAxMzEuODkzTDE2Mi4xMzcgMTMyLjU0N0wxNzcuMzYgMTMzLjkyNUwxODMuODU1IDEzNC4yNzlIMTk5Ljc3NEwyMjkuNDQ3IDEzNi41MjRMMjM3LjIxNSAxNDEuNjA1TDI0MS44IDE0Ny44NjdMMjQxLjAzNiAxNTIuNzExTDIyOS4wNjUgMTU4LjczN0wyMTMuMDE5IDE1NC45NTZMMTc1LjQ1IDE0NS45NzdMMTYyLjU4NyAxNDIuNzg3SDE2MC44MDVWMTQzLjg1TDE3MS41MDIgMTU0LjM2NkwxOTEuMjQyIDE3Mi4wODlMMjE1LjgyIDE5NS4wMTFMMjE3LjA5NCAyMDAuNjgyTDIxMy45MSAyMDUuMTcyTDIxMC41OTkgMjA0LjY5OUwxODguOTQ5IDE4OC4zOTRMMTgwLjU0NCAxODEuMDY5TDE2MS42OTYgMTY1LjExOEgxNjAuNDIyVjE2Ni43NzJMMTY0Ljc1MiAxNzMuMTUyTDE4Ny44MDMgMjA3Ljc3MUwxODguOTQ5IDIxOC40MDVMMTg3LjI5NCAyMjEuODMyTDE4MS4zMDggMjIzLjk1OUwxNzQuODEzIDIyMi43NzdMMTYxLjE4NyAyMDMuNzU0TDE0Ny4zMDUgMTgyLjQ4NkwxMzYuMDk4IDE2My4zNDVMMTM0Ljc0NSAxNjQuMkwxMjguMDc1IDIzNS40MkwxMjUuMDE5IDIzOS4wODJMMTE3Ljg4NyAyNDEuOEwxMTEuOTAyIDIzNy4zMUwxMDguNzE4IDIyOS45ODRMMTExLjkwMiAyMTUuNDUyTDExNS43MjIgMTk2LjU0N0wxMTguNzc5IDE4MS41NDFMMTIxLjU4IDE2Mi44NzNMMTIzLjI5MSAxNTYuNjM2TDEyMy4xNCAxNTYuMjE5TDEyMS43NzMgMTU2LjQ0OUwxMDcuNjk5IDE3NS43NTJMODYuMzA0IDIwNC42OTlMNjkuMzY2MyAyMjIuNzc3TDY1LjI5MSAyMjQuNDMxTDU4LjI4NjcgMjIwLjc2OEw1OC45MjM1IDIxNC4yN0w2Mi44NzEzIDIwOC40OEw4Ni4zMDQgMTc4LjcwNUwxMDAuNDQgMTYwLjE1NUwxMDkuNTUxIDE0OS41MDdMMTA5LjQ2MiAxNDcuOTY3TDEwOC45NTkgMTQ3LjkyNEw0Ni42OTc3IDE4OC41MTJMMzUuNjE4MiAxODkuOTNMMzAuNzc4OCAxODUuNDRMMzEuNDE1NiAxNzguMTE1TDMzLjcwNzkgMTc1Ljc1Mkw1Mi40Mjg1IDE2Mi44NzNaIiBmaWxsPSIjRDk3NzU3Ii8+Cjwvc3ZnPgo=" alt=""><strong>Claude Code</strong></button>
+      <button class="provider-choice" data-provider="codex"><img class="provider-logo logo-light" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIxIiBoZWlnaHQ9IjcyMSIgdmlld0JveD0iMCAwIDcyMSA3MjEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xNjM3XzI5MzQpIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAxXzE2MzdfMjkzNCkiPgo8cGF0aCBkPSJNMzA0LjI0NiAyOTQuNjExVjI0OS4wMjhDMzA0LjI0NiAyNDUuMTg5IDMwNS42ODcgMjQyLjMwOSAzMDkuMDQ0IDI0MC4zOTJMNDAwLjY5MiAxODcuNjEyQzQxMy4xNjcgMTgwLjQxNSA0MjguMDQyIDE3Ny4wNTggNDQzLjM5NCAxNzcuMDU4QzUwMC45NzEgMTc3LjA1OCA1MzcuNDQgMjIxLjY4MiA1MzcuNDQgMjY5LjE4MkM1MzcuNDQgMjcyLjU0IDUzNy40NCAyNzYuMzc5IDUzNi45NTkgMjgwLjIxOEw0NDEuOTU0IDIyNC41NThDNDM2LjE5NyAyMjEuMjAxIDQzMC40MzcgMjIxLjIwMSA0MjQuNjggMjI0LjU1OEwzMDQuMjQ2IDI5NC42MTFaTTUxOC4yNDUgNDcyLjE0NVYzNjMuMjI0QzUxOC4yNDUgMzU2LjUwNSA1MTUuMzY0IDM1MS43MDcgNTA5LjYwOCAzNDguMzQ5TDM4OS4xNzQgMjc4LjI5Nkw0MjguNTE5IDI1NS43NDNDNDMxLjg3NyAyNTMuODI2IDQzNC43NTcgMjUzLjgyNiA0MzguMTE1IDI1NS43NDNMNTI5Ljc2MiAzMDguNTIzQzU1Ni4xNTQgMzIzLjg3OSA1NzMuOTA1IDM1Ni41MDUgNTczLjkwNSAzODguMTcxQzU3My45MDUgNDI0LjYzNiA1NTIuMzE1IDQ1OC4yMjUgNTE4LjI0NSA0NzIuMTQxVjQ3Mi4xNDVaTTI3NS45MzcgMzc2LjE4MkwyMzYuNTkyIDM1My4xNTJDMjMzLjIzNSAzNTEuMjM1IDIzMS43OTQgMzQ4LjM1NCAyMzEuNzk0IDM0NC41MTVWMjM4Ljk1NkMyMzEuNzk0IDE4Ny42MTcgMjcxLjEzOSAxNDguNzQ5IDMyNC40IDE0OC43NDlDMzQ0LjU1NSAxNDguNzQ5IDM2My4yNjQgMTU1LjQ2OCAzNzkuMTAyIDE2Ny40NjNMMjg0LjU3OCAyMjIuMTY0QzI3OC44MjIgMjI1LjUyMSAyNzUuOTQyIDIzMC4zMTkgMjc1Ljk0MiAyMzcuMDM5VjM3Ni4xODZMMjc1LjkzNyAzNzYuMTgyWk0zNjAuNjI2IDQyNS4xMjJMMzA0LjI0NiAzOTMuNDU1VjMyNi4yODNMMzYwLjYyNiAyOTQuNjE2TDQxNy4wMDIgMzI2LjI4M1YzOTMuNDU1TDM2MC42MjYgNDI1LjEyMlpNMzk2Ljg1MiA1NzAuOTg5QzM3Ni42OTggNTcwLjk4OSAzNTcuOTg5IDU2NC4yNyAzNDIuMTUxIDU1Mi4yNzZMNDM2LjY3NCA0OTcuNTc0QzQ0Mi40MzEgNDk0LjIxNyA0NDUuMzExIDQ4OS40MTkgNDQ1LjMxMSA0ODIuNjk5VjM0My41NTJMNDg1LjEzOCAzNjYuNTgyQzQ4OC40OTUgMzY4LjQ5OSA0ODkuOTM2IDM3MS4zNzkgNDg5LjkzNiAzNzUuMjE5VjQ4MC43NzhDNDg5LjkzNiA1MzIuMTE3IDQ1MC4xMDkgNTcwLjk4NSAzOTYuODUyIDU3MC45ODVWNTcwLjk4OVpNMjgzLjEzNCA0NjMuOTlMMTkxLjQ4NiA0MTEuMjExQzE2NS4wOTQgMzk1Ljg1NCAxNDcuMzQzIDM2My4yMjkgMTQ3LjM0MyAzMzEuNTYyQzE0Ny4zNDMgMjk0LjYxNiAxNjkuNDE1IDI2MS41MDkgMjAzLjQ4IDI0Ny41OTNWMzU2Ljk5MUMyMDMuNDggMzYzLjcxIDIwNi4zNjEgMzY4LjUwOCAyMTIuMTE3IDM3MS44NjZMMzMyLjA3NCA0NDEuNDM3TDI5Mi43MjkgNDYzLjk5QzI4OS4zNzIgNDY1LjkwNyAyODYuNDkxIDQ2NS45MDcgMjgzLjEzNCA0NjMuOTlaTTI3Ny44NTkgNTQyLjY4QzIyMy42MzkgNTQyLjY4IDE4My44MTMgNTAxLjg5NSAxODMuODEzIDQ1MS41MTRDMTgzLjgxMyA0NDcuNjc1IDE4NC4yOTQgNDQzLjgzNiAxODQuNzcxIDQzOS45OTdMMjc5LjI5NSA0OTQuNjk4QzI4NS4wNTEgNDk4LjA1NiAyOTAuODEyIDQ5OC4wNTYgMjk2LjU2OCA0OTQuNjk4TDQxNy4wMDIgNDI1LjEyN1Y0NzAuNzFDNDE3LjAwMiA0NzQuNTQ5IDQxNS41NjIgNDc3LjQyOSA0MTIuMjA0IDQ3OS4zNDZMMzIwLjU1NyA1MzIuMTI2QzMwOC4wODEgNTM5LjMyMyAyOTMuMjA2IDU0Mi42OCAyNzcuODU0IDU0Mi42OEgyNzcuODU5Wk0zOTYuODUyIDU5OS43NzZDNDU0LjkxMSA1OTkuNzc2IDUwMy4zNyA1NTguNTEzIDUxNC40MSA1MDMuODEyQzU2OC4xNDkgNDg5Ljg5NiA2MDIuNjk2IDQzOS41MTUgNjAyLjY5NiAzODguMTc2QzYwMi42OTYgMzU0LjU4NyA1ODguMzAzIDMyMS45NjIgNTYyLjM5MiAyOTguNDVDNTY0Ljc5MSAyODguMzczIDU2Ni4yMzEgMjc4LjI5NiA1NjYuMjMxIDI2OC4yMjRDNTY2LjIzMSAxOTkuNjExIDUxMC41NzEgMTQ4LjI2NyA0NDYuMjc0IDE0OC4yNjdDNDMzLjMyMiAxNDguMjY3IDQyMC44NDYgMTUwLjE4NCA0MDguMzcgMTU0LjUwNUMzODYuNzc1IDEzMy4zOTIgMzU3LjAyNiAxMTkuOTU4IDMyNC40IDExOS45NThDMjY2LjM0MiAxMTkuOTU4IDIxNy44ODMgMTYxLjIyIDIwNi44NDMgMjE1LjkyMUMxNTMuMTA0IDIyOS44MzcgMTE4LjU1NyAyODAuMjE4IDExOC41NTcgMzMxLjU1N0MxMTguNTU3IDM2NS4xNDYgMTMyLjk1IDM5Ny43NzEgMTU4Ljg2MSA0MjEuMjgzQzE1Ni40NjIgNDMxLjM2IDE1NS4wMjIgNDQxLjQzNyAxNTUuMDIyIDQ1MS41MUMxNTUuMDIyIDUyMC4xMjMgMjEwLjY4MiA1NzEuNDY2IDI3NC45NzggNTcxLjQ2NkMyODcuOTMxIDU3MS40NjYgMzAwLjQwNyA1NjkuNTQ5IDMxMi44ODMgNTY1LjIyOEMzMzQuNDczIDU4Ni4zNDEgMzY0LjIyMiA1OTkuNzc2IDM5Ni44NTIgNTk5Ljc3NloiIGZpbGw9ImJsYWNrIi8+CjwvZz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNjM3XzI5MzQiPgo8cmVjdCB3aWR0aD0iNzIwIiBoZWlnaHQ9IjcyMCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuNjA2OTM0IDAuMDk5OTc1NikiLz4KPC9jbGlwUGF0aD4KPGNsaXBQYXRoIGlkPSJjbGlwMV8xNjM3XzI5MzQiPgo8cmVjdCB3aWR0aD0iNDg0LjEzOSIgaGVpZ2h0PSI0NzkuODE4IiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE4LjU1NyAxMTkuOTU4KSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=" alt=""><img class="provider-logo logo-dark" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIxIiBoZWlnaHQ9IjcyMSIgdmlld0JveD0iMCAwIDcyMSA3MjEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8xNjM3XzI5MzUpIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAxXzE2MzdfMjkzNSkiPgo8cGF0aCBkPSJNMzA0LjI0NiAyOTUuNDExVjI0OS44MjhDMzA0LjI0NiAyNDUuOTg5IDMwNS42ODcgMjQzLjEwOSAzMDkuMDQ0IDI0MS4xOTFMNDAwLjY5MiAxODguNDEyQzQxMy4xNjcgMTgxLjIxNSA0MjguMDQyIDE3Ny44NTggNDQzLjM5NCAxNzcuODU4QzUwMC45NzEgMTc3Ljg1OCA1MzcuNDQgMjIyLjQ4MiA1MzcuNDQgMjY5Ljk4MkM1MzcuNDQgMjczLjM0IDUzNy40NCAyNzcuMTc5IDUzNi45NTkgMjgxLjAxOEw0NDEuOTU0IDIyNS4zNThDNDM2LjE5NyAyMjIgNDMwLjQzNyAyMjIgNDI0LjY4IDIyNS4zNThMMzA0LjI0NiAyOTUuNDExWk01MTguMjQ1IDQ3Mi45NDVWMzY0LjAyNEM1MTguMjQ1IDM1Ny4zMDQgNTE1LjM2NCAzNTIuNTA3IDUwOS42MDggMzQ5LjE0OUwzODkuMTc0IDI3OS4wOTZMNDI4LjUxOSAyNTYuNTQzQzQzMS44NzcgMjU0LjYyNiA0MzQuNzU3IDI1NC42MjYgNDM4LjExNSAyNTYuNTQzTDUyOS43NjIgMzA5LjMyM0M1NTYuMTU0IDMyNC42NzkgNTczLjkwNSAzNTcuMzA0IDU3My45MDUgMzg4Ljk3MUM1NzMuOTA1IDQyNS40MzYgNTUyLjMxNSA0NTkuMDI0IDUxOC4yNDUgNDcyLjk0MVY0NzIuOTQ1Wk0yNzUuOTM3IDM3Ni45ODJMMjM2LjU5MiAzNTMuOTUyQzIzMy4yMzUgMzUyLjAzNCAyMzEuNzk0IDM0OS4xNTQgMjMxLjc5NCAzNDUuMzE1VjIzOS43NTZDMjMxLjc5NCAxODguNDE2IDI3MS4xMzkgMTQ5LjU0OCAzMjQuNCAxNDkuNTQ4QzM0NC41NTUgMTQ5LjU0OCAzNjMuMjY0IDE1Ni4yNjggMzc5LjEwMiAxNjguMjYyTDI4NC41NzggMjIyLjk2NEMyNzguODIyIDIyNi4zMjEgMjc1Ljk0MiAyMzEuMTE5IDI3NS45NDIgMjM3LjgzOFYzNzYuOTg2TDI3NS45MzcgMzc2Ljk4MlpNMzYwLjYyNiA0MjUuOTIyTDMwNC4yNDYgMzk0LjI1NVYzMjcuMDgzTDM2MC42MjYgMjk1LjQxNkw0MTcuMDAyIDMyNy4wODNWMzk0LjI1NUwzNjAuNjI2IDQyNS45MjJaTTM5Ni44NTIgNTcxLjc4OUMzNzYuNjk4IDU3MS43ODkgMzU3Ljk4OSA1NjUuMDcgMzQyLjE1MSA1NTMuMDc1TDQzNi42NzQgNDk4LjM3NEM0NDIuNDMxIDQ5NS4wMTcgNDQ1LjMxMSA0OTAuMjE5IDQ0NS4zMTEgNDgzLjQ5OVYzNDQuMzUyTDQ4NS4xMzggMzY3LjM4MkM0ODguNDk1IDM2OS4yOTkgNDg5LjkzNiAzNzIuMTc5IDQ4OS45MzYgMzc2LjAxOFY0ODEuNTc3QzQ4OS45MzYgNTMyLjkxNyA0NTAuMTA5IDU3MS43ODUgMzk2Ljg1MiA1NzEuNzg1VjU3MS43ODlaTTI4My4xMzQgNDY0Ljc5TDE5MS40ODYgNDEyLjAxQzE2NS4wOTQgMzk2LjY1NCAxNDcuMzQzIDM2NC4wMjkgMTQ3LjM0MyAzMzIuMzYyQzE0Ny4zNDMgMjk1LjQxNiAxNjkuNDE1IDI2Mi4zMDkgMjAzLjQ4IDI0OC4zOTNWMzU3Ljc5MUMyMDMuNDggMzY0LjUxIDIwNi4zNjEgMzY5LjMwOCAyMTIuMTE3IDM3Mi42NjVMMzMyLjA3NCA0NDIuMjM3TDI5Mi43MjkgNDY0Ljc5QzI4OS4zNzIgNDY2LjcwNyAyODYuNDkxIDQ2Ni43MDcgMjgzLjEzNCA0NjQuNzlaTTI3Ny44NTkgNTQzLjQ4QzIyMy42MzkgNTQzLjQ4IDE4My44MTMgNTAyLjY5NSAxODMuODEzIDQ1Mi4zMTRDMTgzLjgxMyA0NDguNDc1IDE4NC4yOTQgNDQ0LjYzNiAxODQuNzcxIDQ0MC43OTdMMjc5LjI5NSA0OTUuNDk4QzI4NS4wNTEgNDk4Ljg1NiAyOTAuODEyIDQ5OC44NTYgMjk2LjU2OCA0OTUuNDk4TDQxNy4wMDIgNDI1LjkyN1Y0NzEuNTA5QzQxNy4wMDIgNDc1LjM0OSA0MTUuNTYyIDQ3OC4yMjkgNDEyLjIwNCA0ODAuMTQ2TDMyMC41NTcgNTMyLjkyNkMzMDguMDgxIDU0MC4xMjIgMjkzLjIwNiA1NDMuNDggMjc3Ljg1NCA1NDMuNDhIMjc3Ljg1OVpNMzk2Ljg1MiA2MDAuNTc2QzQ1NC45MTEgNjAwLjU3NiA1MDMuMzcgNTU5LjMxMyA1MTQuNDEgNTA0LjYxMkM1NjguMTQ5IDQ5MC42OTYgNjAyLjY5NiA0NDAuMzE1IDYwMi42OTYgMzg4Ljk3NkM2MDIuNjk2IDM1NS4zODcgNTg4LjMwMyAzMjIuNzYyIDU2Mi4zOTIgMjk5LjI1QzU2NC43OTEgMjg5LjE3MyA1NjYuMjMxIDI3OS4wOTYgNTY2LjIzMSAyNjkuMDI0QzU2Ni4yMzEgMjAwLjQxMSA1MTAuNTcxIDE0OS4wNjcgNDQ2LjI3NCAxNDkuMDY3QzQzMy4zMjIgMTQ5LjA2NyA0MjAuODQ2IDE1MC45ODQgNDA4LjM3IDE1NS4zMDVDMzg2Ljc3NSAxMzQuMTkyIDM1Ny4wMjYgMTIwLjc1OCAzMjQuNCAxMjAuNzU4QzI2Ni4zNDIgMTIwLjc1OCAyMTcuODgzIDE2Mi4wMiAyMDYuODQzIDIxNi43MjFDMTUzLjEwNCAyMzAuNjM3IDExOC41NTcgMjgxLjAxOCAxMTguNTU3IDMzMi4zNTdDMTE4LjU1NyAzNjUuOTQ2IDEzMi45NSAzOTguNTcxIDE1OC44NjEgNDIyLjA4M0MxNTYuNDYyIDQzMi4xNiAxNTUuMDIyIDQ0Mi4yMzcgMTU1LjAyMiA0NTIuMzA5QzE1NS4wMjIgNTIwLjkyMiAyMTAuNjgyIDU3Mi4yNjYgMjc0Ljk3OCA1NzIuMjY2QzI4Ny45MzEgNTcyLjI2NiAzMDAuNDA3IDU3MC4zNDkgMzEyLjg4MyA1NjYuMDI4QzMzNC40NzMgNTg3LjE0MSAzNjQuMjIyIDYwMC41NzYgMzk2Ljg1MiA2MDAuNTc2WiIgZmlsbD0id2hpdGUiLz4KPC9nPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwXzE2MzdfMjkzNSI+CjxyZWN0IHdpZHRoPSI3MjAiIGhlaWdodD0iNzIwIiBmaWxsPSJ3aGl0ZSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMC42MDY5MzQgMC44OTk5MDIpIi8+CjwvY2xpcFBhdGg+CjxjbGlwUGF0aCBpZD0iY2xpcDFfMTYzN18yOTM1Ij4KPHJlY3Qgd2lkdGg9IjQ4NC4xMzkiIGhlaWdodD0iNDc5LjgxOCIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExOC41NTcgMTIwLjc1OCkiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K" alt=""><strong>Codex</strong></button>
+    </div>
+    <div id="welcome" hidden>
+      <div id="mascot"><svg viewBox="0 0 11 6.6" shape-rendering="crispEdges" aria-hidden="true">
+        <g fill="#d97757"><rect x="1" y="0" width="9" height="5"/><rect x="0" y="2" width="1" height="2"/><rect x="10" y="2" width="1" height="2"/>
+        <rect x="1.6" y="5" width="1" height="1.6"/><rect x="3.4" y="5" width="1" height="1.6"/><rect x="6.6" y="5" width="1" height="1.6"/><rect x="8.4" y="5" width="1" height="1.6"/></g>
+        <g fill="#1a1a1a"><rect x="3" y="1.2" width="1" height="1.5"/><rect x="7" y="1.2" width="1" height="1.5"/></g></svg></div>
+      <div class="card"><button class="row" id="account"></button></div>
+      <div class="card" id="facts"></div>
+    </div>
+    <div id="list"></div>
+    <div id="activity" hidden><span class="spark">✻</span><span id="doing"></span></div>
+  </div>
+  <div id="composer" hidden>
+    <div id="attachments" aria-label="Attached files"></div>
+    <div id="box">
+      <button id="plus" title="Add files" aria-label="Add files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <textarea id="input" rows="1" placeholder="Describe a task or ask a question"></textarea>
+      <button id="go" disabled title="Send"></button>
+    </div>
+    <div id="foot">
+      <button class="chip" id="folder"></button>
+      <span class="grow"></span>
+      <button class="chip" id="model" title="Which model answers"></button>
+      <button class="chip" id="effort" title="Reasoning effort for the next prompt"></button>
+      <button class="chip" id="mode" title="How Claude asks before acting"></button>
+      <span id="ring" title="Claude Code"></span>
+    </div>
+  </div>
+</div>
+<div id="menu" hidden></div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+var S = { status:'idle', models:[], modes:[], efforts:[], effort:'default', ids:[], attachments:[], provider:'claude', providerChosen:false, providerLabel:'Claude Code' };
+var sending = false, drafts = {}; // the state AgentView last sent
+var entries = {};                                        // the chat's entries, by id
+var outbox = [];                                         // what the user did, until AgentView collects it
+
+function post(type, more){ var m = more || {}; m.type = type; outbox.push(m); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+var ICON = {
+  caret:'<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  term:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12.5 18H19"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.3h7a2 2 0 0 1 2 2v7.7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>',
+  person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.4 7.2-5.4s6.3 1.800 7.2 5.4"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  stop:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>'
+};
+
+/* ---------- Markdown, enough of it for chat replies. Everything is escaped first. ---------- */
+function inline(s){
+  s = esc(s);
+  s = s.replace(/`([^`]+)`/g, function(_, c){ return '<code>' + c + '</code>'; });
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  s = s.replace(/(^|[\s(])\*([^*\s][^*]*)\*(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>');
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
+  return s;
+}
+function markdown(src){
+  var out = [], parts = String(src).split(/```/);
+  for (var p = 0; p < parts.length; p++){
+    if (p % 2 === 1){ // inside a code fence: the first line names the language
+      var code = parts[p].replace(/^[^\n]*\n?/, '');
+      out.push('<pre><code>' + esc(code.replace(/\n$/, '')) + '</code></pre>');
+      continue;
+    }
+    var lines = parts[p].split('\n'), para = [], list = null;
+    var endPara = function(){ if (para.length){ out.push('<p>' + para.join('<br>') + '</p>'); para = []; } };
+    var endList = function(){ if (list){ out.push('</' + list + '>'); list = null; } };
+    for (var i = 0; i < lines.length; i++){
+      var line = lines[i], m;
+      if (!line.trim()){ endPara(); endList(); continue; }
+      if ((m = /^(#{1,6})\s+(.*)$/.exec(line))){ endPara(); endList(); out.push('<h3>' + inline(m[2]) + '</h3>'); continue; }
+      if ((m = /^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/.exec(line))){
+        endPara();
+        var kind = m[1] ? 'ol' : 'ul';
+        if (list !== kind){ endList(); out.push('<' + kind + '>'); list = kind; }
+        out.push('<li>' + inline(m[2]) + '</li>');
+        continue;
+      }
+      endList(); para.push(inline(line));
+    }
+    endPara(); endList();
+  }
+  return out.join('');
+}
+
+/* ---------- the chat's entries ---------- */
+function fill(el, e){
+  switch (e.kind){
+    case 'user': el.className = 'user'; el.textContent = e.text; break;
+    case 'text': el.className = 'text'; el.innerHTML = markdown(e.text); break;
+    case 'tool':
+      el.className = 'tool ' + e.status; el.title = e.result || e.summary || '';
+      el.innerHTML = '<i class="dot"></i><b>' + esc(e.name) + '</b><span>' + esc(e.summary || '') + '</span>';
+      break;
+    case 'ask':
+      el.className = 'ask';
+      var said = { allowed:'Allowed', denied:'Denied', cancelled:'No longer needed' }[e.status];
+      el.innerHTML = '<div class="q">Allow ' + esc(e.name) + '...</div>' + (e.text ? '<div class="d">' + esc(e.text) + '</div>' : '') +
+        (e.status === 'pending'
+          ? '<div class="b"><button class="yes" data-answer="allow">Allow once</button><button data-answer="always">Allow for chat</button><button data-answer="deny">Deny</button></div>'
+          : '<div class="a">' + said + '</div>');
+      el.dataset.request = e.request;
+      break;
+    default: el.className = 'notice' + (e.error ? ' error' : ''); el.textContent = e.text;
+  }
+}
+
+function render(){
+  $('mcp-notice').hidden = !S.mcpMessage;
+  $('mcp-message').textContent = S.mcpMessage || '';
+  $('mcp-install').hidden = !S.mcpMissing;
+  $('mcp-retry').disabled = S.status !== 'idle';
+  document.documentElement.classList.toggle('light', S.dark === false);
+  var list = $('list'), scroll = $('scroll');
+  var atEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 60;
+  var seen = {};
+  S.ids.forEach(function(id, at){
+    seen[id] = true;
+    var el = document.getElementById('e' + id), e = entries[id];
+    if (!el){ el = document.createElement('div'); el.id = 'e' + id; el.dataset.shown = ''; }
+    if (list.children[at] !== el) list.insertBefore(el, list.children[at] || null);
+    if (e && el.dataset.shown !== e.sig){ fill(el, e); el.dataset.shown = e.sig; }
+  });
+  Array.prototype.slice.call(list.children).forEach(function(el){ if (!seen[el.id.slice(1)]) el.remove(); });
+
+  var empty = S.ids.length === 0;
+  $('chooser').hidden = !!S.providerChosen;
+  $('chat-head').hidden = !S.providerChosen;
+  $('welcome').hidden = !empty || !S.providerChosen;
+  $('composer').hidden = !S.providerChosen;
+  $('list').hidden = !S.providerChosen;
+  $('provider').textContent = S.providerChosen ? S.providerLabel : '';
+  $('new-chat').hidden = $('settings').hidden = !S.providerChosen;
+  document.body.classList.toggle('codex', S.provider === 'codex');
+  $('mascot').hidden = S.provider === 'codex';
+  $('ring').title = S.providerLabel;
+  $('mode').title = 'How ' + S.providerLabel + ' asks before acting';
+  $('attachments').innerHTML = S.attachments.map(function(file){ return '<div class="attachment" title="' + esc(file.name) + '"><span>' + esc(file.name) + '</span><button data-remove="' + esc(file.id) + '" aria-label="Remove ' + esc(file.name) + '" title="Remove attachment">&times;</button></div>'; }).join('');
+  $('plus').disabled = S.status !== 'idle';
+  var busy = S.status === 'starting' || S.status === 'working';
+  var last = empty ? null : entries[S.ids[S.ids.length - 1]];
+  $('activity').hidden = !busy || !!(last && last.kind === 'text' && last.streaming);
+  $('doing').textContent = S.status === 'starting' ? 'Starting ' + S.providerLabel + '...' : S.thinking ? 'Thinking…' : 'Working…';
+  $('ring').className = S.status === 'idle' ? '' : 'busy';
+
+  // The first card says who is signed in, or what to do about it.
+  var account = $('account');
+  if (S.missing){ account.className = 'row go'; account.dataset.act = 'locate'; account.innerHTML = ICON.term + '<span class="t">Locate ' + esc(S.providerLabel) + '?</span><span class="h">not found</span>'; }
+  else if (S.signedIn === false){ account.className = 'row go'; account.dataset.act = 'signin'; account.innerHTML = ICON.person + '<span class="t">' + (S.signingIn ? 'Signing in...' : 'Sign in to ' + (S.provider === 'codex' ? 'ChatGPT' : 'Claude')) + '</span>'; }
+  else if (S.email || S.signedIn === true){ account.className = 'row'; account.dataset.act = 'account'; account.innerHTML = '<span class="t">' + esc(S.email || 'Signed in') + '</span>' + ICON.caret; }
+  else { account.className = 'row'; account.dataset.act = ''; account.innerHTML = '<span class="h">Connecting to ' + esc(S.providerLabel) + '?</span>'; }
+  $('facts').innerHTML =
+    '<div class="row">' + ICON.term + '<span class="t">' + esc(S.providerLabel) + '</span><span class="h">' + esc(S.plan || '') + '</span></div>' +
+    '<div class="row" title="' + esc(S.folderPath || '') + '">' + ICON.folder + '<span class="t">' + esc(S.folder || '') + '</span><span class="h">working folder</span></div>';
+
+  // Under the message box: the folder, the model, the permission mode.
+  $('folder').innerHTML = ICON.folder + '<span class="t">' + esc(S.folder || 'Folder') + '</span>';
+  $('folder').title = S.folderPath || '';
+  $('model').innerHTML = '<span class="t">' + esc(modelLabel()) + '</span>';
+  var effort = S.efforts.filter(function(e){ return e[0] === S.effort; })[0];
+  $('effort').innerHTML = '<span class="t">Effort: ' + esc(effort ? effort[1] : 'Default') + '</span>' + ICON.caret;
+  $('model').disabled = S.status !== 'idle';
+  $('effort').disabled = S.status !== 'idle' || S.efforts.length < 2;
+  var mode = S.modes.filter(function(m){ return m[0] === S.mode; })[0];
+  $('mode').innerHTML = '<span class="t dim">' + esc(mode ? mode[1] : 'Ask before edits') + '</span>';
+
+  showGo();
+  if (atEnd) scroll.scrollTop = scroll.scrollHeight;
+}
+
+// The model's own name. "Default" is shown as whatever Claude Code has it stand for.
+function modelLabel(){
+  var chosen = S.models.filter(function(m){ return m.value === S.chosen; })[0];
+  if (chosen && S.chosen !== 'default') return chosen.label;
+  // Which model "Default" is depends on the user's own Claude Code settings: it is named once Claude Code has said.
+  var answering = S.models.filter(function(m){ return m.value !== 'default' && m.resolved && m.resolved === S.model; })[0];
+  return answering ? answering.label : 'Default';
+}
+
+function showGo(){
+  var go = $('go'), busy = S.status !== 'idle';
+  go.className = busy ? 'stop' : '';
+  go.title = busy ? 'Stop' : 'Send';
+  go.innerHTML = busy ? ICON.stop : ICON.up;
+  go.disabled = sending || !S.providerChosen || S.status === 'stopping' || (!busy && !$('input').value.trim() && !S.attachments.length);
+}
+
+/* ---------- the message box ---------- */
+var input = $('input');
+// As tall as its text, up to a limit. (Measured with the placeholder out of the way: a long one would count as text.)
+function grow(){
+  var hint = input.placeholder; input.placeholder = '';
+  input.style.height = 'auto';
+  var wanted = input.scrollHeight;
+  input.style.height = Math.min(wanted, 168) + 'px';
+  input.classList.toggle('tall', wanted > 168);
+  input.placeholder = hint;
+}
+// A narrow sidebar has no room for the long invitation.
+function fitHint(){ input.placeholder = input.clientWidth < 215 ? (S.provider === 'codex' ? 'Ask Codex' : 'Ask Claude') : 'Describe a task or ask a question'; }
+function send(){
+  var text = input.value;
+  if (sending || !S.providerChosen || (!text.trim() && !S.attachments.length) || S.status !== 'idle') return;
+  post('send', { text:text });
+  sending = true; showGo();
+  var scroll = $('scroll'); scroll.scrollTop = scroll.scrollHeight;
+}
+input.addEventListener('input', function(){ grow(); showGo(); });
+input.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); } // Shift + Return starts a new line
+  if (e.key === 'Escape') closeMenu();
+});
+$('go').addEventListener('click', function(){ if (S.status !== 'idle') post('stop'); else send(); });
+$('mcp-install').addEventListener('click', function(){ post('mcpInstall'); });
+$('mcp-retry').addEventListener('click', function(){ post('mcpRetry'); });
+
+/* ---------- menus ---------- */
+function closeMenu(){ $('menu').hidden = true; }
+function openMenu(anchor, items){
+  var menu = $('menu');
+  menu.innerHTML = '';
+  items.forEach(function(item){
+    if (item === '-'){ menu.appendChild(document.createElement('hr')); return; }
+    var b = document.createElement('button');
+    b.disabled = !item.act;
+    b.innerHTML = ('tick' in item ? '<span class="tick">' + (item.tick ? '✓' : '') + '</span>' : '') +
+      '<span class="w"><span class="l">' + esc(item.label) + '</span>' + (item.sub ? '<span class="s">' + esc(item.sub) + '</span>' : '') + '</span>';
+    if (item.act) b.addEventListener('click', function(){ closeMenu(); item.act(); });
+    menu.appendChild(b);
+  });
+  menu.hidden = false;
+  // Above the thing clicked if it is near the bottom, else below; and inside the window.
+  var a = anchor.getBoundingClientRect(), w = menu.offsetWidth, h = menu.offsetHeight;
+  var top = a.top > window.innerHeight / 2 ? a.top - h - 6 : a.bottom + 6;
+  menu.style.left = Math.max(8, Math.min(a.left, window.innerWidth - w - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(top, window.innerHeight - h - 8)) + 'px';
+}
+function accountItems(){
+  var items = [];
+  if (S.email || S.signedIn === true){
+    items.push({ label:S.email || 'Signed in' }); if (S.plan) items.push({ label:S.plan });
+    items.push({ label:'Sign out', act:function(){ post('signout'); } });
+  } else if (!S.missing){
+    items.push({ label:S.signingIn ? 'Signing in…' : 'Sign in to ' + (S.provider === 'codex' ? 'ChatGPT' : 'Claude') + '...', act:S.signingIn ? null : function(){ post('signin'); } });
+  }
+  items.push('-', { label:'Locate ' + S.providerLabel + '...', act:function(){ post('locate'); } });
+  return items;
+}
+document.addEventListener('click', function(e){
+  var t = e.target.closest ? e.target : e.target.parentNode;
+  var choice = t.closest('[data-provider]');
+  if (choice){ post('provider', {value:choice.dataset.provider}); return; }
+  var remove = t.closest('[data-remove]');
+  if (remove){ post('removeAttachment', {value:remove.dataset.remove}); return; }
+  var answer = t.closest('[data-answer]');
+  if (answer){ post('answer', { request:answer.closest('.ask').dataset.request, decision:answer.dataset.answer }); return; }
+  var link = t.closest('a[href]');
+  if (link){ e.preventDefault(); post('link', { url:link.href }); return; }
+  if (t.closest('#menu')) return;
+  var wasOpen = !$('menu').hidden; closeMenu();
+  var hit = t.closest('#plus, #model, #effort, #mode, #account, #folder, #provider, #settings, #new-chat');
+  if (!hit || (wasOpen && hit === openMenu.last)){ openMenu.last = null; return; }
+  openMenu.last = hit;
+  switch (hit.id){
+    case 'plus': post('attach'); break;
+    case 'new-chat': if (S.status === 'idle') post('new'); break;
+    case 'settings': openMenu(hit, accountItems()); break;
+    case 'provider':
+      openMenu(hit, [{label:'Claude Code', tick:S.providerChosen && S.provider === 'claude', act:function(){post('provider',{value:'claude'});}}, {label:'Codex', tick:S.providerChosen && S.provider === 'codex', act:function(){post('provider',{value:'codex'});}}]);
+      break;
+    case 'model':
+      openMenu(hit, S.models.map(function(m){ return { label:m.label, sub:m.description, tick:m.value === S.chosen, act:function(){ post('model', { value:m.value }); } }; }));
+      break;
+    case 'effort':
+      openMenu(hit, S.efforts.map(function(e){ return { label:e[1], tick:e[0] === S.effort, act:function(){ post('effort', { value:e[0] }); } }; }));
+      break;
+    case 'mode':
+      openMenu(hit, S.modes.map(function(m){ return { label:m[1], tick:m[0] === S.mode, act:function(){ post('mode', { value:m[0] }); } }; }));
+      break;
+    case 'account':
+      if (hit.dataset.act === 'account') openMenu(hit, accountItems());
+      else if (hit.dataset.act) post(hit.dataset.act);
+      break;
+    case 'folder':
+      openMenu(hit, [{ label:S.folderPath || S.folder || '' }, { label:S.providerLabel + ' works in this folder' }]);
+      break;
+  }
+});
+window.addEventListener('blur', closeMenu);
+window.addEventListener('resize', function(){ closeMenu(); fitHint(); grow(); });
+document.addEventListener('dragover', function(e){ e.preventDefault(); });
+document.addEventListener('drop', function(e){ e.preventDefault(); });
+
+/* ---------- what AgentView calls ---------- */
+window.crayon = {
+  // Take in the state of the chat. Only entries that are new or have changed are sent.
+  sent:function(ok){
+    sending = false;
+    if (ok){ input.value = ''; drafts[S.provider] = ''; S.attachments = []; grow(); }
+    showGo();
+  },
+  state:function(s){
+    if (s.provider && s.provider !== S.provider){ drafts[S.provider] = input.value; input.value = drafts[s.provider] || ''; sending = false; grow(); }
+    if (s.reset){ entries = {}; $('list').innerHTML = ''; }
+    (s.entries || []).forEach(function(e){ e.sig = JSON.stringify(e); entries[e.id] = e; });
+    delete s.entries;
+    for (var k in s) S[k] = s[k];
+    render(); fitHint(); grow();
+    return S.ids.length;
+  },
+  // Hand over what the user has done since last asked. (Encoded so that it survives whatever quoting it meets on the way.)
+  take:function(){
+    if (!outbox.length) return '';
+    var taken = outbox; outbox = [];
+    return encodeURIComponent(JSON.stringify(taken));
+  }
+};
+post('ready');
+fitHint();
+render();
+})();
+</script>
+</body>
+</html>

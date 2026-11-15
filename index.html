@@ -1,63 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rhino Sketching Tool</title>
-  <link rel="stylesheet" href="style.css">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing Intelligence | AEC TECH Hackathon</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
+    <script src="harold.js" defer></script>
+    <!-- Draw/Clear tools retained for later: <script src="drawing-tools.js" defer></script> -->
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="event-name" aria-label="AEC TECH Hackathon">
+        <span class="event-logo"><span class="aec">AEC</span> TECH</span>
+        <span class="event-label">Hackathon</span>
+      </div>
+      <h1><span class="crayon-brand">CRAYON</span>: <span class="title-subtitle">DRAWING INTELLIGENCE</span></h1>
+      <ul class="team" aria-label="Team members">
+        <li>Varun</li>
+        <li>Anmol</li>
+        <li>Ansh</li>
+        <li>Kevin</li>
+      </ul>
+    </header>
+    <main id="main-content" aria-label="Presentation slides" tabindex="0">
+      <section class="slide video-grid" id="slide-0" aria-label="Slide 0: Drawing videos">
+        <video src="videos/harold%201.mp4" autoplay muted loop playsinline aria-label="Drawing video 1"></video>
+        <video src="videos/harold%202.mp4" autoplay muted loop playsinline aria-label="Drawing video 2"></video>
+        <video src="videos/harold%203.mp4" autoplay muted loop playsinline aria-label="Drawing video 3"></video>
+        <video src="videos/harold%204.mp4" autoplay muted loop playsinline aria-label="Drawing video 4"></video>
+      </section>
+      <section class="slide placeholder-slide" id="slide-1" aria-labelledby="slide-1-title">
+        <h2 id="slide-1-title">slide 1: What is our plugin? Showing the tools and the UI.</h2>
+      </section>
+      <section class="slide placeholder-slide" id="slide-2" aria-labelledby="slide-2-title">
+        <h2 id="slide-2-title">slide 2: How are the tools used?</h2>
+      </section>
+      <section class="slide placeholder-slide" id="slide-3" aria-labelledby="slide-3-title">
+        <h2 id="slide-3-title">slide 3: A simple project using these tools.</h2>
+      </section>
+      <section class="slide download-slide" id="slide-4" aria-labelledby="slide-4-title">
+        <canvas class="harold-background" aria-hidden="true"></canvas>
+        <!-- Draw/Clear tools disabled; markup retained for later.
+        <canvas class="drawing-canvas" id="slide-4-drawing" aria-label="Your drawings on slide 4"></canvas>
+        <div class="drawing-tools" role="group" aria-label="Drawing tools">
+          <button type="button" data-drawing-tool="draw" aria-pressed="false" aria-controls="slide-4-drawing" title="Draw. Click again or press Escape to stop.">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m15 4 5 5M4 20l1-6L16 3a2 2 0 0 1 3 0l2 2a2 2 0 0 1 0 3L10 19l-6 1Z" />
+              <path d="m5 14 5 5" />
+            </svg>
+            <span>Draw</span>
+          </button>
+          <button type="button" data-drawing-tool="clear" aria-controls="slide-4-drawing" title="Clear drawing">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m14 3 7 7a1.5 1.5 0 0 1 0 2l-8 8H7l-5-5a1.5 1.5 0 0 1 0-2L12 3a1.5 1.5 0 0 1 2 0Z" />
+              <path d="m8 7 9 9M13 20h9" />
+            </svg>
+            <span>Clear</span>
+          </button>
+        </div>
+        -->
+        <div class="download-content">
 
-  <!-- three.js is loaded from a CDN. To upgrade, change the version in both URLs. -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
-      }
-    }
-  </script>
-</head>
-<body>
-  <canvas id="viewport" aria-label="3D viewport"></canvas>
+          <h2 id="slide-4-title"><span class="download-title-prefix">Get</span> <span class="crayon-brand">CRAYON</span>.</h2>
+          <p class="download-description">Bring your imagination to Rhino.</p>
+          <a class="download-button" href="wizard/dist/CrayonSetup.exe" download="CrayonSetup.exe" aria-label="Download Crayon setup for Rhino 8 on Windows">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+            </svg>
+            <span>Download</span>
+          </a>
 
-  <header class="overlay title">
-    <h1>Rhino Sketching Tool</h1>
-    <p id="view-name">Perspective</p>
-  </header>
-
-  <nav class="toolbar" aria-label="Drawing tools">
-    <div class="group">
-      <button type="button" data-tool="draw">Draw</button>
-      <button type="button" data-tool="erase">Erase</button>
-    </div>
-    <div class="group">
-      <span class="label">Draw on</span>
-      <button type="button" data-method="surface">Surface</button>
-      <button type="button" data-method="plane">Plane</button>
-      <button type="button" data-method="cursor">3D cursor</button>
-    </div>
-    <div class="group">
-      <span class="label">Erase</span>
-      <button type="button" data-erase="stroke">Whole stroke</button>
-      <button type="button" data-erase="part">Part</button>
-    </div>
-  </nav>
-
-  <p class="overlay hint">
-    <strong id="tool-hint"></strong><br>
-    Right-drag to rotate &middot; Shift + right-drag to pan &middot; Ctrl + right-drag or scroll to zoom
-  </p>
-
-  <!-- Hidden unless main.js or three.js fails to load (see onerror below). -->
-  <div class="notice" role="alert">
-    <h2>The 3D scene didn't load</h2>
-    <p>
-      Browsers block JavaScript modules on pages opened straight from disk.
-      Serve this folder instead: run <code>npx serve</code> in it, then open
-      the address it prints.
-    </p>
-    <p>three.js comes from a CDN, so you also need to be online.</p>
-  </div>
-
-  <script type="module" src="main.js" onerror="document.body.classList.add('load-failed')"></script>
-</body>
+        </div>
+      </section>
+    </main>
+  </body>
 </html>
