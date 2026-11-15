@@ -55,9 +55,10 @@ namespace RhinoSketchingTool
             if (current == Part.Pen)
             {
                 specs.AddRange(new[] { new Item { Part=Part.Object, Value="Object" }, new Item { Part=Part.Plane, Value="Plane" },
-                    new Item { Part=Part.Cursor, Value="3D cursor" },
-                    new Item { Part=Part.PickFace, Value=controller.PickingPlane ? "Pick a face…" : controller.HasPickedPlane ? controller.PickedPlaneLabel + " ×" : "Pick a face" },
-                    new Item { Part=Part.Color }, new Item { Part=Part.Snap, Value="Shapes" } });
+                    new Item { Part=Part.Cursor, Value="3D cursor" } });
+                if (controller.Method == DrawMethod.Plane) specs.Add(new Item { Part=Part.PickFace, DividerBefore=true, Value=controller.PickingPlane ? "Pick a face…" : controller.HasPickedPlane ? controller.PickedPlaneLabel + " ×" : "Pick a face" });
+                else if (controller.Method == DrawMethod.Cursor) specs.Add(new Item { Part=Part.PlaceCursor, DividerBefore=true, Value="Place 3D cursor" });
+                specs.AddRange(new[] { new Item { Part=Part.Color, DividerBefore=true }, new Item { Part=Part.Snap, Value="Shapes", DividerBefore=true } });
             }
             else if (current == Part.Eraser)
                 specs.AddRange(new[] { new Item {Part=Part.EraseWhole,Value="Stroke"},new Item {Part=Part.ErasePart,Value="Part"},
@@ -81,15 +82,17 @@ namespace RhinoSketchingTool
             }
             if (current != Part.Pen && optionsPopup == OptionsPopup.Colors) CloseOptionsPopup();
             double preferred = 10;
-            foreach (var spec in specs) preferred += OptionWidth(spec) + 6;
+            foreach (var spec in specs) preferred += OptionWidth(spec) + 6 + (spec.DividerBefore ? 12 : 0);
             double width = Math.Min(preferred,availableWidth);
             var items = new List<Item>();
             double x = 5, y = 7;
             foreach (var spec in specs)
             {
                 double length = Math.Min(width-10,OptionWidth(spec));
-                if(x>5 && x+length>width-5) { x=5; y+=RowHeight; }
-                items.Add(new Item {Part=spec.Part,Value=spec.Value,Box=new Wpf.Rect(x,y,length,30)});
+                double gap = spec.DividerBefore && x > 5 ? 12 : 0;
+                if(x>5 && x+gap+length>width-5) { x=5; y+=RowHeight; gap=0; }
+                x += gap;
+                items.Add(new Item {Part=spec.Part,Value=spec.Value,DividerBefore=gap>0,Box=new Wpf.Rect(x,y,length,30)});
                 x+=length+6;
             }
             var optionSize = specs.Count == 0 ? new Wpf.Size(0,0) : new Wpf.Size(width,y+37);
@@ -192,6 +195,7 @@ namespace RhinoSketchingTool
                 case Part.ViewList:
                     optionsPopup = optionsPopup == OptionsPopup.Views ? OptionsPopup.None : OptionsPopup.Views;
                     viewPage = 0; break;
+                case Part.PlaceCursor: controller.BeginPlaceCursor(); break;
                 case Part.PickFace:
                     if (controller.HasPickedPlane) controller.ResetPickedPlane(); else controller.BeginPickPlane();
                     break;
@@ -423,8 +427,9 @@ namespace RhinoSketchingTool
         void PaintOption(Media.DrawingContext c, Item item)
         {
             var box = item.Box;
+            if (item.DividerBefore) c.DrawLine(new Media.Pen(Fill(Shade, .16), 1), new Wpf.Point(box.X-9,box.Y+5), new Wpf.Point(box.X-9,box.Bottom-5));
             bool selected = item.Part == Part.Object && controller.Method == DrawMethod.Surface || item.Part == Part.Plane && controller.Method == DrawMethod.Plane || item.Part == Part.Cursor && controller.Method == DrawMethod.Cursor || item.Part == Part.View && controller.Method == DrawMethod.View
-                || item.Part==Part.SavedView && item.Value==controller.CurrentViewName || item.Part==Part.EraseWhole && controller.Erase==EraseMode.Stroke || item.Part==Part.ErasePart && controller.Erase==EraseMode.Part;
+                || item.Part==Part.PlaceCursor && controller.PlacingCursor || item.Part==Part.PickFace && controller.PickingPlane || item.Part==Part.SavedView && item.Value==controller.CurrentViewName || item.Part==Part.EraseWhole && controller.Erase==EraseMode.Stroke || item.Part==Part.ErasePart && controller.Erase==EraseMode.Part;
             bool passive = item.Part==Part.Help || item.Part==Part.SelectedCount || item.Part==Part.Color || item.Part==Part.Snap || item.Part==Part.SyncViews;
             if(!passive) c.DrawRoundedRectangle(Fill(selected ? Picture.Selected : Picture.Well), null, box, 10, 10);
             bool arrowHover = item.Part == Part.View && (hover == Part.ViewList || pressed == Part.ViewList);

@@ -31,7 +31,7 @@ namespace RhinoSketchingTool
     {
         enum Part { None, Bar, Grip, Select, Pen, Eraser, Comments, Views, Separator, Collapse,
             Object, Plane, Cursor, View, ViewList, Color, Snap, Popup, Saturation, Hue, Hex, Swatch0, Swatch1, Swatch2, Swatch3, Swatch4,
-            PickFace, ClearSketches, EraseWhole, ErasePart, SelectedCount, ClearSelection, Help, SaveView, SavedView, SyncViews }
+            PlaceCursor, PickFace, ClearSketches, EraseWhole, ErasePart, SelectedCount, ClearSelection, Help, SaveView, SavedView, SyncViews }
 
         // Sizes, in pixels at 100 % display scaling.
         const double Thickness = 56;       // design toolbar height
@@ -182,6 +182,7 @@ namespace RhinoSketchingTool
             public Part Part;
             public Wpf.Rect Box; // within the bar, at 100 %
             public string Value;
+            public bool DividerBefore;
         }
 
         // The bar's parts in order, and (out) the size of the bar that holds them.
