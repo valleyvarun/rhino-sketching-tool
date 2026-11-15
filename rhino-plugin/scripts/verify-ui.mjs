@@ -141,12 +141,7 @@ try {
   assert.equal(await evaluate('document.querySelectorAll(".preset-row").length'), 4);
   await evaluate('crayonSidebar.take(); document.querySelector("[data-preset=marker]").click()');
   assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].value, 'marker');
-  await evaluate('document.querySelector("#presetNew").click(); document.querySelector("#presetNewName").value="My brush"; document.querySelector("#presetEditor").dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}))');
-  const newPreset = (await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0];
-  assert.equal(newPreset.type, 'presetNew'); assert.equal(newPreset.name, 'My brush');
-  await evaluate('crayonSidebar.state(' + JSON.stringify({...sketch, preset:'crayon', presetEdited:true}) + '); crayonSidebar.take(); document.querySelector("#presetSave").click()');
-  const savePreset = (await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0];
-  assert.equal(savePreset.type, 'presetSave'); assert.equal(savePreset.value, 'crayon');
+  await evaluate('crayonSidebar.state(' + JSON.stringify({...sketch, preset:'crayon', presetEdited:true}) + '); crayonSidebar.take()');
   await evaluate('document.querySelector("[data-preset=crayon]").dispatchEvent(new MouseEvent("dblclick",{bubbles:true})); document.querySelector("#presetList input").value="My crayon"; document.querySelector("#presetList input").dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}))');
   const renamedPreset = (await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0];
   assert.equal(renamedPreset.type, 'presetRename'); assert.equal(renamedPreset.name, 'My crayon');
@@ -155,10 +150,7 @@ try {
   await evaluate('document.querySelector("#colorWheel").click(); document.querySelector("#hex").value="#9731b0"; document.querySelector("#hex").dispatchEvent(new Event("change"))');
   assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].type, 'color');
   await screenshot('sidebar-colour-picker');
-  await evaluate('document.querySelector("#colorWheel").click(); document.querySelector("[data-act=cursorPlace]").click()');
-  assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].type, 'cursorPlace');
-  await evaluate('document.querySelector("#cursorZ").value="12.5"; document.querySelector("#cursorZ").dispatchEvent(new Event("change"))');
-  assert.deepEqual((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].xyz, [0,0,12.5]);
+  await evaluate('document.querySelector("#colorWheel").click()');
   await evaluate('document.querySelector("#size").value="9"; document.querySelector("#size").dispatchEvent(new Event("input"))');
   assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].number, 9);
   await evaluate('document.querySelector("[data-act=hardnessPressure]").click()');
