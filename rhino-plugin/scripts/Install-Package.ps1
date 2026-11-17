@@ -3,6 +3,7 @@
 #   .\scripts\Install-Package.ps1
 param([string]$Version = ('1.0.0-dev.' + [DateTime]::UtcNow.ToString('yyyyMMddHHmmss')))
 $ErrorActionPreference = 'Stop'
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$') { throw 'Use a semantic version, for example 1.0.0.' }
 $pluginRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $repoRoot = Split-Path $pluginRoot
 if (Get-Process Rhino -ErrorAction SilentlyContinue) { throw 'Save your work and close Rhino, then run this again.' }
@@ -27,8 +28,30 @@ try { & $yak build --platform win; if ($LASTEXITCODE -ne 0) { throw 'Yak package
 finally { Pop-Location }
 $package = Get-ChildItem -LiteralPath $work -Filter '*.yak' | Select-Object -First 1
 if (!$package) { throw 'No Yak package was produced.' }
+
+# Replace whatever Crayon is there, the way the setup wizard does (wizard/Setup/Package.cs).
+# Yak makes this version the active one whatever its number; Rhino removes the others when it
+# next starts. Only a folder of this same version has to go first, or its old files would stay.
+$versionFolder = Join-Path $env:APPDATA "McNeel/Rhinoceros/packages/8.0/crayon-rhino/$Version"
+if (Test-Path -LiteralPath $versionFolder) { Remove-Item -LiteralPath $versionFolder -Recurse -Force }
 & $yak install $package.FullName
 if ($LASTEXITCODE -ne 0) { throw 'Yak install failed.' }
-$installed = Join-Path $env:APPDATA "McNeel/Rhinoceros/packages/8.0/crayon-rhino/$Version/RhinoSketchingTool.rhp"
-if ((Get-FileHash -LiteralPath $installed).Hash -ne (Get-FileHash -LiteralPath (Join-Path $work 'RhinoSketchingTool.rhp')).Hash) { throw 'Installed plugin verification failed.' }
+$installed = Join-Path $versionFolder 'RhinoSketchingTool.rhp'
+if (!(Test-Path -LiteralPath $installed) -or (Get-FileHash -LiteralPath $installed).Hash -ne (Get-FileHash -LiteralPath (Join-Path $work 'RhinoSketchingTool.rhp')).Hash) { throw 'Installed plugin verification failed.' }
+
+# Make what Rhino has recorded about the plug-in agree with the package: the file it loaded
+# last (after a test run that is a build in bin/), that it loads when Rhino starts, and no
+# "never load" left from a build that failed.
+$rhino = 'HKCU:\Software\McNeel\Rhinoceros\8.0'
+$id = '299a696b-aeb1-4c25-bd67-f6c04f5bed05'
+$registration = "$rhino\Plug-Ins\$id"
+if (Test-Path -LiteralPath $registration) {
+    if (!(Test-Path -LiteralPath "$registration\PlugIn")) { New-Item -Path "$registration\PlugIn" | Out-Null }
+    Set-ItemProperty -LiteralPath "$registration\PlugIn" -Name FileName -Value ([IO.Path]::GetFullPath($installed))
+    Set-ItemProperty -LiteralPath $registration -Name LoadMode -Value 1 -Type DWord
+}
+$options = "$rhino\Global Options\Plug-ins\$id"
+if ((Test-Path -LiteralPath $options) -and (Get-Item -LiteralPath $options).GetValue('LoadProtection') -eq '2') {
+    Remove-ItemProperty -LiteralPath $options -Name LoadProtection
+}
 Write-Output "Crayon $Version installed: $installed"

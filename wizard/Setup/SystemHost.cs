@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,8 +19,7 @@ namespace CrayonSetup
         public readonly string Rhino;
         public readonly string Work;
         public readonly string Log;
-        readonly string version, pluginHash;
-        readonly string packageRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "McNeel", "Rhinoceros", "packages", "8.0");
+        readonly CrayonPackage package;
         string Yak => Path.Combine(Path.GetDirectoryName(Rhino), "Yak.exe");
         public SystemHost(string rhino)
         {
@@ -32,7 +30,8 @@ namespace CrayonSetup
             Directory.CreateDirectory(logRoot);
             Log = Path.Combine(logRoot, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".log");
             var info = ResourceText("package-info.txt").Split(new[] {'\r','\n'}, StringSplitOptions.RemoveEmptyEntries);
-            version = info[0]; pluginHash = info[1];
+            string packageRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "McNeel", "Rhinoceros", "packages", "8.0");
+            package = new CrayonPackage(packageRoot, CrayonPackage.Rhino8, info[0], info[1], text => File.AppendAllText(Log, text + "\r\n"));
         }
         public static string FindRhino()
         {
@@ -55,6 +54,16 @@ namespace CrayonSetup
         public bool RhinoRunning
         {
             get { var all = Process.GetProcessesByName("Rhino"); try { return all.Length > 0; } finally { foreach (var p in all) p.Dispose(); } }
+        }
+        // Rhino goes on running for up to a minute after its last window has closed.
+        public bool RhinoClosing
+        {
+            get
+            {
+                var all = Process.GetProcessesByName("Rhino");
+                try { return all.Length > 0 && all.All(p => { try { return p.MainWindowHandle == IntPtr.Zero; } catch (InvalidOperationException) { return true; } }); }
+                finally { foreach (var p in all) p.Dispose(); }
+            }
         }
         public static string[] AgentCommand(string provider) => provider == "claude" ? ClaudeCli.Find("") : CodexCli.Find("");
         public static bool HasWebView()
@@ -110,29 +119,18 @@ namespace CrayonSetup
             if (command == null) throw new InvalidOperationException("The " + provider + " installation could not be found. Retry setup after checking your internet connection.");
             await Run(command.Concat(new[] { "--version" }).ToArray(), token);
         }
-        public async Task InstallPlugin(CancellationToken token)
+        // Whatever Crayon is already there is replaced; see CrayonPackage. Off the window's thread.
+        public Task InstallPlugin(CancellationToken token) => Task.Run(() =>
         {
-            var installed = InstalledPlugin();
-            if (File.Exists(installed))
+            try { package.Install(() => Resource("plugin.yak")); }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is System.Security.SecurityException)
             {
-                if (Hash(installed) == pluginHash) return; // Re-running the same download is safe.
-                throw new InvalidOperationException("This Crayon version is already installed with different contents. Use a newer setup release; setup will not overwrite a conflicting package.");
+                File.AppendAllText(Log, e + "\r\n");
+                throw new InvalidOperationException("Crayon could not be put in Rhino's package folder. Close Rhino and anything else using Crayon's files, then click Retry. Details: " + Log, e);
             }
-            string package = Path.Combine(Work, "crayon-rhino-" + version + "-rh8_0-win.yak");
-            using (var stream = Resource("plugin.yak"))
-            using (var output = File.Create(package)) stream.CopyTo(output);
-            await Run(new[] { Yak, "install", package }, token);
-        }
-        string InstalledPlugin() => Path.Combine(packageRoot, "crayon-rhino", version, "RhinoSketchingTool.rhp");
-        public void VerifyPlugin()
-        {
-            string plugin = InstalledPlugin();
-            if (!File.Exists(plugin) || Hash(plugin) != pluginHash) throw new InvalidOperationException("Crayon's installed file did not pass verification. Retry setup.");
-        }
-        internal static string Hash(string path)
-        {
-            using (var sha = SHA256.Create()) using (var file = File.OpenRead(path)) return BitConverter.ToString(sha.ComputeHash(file)).Replace("-", "");
-        }
+        });
+        public void VerifyPlugin() => package.Verify();
+        internal static string Hash(string path) => CrayonPackage.Hash(path);
         internal static Stream Resource(string name) => Assembly.GetExecutingAssembly().GetManifestResourceStream("CrayonSetup." + name) ?? throw new InvalidOperationException("Setup is missing " + name + ". Download it again.");
         internal static string ResourceText(string name) { using (var s = Resource(name)) using (var r = new StreamReader(s)) return r.ReadToEnd(); }
         async Task Download(string url, string destination, CancellationToken token)

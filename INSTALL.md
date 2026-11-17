@@ -6,6 +6,8 @@
 2. Run **`wizard/dist/CrayonSetup.exe`** and click **Install Crayon**. It reuses or installs
    WebView2, RhinoMCP, Claude Code and Codex, then installs Crayon as a Rhino package.
    (Unsigned: Windows may ask, choose *More info* > *Run anyway*.)
+   If a Crayon is already installed, of any version, setup replaces it: there is nothing to
+   uninstall or fix first. Your sketches, settings and chats stay as they are.
 3. Open Rhino and type **`Crayon`**. The Agent tab asks once per session: Claude Code or Codex.
 
 ## What to try
@@ -31,6 +33,8 @@
 Checks: `node rhino-plugin/scripts/verify-ui.mjs`, the Rhino scripts in `tests/Native`
 (see its README), and `tests/chat-protocol`. Run the `tests/Native` scripts **before**
 installing: they load the plug-in from the build folder, and Rhino then treats an installed
-Crayon package as inactive and removes it.
+Crayon package as inactive and removes it. (With a package already loaded, Rhino refuses the
+build instead: "ID already in use".) Whatever state the tests leave, running setup or
+`Install-Package.ps1` again replaces it.
 
 Branched from `main` at `2edd6a6`; `main`'s later toolbar commits are not merged here.

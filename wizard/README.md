@@ -8,11 +8,13 @@ the PNG and Windows icon are rendered from that same artwork.
 ## What setup does
 
 - Finds Rhino 8 using its installation registry entry. A file picker handles custom installations.
-- Requires Rhino to be closed, without terminating it or touching open models.
+- Requires Rhino to be closed, without terminating it or touching open models. A Rhino whose
+  windows are already gone is given up to two minutes to finish closing.
 - Installs WebView2 if missing, using Microsoft's signed Evergreen bootstrapper.
 - Installs or upgrades Rhino-MCP-Platform to at least 0.4.0 through Rhino's own Yak tool.
 - Reuses Claude Code and Codex when available; otherwise runs their official native installers.
-- Installs the bundled Crayon Yak package for the current Windows user, then checks its SHA-256 hash.
+- Installs the bundled Crayon package for the current Windows user, replacing whatever Crayon
+  is already there (see below), then checks that Rhino's next start loads exactly that file.
 - Offers to open Rhino. Crayon shows its sidebar automatically on first load and connects RhinoMCP when an agent opens.
 
 Rhino 8 must already be installed and licensed. Internet access is needed for missing
@@ -23,13 +25,35 @@ Retries reuse completed components. A dependency or verification failure never s
 the success page. Logs live under `%LOCALAPPDATA%\Crayon\Setup\Logs`. Remove Crayon
 through Rhino's Package Manager; shared runtimes and agents are left intact.
 
+## Installing over an existing Crayon
+
+Running any setup replaces the Crayon that is installed. There is nothing to uninstall
+or repair first, and the version numbers do not matter: an older download installed over
+a newer Crayon wins too. `Setup/Package.cs` does this, and covers:
+
+- an older or a newer package version, or the same version number with other contents;
+- stale version folders and the remains of an interrupted install;
+- a Crayon that Rhino has registered from another folder (a developer build loaded from
+  `rhino-plugin/bin`, a hand-installed `.rhp`): setup points that registration at the
+  package instead of leaving it to Rhino;
+- a Crayon that Rhino was told never to load, or that an early build registered as
+  load-on-demand. Rhino keeps both on record apart from the package and would go on
+  skipping Crayon at start-up however often it is reinstalled; setup clears them.
+
+The new version is unpacked beside the installed one and only then made active, so a
+failure part-way leaves the previous Crayon working. Sketches, settings, chats and the
+sidebar layout are not touched. Setup writes the package folder itself, in the layout
+Rhino's Yak uses (`packages\8.0\crayon-rhino\<version>` plus `manifest.txt`), rather than
+through `yak install`: one piece of code then handles every case above, and it can be
+tested against a scratch folder. RhinoMCP is still installed with Yak.
+
 ## Build
 
 Requires Windows, Rhino 8 (including Yak), a .NET SDK and .NET Framework 4.8 targeting pack.
 
 ```powershell
 .\wizard\scripts\Build.ps1
-# For a versioned release; always use a new version for changed plugin contents:
+# For a versioned release; give changed plugin contents a new version, so builds can be told apart:
 .\wizard\scripts\Build.ps1 -Version 1.0.0
 ```
 
@@ -37,7 +61,7 @@ The build stages the latest plugin, builds a local Yak package, embeds it in the
 installer, and writes `dist/CrayonSetup.exe` plus `dist/CrayonSetup.sha256`.
 Publish the executable at `wizard/dist/CrayonSetup.exe` with the website. Nothing
 is published to Yak or a website by the build. Development builds use a unique
-prerelease version so Yak never silently reuses different contents under one version.
+prerelease version; setup replaces an installed Crayon whatever its version.
 
 The generated executable is **unsigned**. Before public distribution, sign it using
 your publisher certificate and timestamp service, then regenerate the SHA-256 file.
@@ -60,6 +84,8 @@ dotnet build wizard/tests/SetupTests.csproj -c Release
 
 Tests cover dependency ordering, repeated installs, retries, Rhino-open guards,
 verification failures, exact package recognition and embedded payload integrity.
+`tests/PackageTests.cs` installs over every kind of existing Crayon listed above, in a
+scratch package folder and a scratch registry key, never Rhino's real ones.
 The local check runs existing tools with `--version`; it does not install anything.
 
 ## Official dependency sources

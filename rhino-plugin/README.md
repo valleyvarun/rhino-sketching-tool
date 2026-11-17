@@ -23,7 +23,9 @@ otherwise a hidden updater waits for Rhino to close and then installs automatica
 The previous build is backed up alongside the installed file. Update status is written
 to `bin/update-status.txt`. If Crayon was installed with the setup wizard, Rhino loads the
 package in `%APPDATA%\McNeel\Rhinoceros\packages\8.0\crayon-rhino` instead: close Rhino and run
-`.\scripts\Install-Package.ps1` to install the current build as a new package version. `scripts/Update-Plugin.ps1` can also install an already staged build.
+`.\scripts\Install-Package.ps1` to install the current build as a new package version. Like
+the setup wizard, it replaces whatever Crayon Rhino has, including one Rhino registered from
+a build folder. `scripts/Update-Plugin.ps1` can also install an already staged build.
 You can also run `dotnet build RhinoSketchingTool.csproj -c Release` directly from
 this folder when local PowerShell scripts are disabled.
 

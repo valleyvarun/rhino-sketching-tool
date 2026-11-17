@@ -8,7 +8,11 @@ using System.IO;
 using System.IO.Compression;
 class FakeHost : ISetupHost
 {
- public bool RhinoRunning { get; set; }
+ bool running;
+ // Rhino's process ends after this many more looks at it (never, when negative).
+ public int ExitsAfterChecks = -1;
+ public bool RhinoRunning { get { if(ExitsAfterChecks>=0&&ExitsAfterChecks--==0) running=false; return running; } set { running=value; } }
+ public bool RhinoClosing { get; set; }
  public bool FailMcp, OpenDuringDownload, FailVerify;
  public readonly List<string> Calls = new List<string>();
  readonly HashSet<string> installed = new HashSet<string>();
@@ -22,7 +26,11 @@ class FakeHost : ISetupHost
 class Program
 {
  static void Check(bool pass,string text) { if(!pass) throw new Exception(text); Console.WriteLine("PASS "+text); }
- static async Task<bool> Run(FakeHost host) { try {await new Installer(host).Install(new SetupOptions(),(p,s)=>{},CancellationToken.None);return true;}catch{return false;} }
+ static async Task<bool> Run(FakeHost host, double waitSeconds=120)
+ {
+  var installer=new Installer(host){ClosingWait=TimeSpan.FromSeconds(waitSeconds),ClosingPoll=TimeSpan.FromMilliseconds(5)};
+  try {await installer.Install(new SetupOptions(),(p,s)=>{},CancellationToken.None);return true;}catch{return false;}
+ }
  static int Main(string[] args) {try{Test().GetAwaiter().GetResult();if(args.Contains("--local-check"))LocalCheck().GetAwaiter().GetResult();return 0;}catch(Exception e){Console.Error.WriteLine(e);return 1;}}
  static async Task LocalCheck()
  {
@@ -56,6 +64,10 @@ class Program
   h.FailMcp=false;Check(await Run(h)&&h.Calls.Count(c=>c=="webview")==1,"Retry continues after completed components");
   h=new FakeHost{OpenDuringDownload=true};Check(!await Run(h)&&!h.Calls.Contains("plugin"),"Rhino opening during download blocks plugin commit");
   h=new FakeHost{FailVerify=true};Check(!await Run(h),"Verification failure cannot become success");
+  h=new FakeHost{RhinoRunning=true,RhinoClosing=true,ExitsAfterChecks=6};Check(await Run(h)&&h.Calls.Contains("plugin"),"Setup waits for a Rhino that is already closing");
+  h=new FakeHost{RhinoRunning=true,RhinoClosing=true};Check(!await Run(h,0.05)&&h.Calls.Count==0,"A Rhino that never finishes closing still blocks installation");
+  var clock=System.Diagnostics.Stopwatch.StartNew();h=new FakeHost{RhinoRunning=true};Check(!await Run(h)&&clock.Elapsed.TotalSeconds<5,"An open Rhino is reported at once, without waiting");
+  PackageTests.Run(Check);
   Check(!SystemHost.HasPackage("Rhino-MCP-Platform (0.3.9)","Rhino-MCP-Platform",new Version(0,4,0)),"Outdated RhinoMCP requires an upgrade");
   Check(!SystemHost.HasPackage("Fake-Rhino-MCP-Platform (0.4.0)","Rhino-MCP-Platform",new Version(0,4,0)),"Package detection requires an exact name");
  }
