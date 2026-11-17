@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -12,9 +11,11 @@ using ScreenPoint = System.Drawing.Point;
 
 namespace RhinoSketchingTool
 {
-    public enum SketchTool { Draw, Erase, Select, Comment }
+    public enum SketchTool { Draw, Erase, Select, Comment, Views }
     public enum DrawMethod { Surface, Plane, Cursor, View }
     public enum EraseMode { Stroke, Part }
+    /// <summary>A one-click pick armed from the pen's option row: a face to draw on, or where the 3D cursor goes.</summary>
+    public enum PickMode { None, Face, Cursor }
 
     /// <summary>
     /// The sketching tools. Left-drag in a viewport draws a freehand stroke or erases,
@@ -24,10 +25,11 @@ namespace RhinoSketchingTool
     /// Where a stroke lands in 3D depends on the drawing method:
     ///   Surface  on whatever surface, polysurface, mesh or SubD is under the pointer
     ///   Plane    on the viewport's construction plane
-    ///   Cursor   on the cursor's chosen surface, top, front or side plane
+    ///   Cursor   on a plane through the 3D cursor, facing the camera
     ///
-    /// Shift + Ctrl + click on a surface moves the construction plane onto it (on empty
-    /// space it puts the plane back), and Shift + click moves the 3D cursor.
+    /// "Pick a face" in the pen's option row, then a click on a surface, moves the
+    /// construction plane onto it (on empty space it puts the plane back); "Place cursor",
+    /// then a click, moves the 3D cursor. No modifier keys: they belong to Rhino.
     ///
     /// Moving the plane onto a surface is the one thing here that changes Rhino's
     /// construction plane, and it is only a loan: the plane goes back to where it was as
@@ -86,11 +88,6 @@ namespace RhinoSketchingTool
         DrawMethod method = DrawMethod.Plane;
         EraseMode erase = EraseMode.Stroke;
         Point3d cursor = Point3d.Origin;
-        Plane cursorSurface = Plane.WorldXY;
-        string cursorPlaneMode = "surface";
-        uint cursorDocument;
-        bool cursorSectionVisible, placingCursor, pickingPlane;
-        readonly Dictionary<Guid, string> pickedPlaneLabels = new Dictionary<Guid, string>();
         bool active;
 
         DrawDrag drawing;  // set while a draw drag is in progress
@@ -112,9 +109,6 @@ namespace RhinoSketchingTool
         /// <summary>Raised when the tool, method, erase mode or active state changes.</summary>
         public event EventHandler Changed;
 
-        /// <summary>Raised after Esc, pressed twice in a row, has turned the tools off.</summary>
-        public event EventHandler EscapedTwice;
-
         /// <summary>
         /// True while sketching is on: the left mouse button draws and erases in the
         /// viewports, and the view keys and Esc Esc are listened for. Nothing is
@@ -130,7 +124,7 @@ namespace RhinoSketchingTool
                 active = value;
                 mouse.Enabled = value;
                 Toolbar.Enabled = value;
-                if (value) KeyHook.Install(null, BackToSelect, LeaveByEscape);
+                if (value) KeyHook.Install(SetView, BackToSelect, LeaveByEscape);
                 else KeyHook.Remove();
                 if (value)
                 {
@@ -139,13 +133,12 @@ namespace RhinoSketchingTool
                 }
                 else
                 {
-                    placingCursor = pickingPlane = false;
                     RhinoDoc.BeginSaveDocument -= OnBeginSave;
                     RhinoDoc.EndSaveDocument -= OnEndSave;
                     ReturnPlanes();
                 }
                 ShowOrHideStrokes();
-                RhinoApp.WriteLine(value ? "Sketch tools on. Esc goes back to Select; Esc twice turns them off." : "Sketch tools off.");
+                RhinoApp.WriteLine(value ? "Crayon on." : "Crayon off.");
                 Refresh();
             }
         }
@@ -154,12 +147,6 @@ namespace RhinoSketchingTool
         // a Rhino command was running: then the Esc was for that, and has cancelled it.
         void BackToSelect(bool commandRunning)
         {
-            if (placingCursor || pickingPlane)
-            {
-                placingCursor = pickingPlane = false;
-                Refresh();
-                return;
-            }
             if (active && !commandRunning) Tool = SketchTool.Select;
         }
 
@@ -167,9 +154,8 @@ namespace RhinoSketchingTool
         // command is running, so that other tools can be used while sketching.
         void LeaveByEscape()
         {
-            if (!active) return;
-            Active = false;
-            EscapedTwice?.Invoke(this, EventArgs.Empty);
+            // Crayon is turned off only with its switch in the panel header, never by
+            // keys: Esc twice is left to Rhino.
         }
 
         /// <summary>
@@ -192,10 +178,7 @@ namespace RhinoSketchingTool
         // and while the Select tool is on, a hidden one is shown.
         void OnIdle(object sender, EventArgs e)
         {
-            uint document = RhinoDoc.ActiveDoc?.RuntimeSerialNumber ?? 0;
-            if (cursorDocument != document) { EnsureCursorDocument(); Refresh(); }
             conduit.Tidy(!Rhino.Commands.Command.InCommand());
-            TryHoldShape();
         }
 
         /// <summary>Stop everything, painting included. For when Rhino closes.</summary>
@@ -226,9 +209,9 @@ namespace RhinoSketchingTool
         void SetTool(SketchTool value)
         {
             if (tool == value) return;
-            placingCursor = pickingPlane = false;
             editor?.Commit(); // a comment being written is kept as it stands
             aim = null;
+            picking = PickMode.None;
             tool = value;
             ShowOrHideStrokes();
         }
@@ -252,7 +235,8 @@ namespace RhinoSketchingTool
         void SetMethod(DrawMethod value)
         {
             if (method == DrawMethod.Plane && value != DrawMethod.Plane) ReturnPlanes();
-            method = value;
+            method = value == DrawMethod.View ? DrawMethod.Plane : value;
+            picking = PickMode.None;
         }
 
         public EraseMode Erase
@@ -261,91 +245,45 @@ namespace RhinoSketchingTool
             set { if (erase != value) { EndDrag(); erase = value; Refresh(); } }
         }
 
-        public Point3d Cursor { get { EnsureCursorDocument(); return cursor; } }
+        public Point3d Cursor => cursor;
 
-        public bool CursorVisible => active && (cursorSectionVisible || placingCursor || tool == SketchTool.Draw && method == DrawMethod.Cursor);
-        public bool CursorSectionVisible { get => cursorSectionVisible; set { if (cursorSectionVisible != value) { cursorSectionVisible = value; Refresh(); } } }
-        public bool PlacingCursor => placingCursor;
-        public bool PickingPlane => pickingPlane;
-        public string CursorPlaneMode { get { EnsureCursorDocument(); return cursorPlaneMode; } }
-        public Plane CursorDrawPlane
+        PickMode picking;
+
+        /// <summary>
+        /// Armed from the option row under the pen ("Pick a face", "Place cursor"): the next
+        /// click in a viewport does it, instead of drawing. Changing tool or method disarms it.
+        /// </summary>
+        public PickMode Picking
+        {
+            get => picking;
+            set { if (picking != value) { EndDrag(); picking = value; Refresh(); } }
+        }
+
+        /// <summary>The active viewport draws on a face picked with "Pick a face".</summary>
+        public bool OnPickedFace
         {
             get
             {
-                EnsureCursorDocument();
-                Plane plane = cursorPlaneMode == "top" ? Plane.WorldXY : cursorPlaneMode == "front" ? Plane.WorldZX : cursorPlaneMode == "side" ? Plane.WorldYZ : cursorSurface;
-                // Front's up is Z; the normal points towards the standard Front camera.
-                if (cursorPlaneMode == "front") plane = new Plane(cursor, Vector3d.XAxis, Vector3d.ZAxis);
-                plane.Origin = cursor;
-                return plane;
+                var viewport = RhinoDoc.ActiveDoc?.Views.ActiveView?.ActiveViewport;
+                return viewport != null && borrowed.ContainsKey(viewport.Id);
             }
         }
-        public void SetCursorPlaneMode(string value)
+
+        /// <summary>Back from a picked face to the viewport's own construction plane.</summary>
+        public void BackToGrid()
         {
-            if (value != "surface" && value != "top" && value != "front" && value != "side") return;
-            EnsureCursorDocument(); EndDrag(); cursorPlaneMode = value; SaveCursor(); Refresh();
-        }
-        public void BeginPlaceCursor()
-        {
-            EnsureCursorDocument(); EndDrag(); Active = true; Tool = SketchTool.Draw; pickingPlane = false; placingCursor = !placingCursor; Refresh();
-        }
-        public void ResetCursor()
-        {
-            EnsureCursorDocument(); EndDrag(); cursor = Point3d.Origin; cursorSurface = Plane.WorldXY; placingCursor = false; SaveCursor(); Refresh();
-        }
-        public void DrawOnCursorPlane() { Active = true; Tool = SketchTool.Draw; Method = DrawMethod.Cursor; Refresh(); }
-        public void LookAtCursor()
-        {
-            var doc = RhinoDoc.ActiveDoc; var view = doc?.Views.ActiveView;
-            if (view == null) return;
-            EndDrag(); Plane plane = CursorDrawPlane;
-            ShowPlaneView(doc, view.ActiveViewport, plane.Normal, plane.YAxis, "Cursor"); Refresh();
-        }
-        public void BeginPickPlane()
-        {
-            EnsureCursorDocument(); EndDrag(); Active = true; Tool = SketchTool.Draw; Method = DrawMethod.Plane;
-            placingCursor = false; pickingPlane = !pickingPlane; Refresh();
-        }
-        public bool HasPickedPlane => RhinoDoc.ActiveDoc?.Views.ActiveView?.ActiveViewport is RhinoViewport vp && borrowed.ContainsKey(vp.Id);
-        public string PickedPlaneLabel => RhinoDoc.ActiveDoc?.Views.ActiveView?.ActiveViewport is RhinoViewport vp && pickedPlaneLabels.TryGetValue(vp.Id, out string label) ? label : "";
-        public void ResetPickedPlane()
-        {
-            var view = RhinoDoc.ActiveDoc?.Views.ActiveView;
-            EndDrag(); pickingPlane = false; if (view != null) ReturnPlane(view.ActiveViewport); Refresh();
+            var viewport = RhinoDoc.ActiveDoc?.Views.ActiveView?.ActiveViewport;
+            if (viewport != null && ReturnPlane(viewport)) Refresh();
         }
 
-        void EnsureCursorDocument()
-        {
-            var doc = RhinoDoc.ActiveDoc; uint serial = doc?.RuntimeSerialNumber ?? 0;
-            if (cursorDocument == serial) return;
-            cursorDocument = serial; cursor = Point3d.Origin; cursorSurface = Plane.WorldXY; cursorPlaneMode = "surface";
-            placingCursor = pickingPlane = false;
-            if (doc == null) return;
-            string savedMode = doc.Strings.GetValue("Crayon.Cursor", "plane");
-            if (savedMode == "top" || savedMode == "front" || savedMode == "side") cursorPlaneMode = savedMode;
-            string[] values = (doc.Strings.GetValue("Crayon.Cursor", "frame") ?? "").Split(',');
-            var numbers = new double[9];
-            if (values.Length != numbers.Length) return;
-            for (int i = 0; i < numbers.Length; i++)
-                if (!double.TryParse(values[i], NumberStyles.Float, CultureInfo.InvariantCulture, out numbers[i]) || double.IsNaN(numbers[i]) || double.IsInfinity(numbers[i])) return;
-            var point = new Point3d(numbers[0], numbers[1], numbers[2]);
-            var plane = new Plane(point, new Vector3d(numbers[3], numbers[4], numbers[5]), new Vector3d(numbers[6], numbers[7], numbers[8]));
-            if (point.IsValid && plane.IsValid) { cursor = point; cursorSurface = plane; }
-        }
-        void SaveCursor()
-        {
-            var doc = RhinoDoc.ActiveDoc;
-            if (doc == null) return;
-            var values = new[] { cursor.X, cursor.Y, cursor.Z, cursorSurface.XAxis.X, cursorSurface.XAxis.Y, cursorSurface.XAxis.Z, cursorSurface.YAxis.X, cursorSurface.YAxis.Y, cursorSurface.YAxis.Z };
-            doc.Strings.SetString("Crayon.Cursor", "frame", string.Join(",", Array.ConvertAll(values, number => number.ToString("R", CultureInfo.InvariantCulture))));
-            doc.Strings.SetString("Crayon.Cursor", "plane", cursorPlaneMode);
-        }
+        /// <summary>The 3D cursor is only drawn while it is the thing being drawn on.</summary>
+        public bool CursorVisible => active && tool == SketchTool.Draw && method == DrawMethod.Cursor;
 
         /// <summary>Points of the stroke being drawn right now, for the live preview.</summary>
-        public IReadOnlyList<Point3d> LivePoints => drawing == null ? null : drawing.SnapPoints ?? (IReadOnlyList<Point3d>)drawing.Points;
+        public IReadOnlyList<Point3d> LivePoints => drawing?.Points;
 
         /// <summary>How the stroke being drawn is painted so far. Null when there is none.</summary>
-        internal StrokePaint LivePaint => drawing != null && drawing.Points.Count > 0 ? drawing.SnapPaint ?? Paint(drawing, false) : null;
+        internal StrokePaint LivePaint => drawing != null && drawing.Points.Count > 0 ? Paint(drawing, false) : null;
 
         internal Color LiveColor => drawing != null ? drawing.Color : Ink;
 
@@ -368,11 +306,7 @@ namespace RhinoSketchingTool
         /// </summary>
         public bool PointerDown(RhinoView view, ScreenPoint point, bool shift, bool ctrl, double pressure = -1)
         {
-            if (!active || view == null) return false;
-            EnsureCursorDocument();
-            if (placingCursor) { EndDrag(); MoveCursor(view, point); placingCursor = false; Refresh(); return true; }
-            if (pickingPlane) { EndDrag(); PickDrawPlane(view, point); pickingPlane = false; Refresh(); return true; }
-            if (tool == SketchTool.Select) return false;
+            if (!active || tool == SketchTool.Select || tool == SketchTool.Views || view == null) return false;
             EndDrag();
 
             if (tool == SketchTool.Comment)
@@ -380,9 +314,13 @@ namespace RhinoSketchingTool
                 CommentClick(view, point);
                 return true;
             }
-            if (shift && ctrl && method != DrawMethod.View)
+            if (picking != PickMode.None)
             {
-                PickDrawPlane(view, point);
+                // "Pick a face" or "Place cursor" was armed: this click does that, once.
+                PickMode pick = picking;
+                picking = PickMode.None;
+                if (pick == PickMode.Face) PickDrawPlane(view, point);
+                else { MoveCursor(view, point); Refresh(); }
                 return true;
             }
             if (tool == SketchTool.Erase)
@@ -391,35 +329,19 @@ namespace RhinoSketchingTool
                 EraseAt(point);
                 return true;
             }
-            if (method == DrawMethod.Cursor && shift)
-            {
-                MoveCursor(view, point);
-                return true;
-            }
 
             var viewport = view.ActiveViewport;
-            string viewKey = null;
-            if (method == DrawMethod.View)
-            {
-                viewKey = ViewKeyFor(view.Document, viewport);
-                if (viewKey == null)
-                {
-                    if (CaptureView(null, view) == null) return true;
-                    viewKey = ViewKeyFor(view.Document, viewport);
-                }
-                if (viewKey == null) return true;
-                BindView(view.Document, viewport, viewKey, true);
-            }
+            // Saved views are cameras only (Rhino Named Views). A sketch is always 3D model
+            // content that every view shows; it is never tied to, or captured as, a view.
             drawing = new DrawDrag
             {
                 View = view,
                 Plane = method == DrawMethod.Cursor
-                    ? CursorDrawPlane
+                    ? new Plane(cursor, viewport.CameraDirection)
                     : method == DrawMethod.View
                         ? new Plane(viewport.CameraTarget, viewport.CameraDirection)
                         : viewport.ConstructionPlane(),
                 Color = StrokeColor,
-                ViewKey = viewKey,
                 Method = method,
             };
             ExtendStroke(point, pressure);
@@ -438,11 +360,6 @@ namespace RhinoSketchingTool
             if (view == null || view.RuntimeSerialNumber != dragView.RuntimeSerialNumber)
             {
                 EndDrag(); // wandered into another viewport
-                return;
-            }
-            if (drawing?.ViewKey != null && !LiveVisibleInView(view.Document, view.ActiveViewport))
-            {
-                EndDrag(); // navigation during a view sketch must not mix two projections
                 return;
             }
             if (drawing != null) ExtendStroke(point, pressure);
@@ -479,12 +396,6 @@ namespace RhinoSketchingTool
 
         void ExtendStroke(ScreenPoint point, double penPressure)
         {
-            if (drawing.SnapKind != null) { AdjustHeldShape(point); return; }
-            if (drawing.HoldAt == 0 || Math.Abs(point.X - drawing.HoldAnchor.X) + Math.Abs(point.Y - drawing.HoldAnchor.Y) > 3)
-            {
-                drawing.HoldAnchor = point;
-                drawing.HoldAt = Stopwatch.GetTimestamp();
-            }
             var viewport = drawing.View.ActiveViewport;
             Hit hit = null;
             if (ViewLine(viewport, point, out Line line))
@@ -612,10 +523,9 @@ namespace RhinoSketchingTool
                 var attributes = StrokeAttributes(doc);
                 attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 attributes.ObjectColor = drawing.Color;
-                if (drawing.ViewKey != null) attributes.SetUserString(ViewStrokeKey, drawing.ViewKey);
-                var points = drawing.SnapPoints ?? drawing.Points.ToArray();
-                var paint = drawing.SnapPaint ?? Paint(drawing, true);
-                if (drawing.SnapPoints == null && SnapShapes && drawing.Method != DrawMethod.Surface)
+                var points = drawing.Points.ToArray();
+                var paint = Paint(drawing, true);
+                if (SnapShapes && drawing.Method != DrawMethod.Surface)
                     SnapStroke(drawing, ref points, ref paint);
                 paint.Write(attributes);
                 doc.Objects.AddCurve(new PolylineCurve(points), attributes);
@@ -625,7 +535,6 @@ namespace RhinoSketchingTool
             drawing.Scales.Clear();
             drawing.Travel.Clear();
             drawing.ObjectId = Guid.Empty;
-            drawing.SnapKind = null; drawing.SnapPoints = null; drawing.SnapPaint = null; drawing.HoldAt = 0;
             liveVersion++;
         }
 
@@ -830,7 +739,7 @@ namespace RhinoSketchingTool
 
         // ------------------------------------------- drawing plane and 3D cursor
 
-        // Shift + Ctrl + click: put the viewport's construction plane on the surface under
+        // "Pick a face", then a click: put the viewport's construction plane on the surface under
         // the pointer (tangent at the clicked point), or back where it was on empty space.
         void PickDrawPlane(RhinoView view, ScreenPoint point)
         {
@@ -848,8 +757,6 @@ namespace RhinoSketchingTool
                 if (x.Length < 1e-6) x = Vector3d.XAxis;
                 x.Unitize();
                 BorrowPlane(viewport, new Plane(hit.Point, x, Vector3d.CrossProduct(normal, x)));
-                var obj = view.Document.Objects.FindId(hit.ObjectId);
-                pickedPlaneLabels[viewport.Id] = obj == null ? "On surface" : "On " + LayerPath(view.Document, obj);
             }
             else if (!ReturnPlane(viewport))
             {
@@ -886,7 +793,6 @@ namespace RhinoSketchingTool
         {
             if (!borrowed.TryGetValue(viewport.Id, out BorrowedPlane loan)) return false;
             borrowed.Remove(viewport.Id);
-            pickedPlaneLabels.Remove(viewport.Id);
             // If the user has moved the plane themselves since, theirs stands.
             if (Same(viewport.ConstructionPlane(), loan.Moved)) viewport.SetConstructionPlane(loan.Before);
             return true;
@@ -897,7 +803,6 @@ namespace RhinoSketchingTool
             if (borrowed.Count == 0) return;
             foreach (RhinoViewport viewport in Viewports(null)) ReturnPlane(viewport);
             borrowed.Clear(); // what is left belonged to viewports that are gone
-            pickedPlaneLabels.Clear();
         }
 
         // A file saved while a plane is on loan must get the viewport's own plane, or the
@@ -963,58 +868,33 @@ namespace RhinoSketchingTool
             return Plane.WorldXY;
         }
 
-        // Shift + click (3D cursor method): move the cursor to the surface under the
+        // "Place cursor", then a click: move the 3D cursor to the surface under the
         // pointer. Where there is none, a perspective view puts it on the construction
         // plane; a parallel view slides it across the screen, keeping its depth.
         void MoveCursor(RhinoView view, ScreenPoint point)
         {
-            EnsureCursorDocument();
             var viewport = view.ActiveViewport;
             if (!ViewLine(viewport, point, out Line line)) return;
-            var targets = CollectTargets(view.Document);
-            Hit hit = HitSurface(viewport, line, targets) ?? HitPlane(viewport, line, viewport.ConstructionPlane());
+            Plane fallback = viewport.IsParallelProjection
+                ? new Plane(cursor, viewport.CameraDirection)
+                : viewport.ConstructionPlane();
+            Hit hit = HitSurface(viewport, line, CollectTargets(view.Document))
+                      ?? HitPlane(viewport, line, fallback);
             if (hit == null) return;
-            // Snap to a real Brep or mesh vertex, never an invented bounding-box corner.
-            double closest = 10;
-            Point3d surfacePoint = hit.Point;
-            double closestOnSurface = double.MaxValue;
-            foreach (var target in targets)
-            {
-                if (target.Id != hit.ObjectId) continue;
-                target.Prepare();
-                var vertices = new List<Point3d>();
-                if (target.Brep != null) foreach (var vertex in target.Brep.Vertices) vertices.Add(vertex.Location);
-                else if (target.Object.Geometry is Mesh mesh) foreach (var vertex in mesh.Vertices) vertices.Add(new Point3d(vertex));
-                foreach (var vertex in vertices)
-                {
-                    Point2d? at = ToScreen(viewport, vertex);
-                    if (!at.HasValue) continue;
-                    double distance = at.Value.DistanceTo(new Point2d(point.X, point.Y));
-                    double onSurface = vertex.DistanceTo(surfacePoint);
-                    if (distance < closest - 1e-6 || Math.Abs(distance - closest) < 1e-6 && onSurface < closestOnSurface)
-                    { closest = distance; closestOnSurface = onSurface; hit.Point = vertex; }
-                }
-            }
             cursor = hit.Point;
-            Vector3d normal = hit.Normal;
-            if (normal * viewport.CameraDirection > 0) normal = -normal;
-            Vector3d x = Vector3d.CrossProduct(Vector3d.ZAxis, normal);
-            if (x.IsTiny()) x = Vector3d.XAxis;
-            x.Unitize(); cursorSurface = new Plane(cursor, x, Vector3d.CrossProduct(normal, x));
-            SaveCursor(); Refresh();
+            view.Document.Views.Redraw();
         }
 
         // ------------------------------------------------------------- views
 
         /// <summary>
-        /// Switch the active viewport to a parallel Right / Front / Top view (1 / 2 / 3)
-        /// centred on the 3D cursor, and draw on that matching cursor plane. 0: back to the
+        /// Keys 1 / 2 / 3: switch the active viewport to a parallel Right / Front / Top view
+        /// centred on the 3D cursor, and to drawing at the cursor, which in such a view is
+        /// drawing on the plane through it that faces the camera. 0: back to the
         /// perspective view as it was. Only the view changes, never the construction plane.
-        /// Called by interface actions, never by intercepting Rhino's number keys.
         /// </summary>
         public void SetView(int key)
         {
-            EnsureCursorDocument();
             var doc = RhinoDoc.ActiveDoc;
             var view = doc?.Views.ActiveView;
             if (view == null || key < 0 || key > 3) return;
@@ -1030,8 +910,6 @@ namespace RhinoSketchingTool
                 ShowAxisView(doc, viewport, key);
                 SetTool(SketchTool.Draw);
                 SetMethod(DrawMethod.Cursor);
-                cursorPlaneMode = key == 1 ? "side" : key == 2 ? "front" : "top";
-                SaveCursor();
             }
             Refresh();
         }
@@ -1047,12 +925,6 @@ namespace RhinoSketchingTool
                 case 2: name = "Front"; from = -Vector3d.YAxis; up = Vector3d.ZAxis; break;
                 default: name = "Top"; from = Vector3d.ZAxis; up = Vector3d.YAxis; break;
             }
-
-            ShowPlaneView(doc, viewport, from, up, name);
-        }
-
-        void ShowPlaneView(RhinoDoc doc, RhinoViewport viewport, Vector3d from, Vector3d up, string name)
-        {
 
             var info = new ViewportInfo(viewport);
             if (viewport.IsPerspectiveProjection)
@@ -1257,18 +1129,11 @@ namespace RhinoSketchingTool
 
         sealed class DrawDrag
         {
-            public long HoldAt;
-            public ScreenPoint HoldAnchor;
-            public string SnapKind;
-            public Point2d SnapFirst, SnapCentre;
-            public Point3d[] SnapPoints;
-            public StrokePaint SnapPaint;
             public RhinoView View;
             public Plane Plane;
             public List<Target> Targets;
             public Color Color;
             public DrawMethod Method;
-            public string ViewKey;
             public Guid ObjectId;
             public ScreenPoint Last;
 

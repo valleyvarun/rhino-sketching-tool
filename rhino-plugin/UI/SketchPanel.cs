@@ -20,8 +20,8 @@ namespace RhinoSketchingTool
         string tab = "agent";
         bool DarkAppearance()
         {
-            bool dark = CrayonAppearance.Dark;
-            var color = dark ? Color.FromArgb(0x18, 0x19, 0x1d) : Color.FromArgb(0xf6, 0xf7, 0xf9);
+            bool dark = Theme.Dark; // Crayon's own light / dark switch, never Rhino's
+            var color = dark ? Color.FromArgb(0x23, 0x24, 0x28) : Color.FromArgb(0xf6, 0xf7, 0xf9);
             if (BackgroundColor != color) BackgroundColor = color;
             return dark;
         }
@@ -63,11 +63,12 @@ namespace RhinoSketchingTool
                 tab = value;
                 ShowTab();
             }
+            else if (type == "chatHistory") agentView.SetHistory("toggle");
+            else if (type == "chatNew") agentView.NewChat();
         }
 
         void ShowTab()
         {
-            if (tab != "sketch") controller.CursorSectionVisible = false;
             content.Content = tab == "agent" ? (Control)agentView : settings ?? Fallback();
             if (tab == "agent") Agent.Open();
             header?.RefreshState();
@@ -141,7 +142,6 @@ namespace RhinoSketchingTool
                 Open();
                 SketchPlugin.Instance.Settings.SetBool("SidebarIntroduced", true);
             }
-            SketchPlugin.Instance.Controller.Active = SketchPlugin.Instance.Settings.GetBool("CrayonEnabled", true);
         }
 
         // Rhino reports every panel it shows or hides. Switching tabs hides one panel and

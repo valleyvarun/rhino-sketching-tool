@@ -109,6 +109,28 @@ internal static class Program
             claude.SetEffort("default");
             claude.Warm(); Until(claude, () => File.ReadAllText(Path.Combine(folder, "claude-arguments.json")).IndexOf("--effort") < 0);
             Check(!File.ReadAllText(Path.Combine(folder, "claude-arguments.json")).Contains("--effort"), "Claude Default removes explicit effort override");
+
+            // History: a kept conversation is listed by its first message and continues through the provider's own id.
+            ChatHistory.Folder = Path.Combine(folder, "history");
+            var firstMessage = new Dictionary<string, object> { ["kind"] = "user", ["text"] = "Make the roof steeper\n\nAttached: notes.txt", ["time"] = 1.0 };
+            var kept = new SavedChat
+            {
+                Id = ChatHistory.NewId(), Provider = "claude", SessionId = "claude-from-history",
+                Title = ChatHistory.Title(new[] { firstMessage }), Updated = ChatHistory.Now,
+                Entries = new List<Dictionary<string, object>> { firstMessage, new Dictionary<string, object> { ["kind"] = "text", ["text"] = "Done", ["streaming"] = false } },
+            };
+            ChatHistory.Save(kept);
+            var listed = ChatHistory.List();
+            Check(listed.Count == 1 && Json.Text(Json.Map(listed[0]).At("title")) == "Make the roof steeper" && Json.Text(Json.Map(listed[0]).At("id")) == kept.Id, "History lists a kept conversation by its first message");
+            var reopened = ChatHistory.Load(kept.Id);
+            Check(reopened != null && reopened.Provider == "claude" && reopened.SessionId == "claude-from-history" && reopened.Entries.Count == 2 && Json.Text(reopened.Entries[1].At("text")) == "Done", "History keeps the shown entries and the provider's own id");
+            Check(ChatHistory.Load("..\\escape") == null, "History ids cannot name files outside its folder");
+            claude.Resume(reopened.SessionId);
+            Check(claude.Transcript.Entries.Count == 0 && claude.ConversationId == "claude-from-history" && claude.Status == "idle", "Resume opens an empty transcript on the saved conversation");
+            Check(claude.Send("Continue from history"), "Claude accepts a message in a conversation reopened from History");
+            Until(claude, () => claude.Status == "idle" && claude.Transcript.Entries.OfType<AssistantText>().Any());
+            var historyArgs = Json.List(Json.Parse(File.ReadAllText(Path.Combine(folder, "claude-arguments.json")))).Select(Json.Text).ToList();
+            Check(historyArgs.IndexOf("--resume") >= 0 && historyArgs[historyArgs.IndexOf("--resume") + 1] == "claude-from-history", "Claude continues a History conversation with --resume and its session id");
             claude.Close();
             File.Delete(picture);
             Check(!codex.Send("Missing image", files), "Deleted attachment is rejected before send");
@@ -132,6 +154,14 @@ internal static class Program
             Check(codex.Transcript.Entries.OfType<ToolCall>().Last().Result == "Box created", "Successful MCP results remain visible");
             codex.Send("MCP transport failure"); Until(codex, () => codex.Status == "idle");
             Check(codex.Transcript.McpConnectionFailed, "MCP transport failure triggers reconnect on next send");
+            codex.Resume("codex-from-history");
+            Check(codex.Transcript.Entries.Count == 0 && codex.ConversationId == "codex-from-history", "Codex Resume opens an empty transcript on the saved thread");
+            Check(codex.Send("Continue Codex from history"), "Codex accepts a message in a conversation reopened from History");
+            Until(codex, () => codex.Status == "waiting" || (codex.Status == "idle" && codex.Transcript.Entries.OfType<AssistantText>().Any()));
+            foreach (Approval asked in codex.Transcript.Entries.OfType<Approval>().Where(a => a.Status == "pending").ToList()) codex.Answer(asked.RequestId, "deny");
+            Until(codex, () => codex.Status == "idle");
+            var historyThread = Json.Map(Json.Parse(File.ReadAllText(Path.Combine(folder, "thread-request.json"))));
+            Check(Json.Text(historyThread.At("method")) == "thread/resume" && Json.Text(Json.Map(historyThread.At("params")).At("threadId")) == "codex-from-history", "Codex continues a History conversation with thread/resume and its thread id");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

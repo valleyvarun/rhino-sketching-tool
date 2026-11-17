@@ -27,6 +27,8 @@ namespace RhinoSketchingTool
         bool ready;          // the page has loaded and can be talked to
         bool dirty = true;   // something has changed that the page has not been told
         bool? lastDark;
+        int contextTick;
+        int[] context = { 0, 0 }; // sketch groups, comment groups the next prompt carries
         string lastMcpMessage;
         bool warmed;
         bool taking;         // the page is being asked what the user did
@@ -37,6 +39,29 @@ namespace RhinoSketchingTool
         Transcript told;
         readonly Dictionary<int, string> toldEntries = new Dictionary<int, string>();
         string toldRest;
+        int toldEpoch;
+
+        // ------------------------------------------------------ History
+        // The conversation on screen, per provider: the live transcript, and, when it was
+        // opened from History, the saved entries shown before it (ids -1, -2, ...). Saved
+        // to %APPDATA%\Crayon\history on New chat, on opening another, and after each turn.
+        sealed class Conversation
+        {
+            public string Id = "";          // its History id, once saved
+            public string SessionId = "";   // the provider's own id, as last seen
+            public Transcript Transcript;   // the live part
+            public readonly List<JsonMap> Replayed = new List<JsonMap>();
+            public readonly Dictionary<int, List<object>> Chips = new Dictionary<int, List<object>>(); // user entry id -> what went with it
+            public readonly Dictionary<int, long> Times = new Dictionary<int, long>();                 // entry id -> when it was first seen
+            public int SavedCount = -1;     // entries in the last save, so an unchanged chat is not saved again
+        }
+        readonly Dictionary<string, Conversation> conversations = new Dictionary<string, Conversation>();
+        static bool historyOpen;
+        int epoch;               // goes up when the conversation on screen is swapped
+        string lastStatus = "idle";
+
+        /// <summary>The History list is showing (the header's History button is pressed).</summary>
+        public static bool HistoryOpen => historyOpen;
 
         public AgentView()
         {
@@ -88,13 +113,29 @@ namespace RhinoSketchingTool
         void Tick()
         {
             Agent.CheckDocument();
-            if (told != session.Transcript || lastMcpMessage != RhinoMcpConnection.Message)
+            Conv(); // notices a chat the session replaced by itself, and keeps it in History
+            string status = session.Status;
+            if (status == "idle" && lastStatus != "idle") Save(Conv(), Agent.Provider); // a turn has ended
+            lastStatus = status;
+            if (told != session.Transcript || epoch != toldEpoch || lastMcpMessage != RhinoMcpConnection.Message)
             {
                 lastMcpMessage = RhinoMcpConnection.Message;
                 dirty = true;
             }
-            bool appearance = CrayonAppearance.Dark;
+            bool appearance = Theme.Dark;
             if (lastDark != appearance) { lastDark = appearance; dirty = true; }
+            // The groups the agent will get, for the counter in the chat header. Counted
+            // from the same snapshot a prompt sends, about once a second while on show.
+            if (Loaded && Visible && ++contextTick >= 10)
+            {
+                contextTick = 0;
+                try
+                {
+                    int[] counts = DrawingContext.GroupCounts(RhinoDoc.ActiveDoc);
+                    if (counts[0] != context[0] || counts[1] != context[1]) { context = counts; dirty = true; }
+                }
+                catch { /* no document: nothing to count */ }
+            }
             try
             {
                 // Claude Code is started the first time the tab is looked at. That calls no
@@ -122,26 +163,29 @@ namespace RhinoSketchingTool
         {
             Agent.ValidateEffort();
             dirty = false;
+            Conversation conv = Conv();
             Transcript transcript = session.Transcript;
             var state = new JsonMap();
-            if (transcript != told)
+            if (transcript != told || epoch != toldEpoch)
             {
                 told = transcript;
+                toldEpoch = epoch;
                 toldEntries.Clear();
                 toldRest = null;
                 state["reset"] = true;
             }
 
-            // Only the entries that are new, or no longer as the page has them.
+            // Only the entries that are new, or no longer as the page has them. A chat
+            // opened from History shows its saved entries first.
             var changed = new List<object>();
             var ids = new List<object>();
-            foreach (ChatEntry entry in transcript.Entries)
+            foreach (JsonMap shown in ShownEntries(conv))
             {
-                ids.Add(entry.Id);
-                JsonMap shown = AsShown(entry);
+                int id = Convert.ToInt32(shown["id"]);
+                ids.Add(id);
                 string text = Json.Write(shown);
-                if (toldEntries.TryGetValue(entry.Id, out string before) && before == text) continue;
-                toldEntries[entry.Id] = text;
+                if (toldEntries.TryGetValue(id, out string before) && before == text) continue;
+                toldEntries[id] = text;
                 changed.Add(shown);
             }
 
@@ -152,7 +196,9 @@ namespace RhinoSketchingTool
                 ["provider"] = Agent.Provider,
                 ["mcpMessage"] = RhinoMcpConnection.Message,
                 ["mcpMissing"] = RhinoMcpConnection.Missing,
-                ["dark"] = CrayonAppearance.Dark,
+                ["dark"] = Theme.Dark,
+                ["contextSketchGroups"] = context[0],
+                ["contextCommentGroups"] = context[1],
                 ["providerChosen"] = Agent.ProviderChosen,
                 ["providerLabel"] = Agent.Label,
                 ["attachments"] = Agent.Attachments.Select(file => (object)new JsonMap { ["id"] = file.Id, ["name"] = file.Name, ["size"] = file.Size, ["image"] = file.IsImage }).ToList(),
@@ -177,6 +223,9 @@ namespace RhinoSketchingTool
                 ["folder"] = Path.GetFileName(folder.TrimEnd('\\', '/')),
                 ["folderPath"] = folder,
                 ["ids"] = ids,
+                ["history"] = ChatHistory.List(),
+                ["current"] = conv.Id,
+                ["historyOpen"] = historyOpen,
             };
             string restText = Json.Write(rest);
             if (changed.Count == 0 && restText == toldRest && !state.ContainsKey("reset")) return;
@@ -224,6 +273,160 @@ namespace RhinoSketchingTool
             return shown;
         }
 
+        // ---------------------------------------------------- History
+
+        // The conversation for the provider in use. If the session has started a new
+        // chat by itself (another document, a sign-out), the old one is kept in History first.
+        Conversation Conv()
+        {
+            string provider = Agent.Provider;
+            if (!conversations.TryGetValue(provider, out Conversation conv))
+                conversations[provider] = conv = new Conversation { Transcript = session.Transcript };
+            if (conv.Transcript != session.Transcript)
+            {
+                Save(conv, provider);
+                conversations[provider] = conv = new Conversation { Transcript = session.Transcript };
+                epoch++;
+                dirty = true;
+            }
+            string id = session.ConversationId ?? "";
+            if (id.Length > 0) conv.SessionId = id;
+            return conv;
+        }
+
+        // Every entry of the conversation as the page is given it, saved ones first.
+        List<JsonMap> ShownEntries(Conversation conv)
+        {
+            var list = new List<JsonMap>(conv.Replayed);
+            foreach (ChatEntry entry in conv.Transcript.Entries) list.Add(AsShown(entry, conv));
+            return list;
+        }
+
+        // As AsShown, plus when it was said and, for the user's messages, what went with them.
+        static JsonMap AsShown(ChatEntry entry, Conversation conv)
+        {
+            JsonMap shown = AsShown(entry);
+            if (entry is UserMessage || entry is AssistantText)
+            {
+                if (!conv.Times.TryGetValue(entry.Id, out long time)) conv.Times[entry.Id] = time = ChatHistory.Now;
+                shown["time"] = time;
+            }
+            if (entry is UserMessage user)
+            {
+                List<object> chips = conv.Chips.TryGetValue(entry.Id, out List<object> sent) ? sent : new List<object>();
+                shown["chips"] = chips;
+                // Attached files show as chips, so the "Attached: ..." line is not repeated under them.
+                int attached = user.Text.IndexOf("\n\nAttached: ", StringComparison.Ordinal);
+                if (attached >= 0 && chips.Any(chip => Json.Text(Json.Map(chip).At("kind")) == "file")) shown["text"] = user.Text.Substring(0, attached);
+            }
+            return shown;
+        }
+
+        // Keep the conversation in History, if it has anything of the user's and has changed.
+        void Save(Conversation conv, string provider)
+        {
+            if (conv?.Transcript == null) return;
+            var entries = ShownEntries(conv).Select(Settled).ToList();
+            if (!entries.Any(entry => Json.Text(entry.At("kind")) == "user")) return;
+            if (conv.Id.Length > 0 && entries.Count == conv.SavedCount) return;
+            if (conv.Id.Length == 0) conv.Id = ChatHistory.NewId();
+            ChatHistory.Save(new SavedChat
+            {
+                Id = conv.Id, Provider = provider, SessionId = conv.SessionId,
+                Title = ChatHistory.Title(entries), Updated = ChatHistory.Now, Entries = entries,
+            });
+            conv.SavedCount = entries.Count;
+            dirty = true;
+        }
+
+        // An entry as it is kept: nothing still running or waiting, and no id (ids are given on opening).
+        static JsonMap Settled(JsonMap shown)
+        {
+            var copy = new JsonMap(shown);
+            copy.Remove("id");
+            if (copy.ContainsKey("streaming")) copy["streaming"] = false;
+            string kind = Json.Text(copy.At("kind")), status = Json.Text(copy.At("status"));
+            if (kind == "tool" && status == "running") copy["status"] = "stopped";
+            if (kind == "ask" && status == "pending") copy["status"] = "cancelled";
+            return copy;
+        }
+
+        // The sketch and comment groups the next message carries (as Layers names them),
+        // and the files attached to it: the chips over the user's message.
+        static List<object> SendChips()
+        {
+            var chips = new List<object>();
+            try
+            {
+                RhinoDoc doc = RhinoDoc.ActiveDoc;
+                if (doc != null)
+                {
+                    DrawingContextSnapshot snapshot = DrawingContext.Capture(doc);
+                    AnnotationGroupState groups = AnnotationGroups.Read(doc);
+                    foreach (int id in snapshot.SketchGroups)
+                        chips.Add(new JsonMap { ["kind"] = "sketch", ["label"] = groups.Sketches.FirstOrDefault(g => g.Id == id)?.Name ?? "Group " + id });
+                    foreach (int id in snapshot.CommentGroups)
+                        chips.Add(new JsonMap { ["kind"] = "comment", ["label"] = groups.Comments.FirstOrDefault(g => g.Id == id)?.Name ?? "Group " + id });
+                }
+            }
+            catch (Exception) { /* no context to show */ }
+            foreach (ChatAttachment file in Agent.Attachments) chips.Add(new JsonMap { ["kind"] = "file", ["label"] = file.Name });
+            return chips;
+        }
+
+        /// <summary>New chat: keep this one in History, then start an empty one.</summary>
+        public void NewChat()
+        {
+            if (session.Status != "idle") return;
+            Save(Conv(), Agent.Provider);
+            session.Reset();
+            Agent.Attachments.Clear();
+            session.Warm();
+            conversations[Agent.Provider] = new Conversation { Transcript = session.Transcript };
+            historyOpen = false;
+            epoch++;
+            dirty = true;
+        }
+
+        /// <summary>Show or hide the History list: "open", "close", or anything else to toggle.</summary>
+        public void SetHistory(string value)
+        {
+            historyOpen = value == "open" || (value != "close" && !historyOpen);
+            dirty = true;
+        }
+
+        /// <summary>
+        /// Open a kept conversation: this one is kept first, the saved entries are shown
+        /// again, and the next message continues the provider's own conversation.
+        /// </summary>
+        public void OpenChat(string id)
+        {
+            if (session.Status != "idle") return;
+            SavedChat saved = ChatHistory.Load(id);
+            if (saved == null) return;
+            Save(Conv(), Agent.Provider);
+            if (saved.Provider != Agent.Provider)
+            {
+                Agent.Choose(saved.Provider);
+                Save(Conv(), Agent.Provider);
+                if (session.Status != "idle") return;
+            }
+            session.Resume(saved.SessionId);
+            Agent.Attachments.Clear();
+            var conv = new Conversation { Id = saved.Id, SessionId = saved.SessionId, Transcript = session.Transcript };
+            for (int i = 0; i < saved.Entries.Count; i++)
+            {
+                var entry = new JsonMap(saved.Entries[i]) { ["id"] = -(i + 1) };
+                conv.Replayed.Add(entry);
+            }
+            conv.SavedCount = conv.Replayed.Count;
+            conversations[Agent.Provider] = conv;
+            historyOpen = false;
+            epoch++;
+            dirty = true;
+            Agent.Open(); // starts the CLI on that conversation; no model is called
+        }
+
         // ---------------------------------------------------- from the page
 
         // Ask the page what the user has done since the last time.
@@ -255,8 +458,17 @@ namespace RhinoSketchingTool
             switch (Json.Text(action.At("type")))
             {
                 case "send":
-                    web.ExecuteScriptAsync("crayon.sent(" + (Agent.Send(Json.Text(action.At("text"))) ? "true" : "false") + ");");
+                {
+                    List<object> chips = SendChips();
+                    bool ok = Agent.Send(Json.Text(action.At("text")));
+                    if (ok)
+                    {
+                        UserMessage user = session.Transcript.Entries.OfType<UserMessage>().LastOrDefault();
+                        if (user != null) Conv().Chips[user.Id] = chips;
+                    }
+                    web.ExecuteScriptAsync("crayon.sent(" + (ok ? "true" : "false") + ");");
                     break;
+                }
                 case "provider":
                     Agent.Choose(value);
                     told = null;
@@ -277,9 +489,13 @@ namespace RhinoSketchingTool
                     session.Interrupt();
                     break;
                 case "new":
-                    session.Reset();
-                    Agent.Attachments.Clear();
-                    session.Warm();
+                    NewChat();
+                    break;
+                case "history":
+                    SetHistory(value);
+                    break;
+                case "open":
+                    OpenChat(value);
                     break;
                 case "signin":
                     session.SignIn();

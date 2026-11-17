@@ -12,7 +12,7 @@ using Wpf = System.Windows;
 namespace RhinoSketchingTool
 {
     /// <summary>Where the toolbar sits over the viewport. On the two sides it stands upright.</summary>
-    internal enum ToolbarDock { TopLeft, Top, TopRight, Left, Right, BottomLeft, Bottom, BottomRight, Floating }
+    internal enum ToolbarDock { TopLeft, Top, TopRight, Left, Right, BottomLeft, Bottom, BottomRight }
 
     /// <summary>
     /// The toolbar over the active viewport: Select, Pen, Eraser, Comments and Saved views,
@@ -31,38 +31,41 @@ namespace RhinoSketchingTool
     {
         enum Part { None, Bar, Grip, Select, Pen, Eraser, Comments, Views, Separator, Collapse,
             Object, Plane, Cursor, View, ViewList, Color, Snap, Popup, Saturation, Hue, Hex, Swatch0, Swatch1, Swatch2, Swatch3, Swatch4,
-            PlaceCursor, PickFace, ClearSketches, EraseWhole, ErasePart, SelectedCount, ClearSelection, Help, SaveView, SavedView, SyncViews }
+            EraseWhole, ErasePart, Hint, SaveView, PickFace, FaceChip, PlaceCursor,
+            Chip0, Chip1, Chip2, Chip3, Chip4, Chip5, Chip6, Chip7, ChipX0, ChipX1, ChipX2, ChipX3, ChipX4, ChipX5, ChipX6, ChipX7, ChipMore }
 
         // Sizes, in pixels at 100 % display scaling.
-        const double Thickness = 56;       // design toolbar height
-        const double Padding = 6;
-        const double ButtonLength = 44;    // design tool button
-        const double GripLength = 14, SeparatorLength = 9, ChevronLength = 24;
-        const double IconSize = 20, ChevronSize = 15;
+        // The prototype's dock bar (data-bar="dock", data-type="icons"): 42 px buttons,
+        // 44 px wide, 4 px padding, 16 px corners, a violet dot under the tool in use.
+        const double Thickness = 50;       // the bar's short side
+        const double Padding = 4;
+        const double ButtonLength = 44;    // a tool button, along the bar
+        const double GripLength = 18, SeparatorLength = 9, ChevronLength = 30;
+        const double IconSize = 20, ChevronSize = 18;
         const double Radius = 16, ButtonRadius = 11;
         const double DotSize = 4;          // the dot that marks the tool in use
-        const double Inset = 14;           // design edge inset
+        const double Inset = 10;           // from the viewport's edge
         const double Margin = 8;           // room around the bar, in its picture, for the shadow
         const double TitleClear = 24;      // top left: below the viewport's title
         const double AxesClear = 56;       // bottom left: beside the world axes icon
 
         // design/tokens/tokens.json
+        // Light or dark, following Crayon's own switch (Theme), never Rhino's.
         static Media.Color Ink => Picture.Ink;
         static Media.Color Ink2 => Picture.Ink2;
         static Media.Color Muted => Picture.Muted;
         static Media.Color Glass => Picture.Glass;
-        static Media.Color Shade => Picture.Overlay;
-        static Media.Color Accent => Picture.Accent;
-        const double HoverShade = 0.045, PressShade = 0.08, LineShade = 0.14;
+        static Media.Color Shade => Picture.Shade;
+        static Media.Color Well => Picture.Well;
+        static Media.Color SoftSel => Picture.SoftSel;
+        static readonly Media.Color Accent = Picture.Accent;
+        static double HoverShade => Theme.Dark ? 0.07 : 0.045;
+        static double PressShade => Theme.Dark ? 0.12 : 0.08;
+        static double LineShade => Theme.Dark ? 0.13 : 0.14;
 
         readonly SketchController controller;
 
-        ToolbarDock dock = ToolbarDock.Bottom;
-        double floatingX = .5, floatingY = .8;
-        bool savedViewsTool;
-        readonly Eto.Forms.UITimer motionTimer;
-        Part lastAnimated = Part.None, previousAnimated = Part.None;
-        DateTime motionStarted, cameraSaved;
+        ToolbarDock dock = ToolbarDock.Top;
         bool collapsed;
         bool remembered; // dock and collapsed have been read from the plug-in's settings
         bool broken;     // painting failed once: the bar stays away rather than fail every frame
@@ -76,30 +79,18 @@ namespace RhinoSketchingTool
         // Everything the bar's picture depends on.
         struct Look
         {
-            public bool Upright, Collapsed, Dark, RightDock;
+            public bool Upright, Collapsed, Dark;
             public Part Active, Hover, Pressed;
-            public Part Previous;
-            public int Motion, CameraFlash;
             public int Scale; // in thousandths
         }
 
-        public Toolbar(SketchController controller)
-        {
-            this.controller = controller;
-            motionTimer = new Eto.Forms.UITimer { Interval = .016 };
-            motionTimer.Elapsed += (s,e) =>
-            {
-                Redraw();
-                if((DateTime.UtcNow-motionStarted).TotalMilliseconds>300 && (DateTime.UtcNow-cameraSaved).TotalMilliseconds>300) motionTimer.Stop();
-            };
-        }
+        public Toolbar(SketchController controller) => this.controller = controller;
 
         public ToolbarDock Dock
         {
             get => dock;
             set
             {
-                value = EdgeDock(value);
                 if (dock == value) return;
                 dock = value;
                 Settings?.SetInteger("ToolbarDock", (int)dock);
@@ -129,17 +120,14 @@ namespace RhinoSketchingTool
                 if (!remembered && Settings != null)
                 {
                     remembered = true;
-                    int saved = Settings.GetInteger("ToolbarDock", (int)ToolbarDock.Bottom);
-                    if (Enum.IsDefined(typeof(ToolbarDock), saved)) dock = EdgeDock((ToolbarDock)saved);
+                    int saved = Settings.GetInteger("ToolbarDock", (int)ToolbarDock.Top);
+                    if (Enum.IsDefined(typeof(ToolbarDock), saved)) dock = (ToolbarDock)saved;
                     collapsed = Settings.GetBool("ToolbarCollapsed", false);
-                    floatingX = Settings.GetDouble("ToolbarFloatX", .5);
-                    floatingY = Settings.GetDouble("ToolbarFloatY", .8);
                 }
                 RhinoView.SetActive += OnActiveView;
             }
             else
             {
-                motionTimer.Stop();
                 RhinoView.SetActive -= OnActiveView;
                 hover = pressed = Part.None;
                 dragging = false;
@@ -164,13 +152,12 @@ namespace RhinoSketchingTool
         {
             get
             {
-                if (savedViewsTool && controller.Tool == SketchTool.Select) return Part.Views;
-                savedViewsTool = false;
                 switch (controller.Tool)
                 {
                     case SketchTool.Draw: return Part.Pen;
                     case SketchTool.Erase: return Part.Eraser;
                     case SketchTool.Comment: return Part.Comments;
+                    case SketchTool.Views: return Part.Views;
                     default: return Part.Select;
                 }
             }
@@ -182,8 +169,6 @@ namespace RhinoSketchingTool
         {
             public Part Part;
             public Wpf.Rect Box; // within the bar, at 100 %
-            public string Value;
-            public bool DividerBefore;
         }
 
         // The bar's parts in order, and (out) the size of the bar that holds them.
@@ -221,9 +206,6 @@ namespace RhinoSketchingTool
         {
             double width = bar.Width * scale, height = bar.Height * scale, inset = Inset * scale;
             double x, y;
-            if (dock == ToolbarDock.Floating)
-                return new ScreenPoint((int)Math.Max(0, Math.Min(viewport.Width-width, floatingX*viewport.Width-width/2)),
-                    (int)Math.Max(0, Math.Min(viewport.Height-height, floatingY*viewport.Height-height/2)));
             switch (dock)
             {
                 case ToolbarDock.TopLeft: case ToolbarDock.Left: x = inset; break;
@@ -249,13 +231,6 @@ namespace RhinoSketchingTool
             new[] { 0.0, 1.0 }, new[] { 0.5, 1.0 }, new[] { 1.0, 1.0 },
         };
 
-        static ToolbarDock EdgeDock(ToolbarDock value)
-        {
-            if (value == ToolbarDock.TopLeft || value == ToolbarDock.TopRight) return ToolbarDock.Top;
-            if (value == ToolbarDock.BottomLeft || value == ToolbarDock.BottomRight) return ToolbarDock.Bottom;
-            return value;
-        }
-
         static ToolbarDock Nearest(System.Drawing.Size viewport, ScreenPoint point)
         {
             double x = viewport.Width > 0 ? (double)point.X / viewport.Width : 0.5;
@@ -264,7 +239,6 @@ namespace RhinoSketchingTool
             double least = double.MaxValue;
             for (int i = 0; i < Anchors.Length; i++)
             {
-                if (EdgeDock((ToolbarDock)i) != (ToolbarDock)i) continue;
                 double dx = x - Anchors[i][0], dy = y - Anchors[i][1], distance = dx * dx + dy * dy;
                 if (distance < least) { least = distance; nearest = i; }
             }
@@ -272,15 +246,6 @@ namespace RhinoSketchingTool
         }
 
         [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr window);
-        [DllImport("user32.dll")] static extern bool SystemParametersInfo(uint action,uint parameter,[MarshalAs(UnmanagedType.Bool)] out bool value,uint flags);
-        static bool MotionEnabled
-        {
-            get
-            {
-                try { return SystemParametersInfo(0x1042,0,out bool enabled,0) && enabled; }
-                catch { return false; }
-            }
-        }
 
         // Windows' display scaling where this view is: 1 at 100 %, 1.5 at 150 %.
         internal static double Scale(RhinoView view)
@@ -343,18 +308,10 @@ namespace RhinoSketchingTool
             }
             if (part == Part.None) return false;
             pressed = part;
-            if (doubleClick && part == Part.SavedView)
-            {
-                var frame = OptionsFrame(view);
-                var at = Local(point,frame.OptionOrigin,frame.Scale);
-                RenameView(frame.Items.Find(i=>i.Part==Part.SavedView && i.Box.Contains(at)).Value);
-                pressed = Part.Bar;
-                return true;
-            }
             if (part == Part.Saturation || part == Part.Hue) PickColor(view, point, part);
             if (part == Part.Grip)
             {
-                if (doubleClick) Dock = ToolbarDock.Bottom;
+                if (doubleClick) Dock = ToolbarDock.Top;
                 else dragging = true;
             }
             view.Redraw();
@@ -370,20 +327,7 @@ namespace RhinoSketchingTool
             }
             if (dragging)
             {
-                if (ShowsIn(view))
-                {
-                    var size = view.ActiveViewport.Size;
-                    double s = Scale(view);
-                    bool edge = point.X < 72*s || point.X > size.Width-72*s || point.Y < 80*s || point.Y > size.Height-80*s;
-                    if (edge) Dock = Nearest(size, point);
-                    else
-                    {
-                        floatingX = (double)point.X / Math.Max(1,size.Width); floatingY = (double)point.Y / Math.Max(1,size.Height);
-                        Dock = ToolbarDock.Floating;
-                        Settings?.SetDouble("ToolbarFloatX",floatingX); Settings?.SetDouble("ToolbarFloatY",floatingY);
-                        Redraw();
-                    }
-                }
+                if (ShowsIn(view)) Dock = Nearest(view.ActiveViewport.Size, point);
                 return;
             }
             if (leftDown && (pressed == Part.Saturation || pressed == Part.Hue))
@@ -425,27 +369,20 @@ namespace RhinoSketchingTool
                     Collapsed = !collapsed;
                     break;
                 case Part.Views:
-                    clearAsked = false;
-                    CloseOptionsPopup();
-                    controller.Tool = SketchTool.Select;
-                    savedViewsTool = true;
-                    if (collapsed) Collapsed = false;
-                    break;
                 case Part.Select:
                 case Part.Pen:
                 case Part.Eraser:
                 case Part.Comments:
-                    clearAsked = false;
-                    savedViewsTool = false;
-                    CloseOptionsPopup();
                     if (collapsed)
                     {
                         Collapsed = false; // only the tool in use is showing: it opens the bar again
                         break;
                     }
+                    CloseOptionsPopup();
                     controller.Tool = part == Part.Pen ? SketchTool.Draw
                         : part == Part.Eraser ? SketchTool.Erase
                         : part == Part.Comments ? SketchTool.Comment
+                        : part == Part.Views ? SketchTool.Views
                         : SketchTool.Select;
                     break;
             }
@@ -469,23 +406,12 @@ namespace RhinoSketchingTool
                 {
                     Upright = Upright,
                     Collapsed = collapsed,
+                    Dark = Theme.Dark,
                     Active = ActivePart,
                     Hover = dragging ? Part.Grip : hover,
                     Pressed = pressed,
                     Scale = (int)Math.Round(scale * 1000),
-                    Dark = CrayonAppearance.Dark,
-                    RightDock = dock == ToolbarDock.Right,
                 };
-                if(look.Active != lastAnimated)
-                {
-                    previousAnimated = lastAnimated;
-                    lastAnimated = look.Active;
-                    motionStarted = DateTime.UtcNow;
-                    if(MotionEnabled) motionTimer.Start();
-                }
-                look.Previous = previousAnimated;
-                look.Motion = MotionEnabled ? (int)Math.Min(1000,(DateTime.UtcNow-motionStarted).TotalMilliseconds/260*1000) : 1000;
-                look.CameraFlash = MotionEnabled ? (int)Math.Max(0,1000-(DateTime.UtcNow-cameraSaved).TotalMilliseconds/260*1000) : 0;
                 if (picture == null || !look.Equals(painted))
                 {
                     picture?.Dispose();
@@ -497,6 +423,7 @@ namespace RhinoSketchingTool
                 int margin = (int)Math.Round(Margin * scale);
                 e.Display.DrawBitmap(picture, origin.X - margin, origin.Y - margin);
                 DrawOptions(e, frame);
+                DrawTip(e, view, frame, items);
             }
             catch (Exception ex)
             {
@@ -514,7 +441,6 @@ namespace RhinoSketchingTool
                 var body = new Wpf.Rect(bar);
                 Picture.Card(context, body, Radius); // the bar itself, on its shadow
                 foreach (Item item in items) Paint(context, item, look);
-                PaintActiveDot(context,items,look);
                 context.Pop();
             });
         }
@@ -523,7 +449,7 @@ namespace RhinoSketchingTool
         internal void SavePicture(string path, double scale)
         {
             List<Item> items = Layout(out Wpf.Size bar);
-            var look = new Look { Upright = Upright, Collapsed = collapsed, Active = ActivePart, Hover = hover, Pressed = pressed, Motion=1000, RightDock=dock==ToolbarDock.Right };
+            var look = new Look { Upright = Upright, Collapsed = collapsed, Active = ActivePart, Hover = hover, Pressed = pressed };
             using (System.Drawing.Bitmap bitmap = Paint(items, bar, look, scale)) bitmap.Save(path, ImageFormat.Png);
         }
 
@@ -567,26 +493,17 @@ namespace RhinoSketchingTool
                 {
                     bool works = Works(item.Part), active = look.Active == item.Part;
                     if (works && (over || down)) context.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, ButtonRadius, ButtonRadius);
-                    double progress = look.Motion/1000.0;
-                    double iconScale = down ? .94 : active ? .94+.06*progress : 1;
-                    PaintIcon(context, Icons.For(item.Part), centre, IconSize*iconScale, active ? Ink : works ? Ink2 : Muted, works ? 1 : 0.55, 0);
-                    if(item.Part==Part.Views && look.CameraFlash>0)
-                        context.DrawEllipse(Fill(Accent,look.CameraFlash/1000.0),null,centre,3,3);
+                    PaintIcon(context, Icons.For(item.Part), centre, IconSize, active ? Ink : works ? Ink2 : Muted, works ? 1 : 0.55, 0);
+                    if (active)
+                    {
+                        // The dot: under the icon, or beside it when the bar stands upright.
+                        double away = IconSize / 2 + DotSize / 2 + 1.5;
+                        var dot = look.Upright ? new Wpf.Point(centre.X + away, centre.Y) : new Wpf.Point(centre.X, centre.Y + away);
+                        context.DrawEllipse(Fill(Accent), null, dot, DotSize / 2, DotSize / 2);
+                    }
                     break;
                 }
             }
-        }
-
-        static void PaintActiveDot(Media.DrawingContext c,List<Item> items,Look look)
-        {
-            var target=items.Find(i=>i.Part==look.Active);
-            if(target.Box.IsEmpty || target.Box.Width==0) return;
-            var source=items.Find(i=>i.Part==look.Previous);
-            if(source.Box.IsEmpty || source.Box.Width==0) source=target;
-            Func<Wpf.Rect,Wpf.Point> location = box => new Wpf.Point(box.X+box.Width/2+(look.Upright?(look.RightDock?1:-1)*(IconSize/2+DotSize/2+1.5):0),box.Y+box.Height/2+(look.Upright?0:IconSize/2+DotSize/2+1.5));
-            var from=location(source.Box); var to=location(target.Box);
-            double t=look.Motion/1000.0; t=1-Math.Pow(1-t,3);
-            c.DrawEllipse(Fill(Accent),null,new Wpf.Point(from.X+(to.X-from.X)*t,from.Y+(to.Y-from.Y)*t),DotSize/2,DotSize/2);
         }
 
         static void PaintIcon(Media.DrawingContext context, Icons.Shape[] icon, Wpf.Point centre, double size, Media.Color colour, double opacity, double turn)
@@ -607,6 +524,91 @@ namespace RhinoSketchingTool
             context.Pop();
             context.Pop();
             context.Pop();
+        }
+
+        // ------------------------------------------------------------ tooltips
+
+        DisplayBitmap tipPicture;
+        string tipSignature;
+
+        string TipFor(Part part, bool collapsed)
+        {
+            switch (part)
+            {
+                case Part.Select: return "Select";
+                case Part.Pen: return "Pen";
+                case Part.Eraser: return "Eraser";
+                case Part.Comments: return "Comments";
+                case Part.Views: return "Saved views";
+                case Part.Grip: return "Drag to move · double-click to reset";
+                case Part.Collapse: return collapsed ? "Show toolbar" : "Minimize toolbar";
+                case Part.Object: return "Draw on objects";
+                case Part.Plane: return "Draw on the construction plane";
+                case Part.Cursor: return "Draw on a plane through the 3D cursor";
+                case Part.PickFace: return controller.Picking == PickMode.Face ? "Click a face of an object (click here again to cancel)" : "Click a face of an object to draw on it";
+                case Part.FaceChip: return "Back to the construction plane";
+                case Part.PlaceCursor: return controller.Picking == PickMode.Cursor ? "Click in the model (click here again to cancel)" : "Click in the model to put the 3D cursor there";
+                case Part.Color: return "Pen colour";
+                case Part.Snap: return "Turn rough lines, boxes and ellipses into clean ones";
+                case Part.EraseWhole: return "Erase whole sketches";
+                case Part.ErasePart: return "Erase only where you drag";
+                case Part.SaveView: return "Save what you see now as a named view";
+                default:
+                    if (part >= Part.Chip0 && part <= Part.Chip7) return "Go to this view";
+                    if (part >= Part.ChipX0 && part <= Part.ChipX7) return armedChip == part - Part.ChipX0 ? "Click again to delete this view" : "Delete view";
+                    if (part == Part.ChipMore) return "More saved views";
+                    return null;
+            }
+        }
+
+        // The hovered control's tooltip: under the toolbar (over it when docked low),
+        // beside it on a side dock, styled as the prototype's .tip-pop.
+        void DrawTip(DrawEventArgs e, RhinoView view, Frame frame, List<Item> items)
+        {
+            if (dragging || pressed != Part.None || hover == Part.None) return;
+            string text = TipFor(hover, collapsed);
+            if (text == null) return;
+            double scale = frame.Scale;
+            Wpf.Rect box = Wpf.Rect.Empty;
+            ScreenPoint origin = frame.ToolOrigin;
+            bool onTool = false;
+            foreach (Item item in items) if (item.Part == hover) { box = item.Box; onTool = true; }
+            if (box.IsEmpty)
+            {
+                origin = frame.OptionOrigin;
+                if (frame.Items != null) foreach (Item item in frame.Items) if (item.Part == hover) box = item.Box;
+            }
+            if (box.IsEmpty) return;
+            var size = view.ActiveViewport.Size;
+            double left = origin.X + box.Left * scale, right = origin.X + box.Right * scale;
+            double top = origin.Y + box.Top * scale, bottom = origin.Y + box.Bottom * scale;
+            bool sideTool = Upright && onTool;
+
+            var label = Picture.Text(text, 11.5, Wpf.FontWeights.Medium, Picture.Rgb(255, 255, 255));
+            double w = label.WidthIncludingTrailingWhitespace + 18, h = label.Height + 10, pad = 4;
+            string signature = text + "|" + scale;
+            if (tipPicture == null || signature != tipSignature)
+            {
+                tipPicture?.Dispose();
+                using (var bitmap = Picture.Render(w + 2 * pad, h + 2 * pad + 2, scale, c => Picture.Tip(c, text, new Wpf.Point(pad + w / 2, pad), false)))
+                    tipPicture = new DisplayBitmap(bitmap);
+                tipSignature = signature;
+            }
+            double pw = (w + 2 * pad) * scale, ph = (h + 2 * pad + 2) * scale, gap = 4 * scale;
+            double x, y;
+            if (sideTool)
+            {
+                x = dock == ToolbarDock.Right ? left - gap - pw : right + gap;
+                y = (top + bottom) / 2 - ph / 2;
+            }
+            else
+            {
+                x = (left + right) / 2 - pw / 2;
+                y = bottom > size.Height * 0.6 ? top - gap - ph : bottom + gap;
+            }
+            x = Math.Max(0, Math.Min(x, size.Width - pw));
+            y = Math.Max(0, Math.Min(y, size.Height - ph));
+            e.Display.DrawBitmap(tipPicture, (int)Math.Round(x), (int)Math.Round(y));
         }
 
         static Media.Color Rgb(byte red, byte green, byte blue) => Picture.Rgb(red, green, blue);
@@ -659,6 +661,34 @@ namespace RhinoSketchingTool
                 Path("M4.6 7.8h2.6l1.6-2.3h6.4l1.6 2.3h2.6a1.6 1.6 0 0 1 1.6 1.6v8.1a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 17.5V9.4a1.6 1.6 0 0 1 1.6-1.6z", 0.18, true),
                 Line("M8.7 13.3a3.3 3.3 0 1 0 6.6 0a3.3 3.3 0 1 0-6.6 0z"),
             };
+
+            public static readonly Shape[] OnObject =
+            {
+                Line("M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0z"),
+                Line("M5.6 13.4c3.8 2.3 9 2.3 12.8 0"),
+            };
+
+            public static readonly Shape[] OnPlane =
+            {
+                Line("M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1 -2.5 2.5H6a2.5 2.5 0 0 1 -2.5 -2.5V7A2.5 2.5 0 0 1 6 4.5z"),
+                Line("M7 12.5c1.7-1.6 3.3-1.6 5 0s3.3 1.6 5 0"),
+            };
+
+            public static readonly Shape[] Plus = { Line("M12 5.5v13M5.5 12h13") };
+
+            public static readonly Shape[] CursorMark =
+            {
+                Line("M12 6a6 6 0 1 1 0 12a6 6 0 1 1 0-12z"),
+                Line("M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"),
+            };
+
+            public static readonly Shape[] PickFace =
+            {
+                Line("M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1 -2.5 2.5H6a2.5 2.5 0 0 1 -2.5 -2.5V7A2.5 2.5 0 0 1 6 4.5z"),
+                Path("M11.4 10.6l9.4 3.7-4.1 1.3-1.6 4.2z", 1, true),
+            };
+
+            public static readonly Shape[] Close = { Line("M7 7l10 10M17 7L7 17") };
 
             public static readonly Shape[] Chevron =
             {

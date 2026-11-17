@@ -575,7 +575,6 @@ namespace RhinoSketchingTool
 
         LabelPicture Cached(string key, Func<LabelPicture> make)
         {
-            key = (CrayonAppearance.Dark ? "dark\n" : "light\n") + key;
             if (labels.TryGetValue(key, out LabelPicture picture)) return picture;
             if (labels.Count > 400)
             {
@@ -589,7 +588,7 @@ namespace RhinoSketchingTool
         // on. While it is being written, the text is left out: the text box sits there.
         LabelPicture LabelFor(Comment comment, string[] link, bool beingWritten, double scale)
         {
-            string key = string.Join("\n", comment.Number, beingWritten ? "" : comment.Text, link == null ? "" : link[0] + " " + link[1], beingWritten, scale);
+            string key = string.Join("\n", comment.Number, beingWritten ? "" : comment.Text, link == null ? "" : link[0] + " " + link[1], beingWritten, scale, Theme.Dark);
             return Cached(key, () =>
             {
                 string shown = comment.Text.Length > 0 ? comment.Text : "Comment";
@@ -700,8 +699,8 @@ namespace RhinoSketchingTool
                 Text = text ?? "",
                 PlaceholderText = "Add a comment, then Return",
                 ShowBorder = false,
-                BackgroundColor = Eto.Drawing.Color.FromArgb(Picture.Glass.R, Picture.Glass.G, Picture.Glass.B),
-                TextColor = Eto.Drawing.Color.FromArgb(Picture.Ink.R, Picture.Ink.G, Picture.Ink.B),
+                BackgroundColor = Eto.Drawing.Colors.White,
+                TextColor = Eto.Drawing.Color.FromArgb(0x15, 0x17, 0x1c),
                 Font = new Eto.Drawing.Font("Segoe UI", 8.6f),
             };
             form = new Eto.Forms.Form
@@ -711,7 +710,7 @@ namespace RhinoSketchingTool
                 Resizable = false,
                 Minimizable = false,
                 Maximizable = false,
-                BackgroundColor = Eto.Drawing.Color.FromArgb(Picture.Glass.R, Picture.Glass.G, Picture.Glass.B),
+                BackgroundColor = Eto.Drawing.Colors.White,
                 Padding = 0,
                 Content = box,
                 ClientSize = new Eto.Drawing.Size((int)width, (int)height),

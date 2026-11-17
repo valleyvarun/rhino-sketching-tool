@@ -32,7 +32,6 @@ namespace RhinoSketchingTool
             // The icon given here does not show up on the tab in Rhino 8; ShowTabIcon sees to that.
             Panels.RegisterPanel(this, typeof(SketchPanel), "Crayon", PanelIcon(), PanelType.System);
             Controller.StartPainting();
-            Controller.EscapedTwice += (s, e) => Sidebar.Leave();
             Sidebar.Watch();
             RhinoApp.Idle += RhinoMcpConnection.OnStartup;
             RhinoDoc.CloseDocument += Agent.DocumentClosed;
@@ -41,7 +40,6 @@ namespace RhinoSketchingTool
 
         protected override void OnShutdown()
         {
-            Settings.SetBool("CrayonEnabled", Controller.Active);
             RhinoApp.Idle -= RhinoMcpConnection.OnStartup;
             RhinoDoc.CloseDocument -= Agent.DocumentClosed;
             Agent.Shutdown();
@@ -77,8 +75,7 @@ namespace RhinoSketchingTool
         static System.Drawing.Icon PanelIcon()
         {
             int size = Math.Max(16, Panels.IconSizeInPixels.Width);
-            string logo = CrayonAppearance.Dark ? BrandSvg.Replace("#9731b0", "#b165c4").Replace("#6d237f", "#9731b0").Replace("#1d2025", "#f2f1ed") : BrandSvg;
-            using (var bitmap = DrawingUtilities.BitmapFromSvg(logo, size, size))
+            using (var bitmap = DrawingUtilities.BitmapFromSvg(BrandSvg, size, size))
             {
                 IntPtr handle = bitmap.GetHicon();
                 try

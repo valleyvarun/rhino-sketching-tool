@@ -37,11 +37,9 @@ namespace RhinoSketchingTool
 
         public void SetCursor(Point3d value)
         {
-            EnsureCursorDocument();
             if (!value.IsValid || cursor == value) return;
             EndDrag();
             cursor = value;
-            SaveCursor();
             Refresh();
         }
 
@@ -103,9 +101,24 @@ namespace RhinoSketchingTool
             EndDrag();
             if (!doc.NamedViews.Restore(index, view.ActiveViewport)) return false;
             BindView(doc, view.ActiveViewport, NamedViewKey(doc.NamedViews[index]), true);
-            SetMethod(DrawMethod.View);
+            // Only the camera changes: the tool and every sketch stay as they are.
             Refresh();
             return true;
+        }
+
+        /// <summary>Delete a Rhino Named View. Sketches are never touched.</summary>
+        public bool DeleteView(string name)
+        {
+            var doc = RhinoDoc.ActiveDoc;
+            if (doc == null || string.IsNullOrEmpty(name)) return false;
+            int index = doc.NamedViews.FindByName(name);
+            if (index < 0) return false;
+            uint undo = doc.BeginUndoRecord("Delete Crayon view");
+            bool done;
+            try { done = doc.NamedViews.Delete(index); }
+            finally { if (undo != 0) doc.EndUndoRecord(undo); }
+            Refresh();
+            return done;
         }
 
         // A binding distinguishes two saved views that happen to have identical cameras.
@@ -195,19 +208,14 @@ namespace RhinoSketchingTool
                 Math.Abs((bottom + top) / scale - (saved.FrustumBottom + saved.FrustumTop) / savedScale) <= tolerance;
         }
 
-        internal static bool StrokeVisibleInView(RhinoDoc doc, RhinoViewport viewport, ObjectAttributes attributes)
-        {
-            string key = attributes.GetUserString(ViewStrokeKey);
-            return string.IsNullOrEmpty(key) || key == ViewKeyFor(doc, viewport);
-        }
+        // Every sketch is 3D and shows in every view (older view-tied sketches included),
+        // so the eraser and comment snapping reach all of them.
+        internal static bool StrokeVisibleInView(RhinoDoc doc, RhinoViewport viewport, ObjectAttributes attributes) => true;
 
         internal bool LiveVisibleInView(RhinoDoc doc, RhinoViewport viewport)
         {
             if (drawing == null || drawing.View.Document != doc) return false;
-            if (drawing.ViewKey == null) return true;
-            return drawing.View.ActiveViewport.Id == viewport.Id && drawing.ViewKey == ViewKeyFor(doc, viewport);
+            return true; // a sketch being drawn is 3D, like every other: every view of its document shows it
         }
-
-        internal bool LiveIsView => drawing?.ViewKey != null;
     }
 }

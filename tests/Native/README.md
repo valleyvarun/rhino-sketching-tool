@@ -19,14 +19,6 @@ the automatic-group toggle, and `.3dm` save/reopen. It makes no model requests a
 writes results to `bin/groups-rhino.log`.
 # RhinoMCP integration
 
-`cursor_in_rhino.py` exercises cursor placement, oriented drawing, face picking,
-plane restoration and cancellation. `shapes_in_rhino.py` checks hold-to-snap
-previews, adjustment while pressed and pressure metadata. Run each in its own
-blank validation document. `design_settings_in_rhino.py` checks saved themes and
-brush libraries using the installed plugin (install the latest build first); it
-restores the test scheme's prior settings when finished.
-
-
 Run `mcp_in_rhino.py` in a **new, blank** Rhino process with `/scheme=CrayonValidation
 /notemplate`, using the same `_-RunPythonScript` launch pattern as the drawing tests.
 It requires McNeel's Rhino-MCP-Platform and both assistant CLIs installed. It loads the

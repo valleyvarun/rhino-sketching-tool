@@ -36,7 +36,6 @@
     <EmbeddedResource Include="UI/Web/agent.html" LogicalName="RhinoSketchingTool.agent.html" />
     <EmbeddedResource Include="UI/Web/sidebar.html" LogicalName="RhinoSketchingTool.sidebar.html" />
     <EmbeddedResource Include="Assets/Brand/crayon-mark.svg" LogicalName="RhinoSketchingTool.crayon-mark.svg" />
-    <EmbeddedResource Include="Assets/Fonts/InstrumentSans.ttf" LogicalName="RhinoSketchingTool.InstrumentSans.ttf" />
     <None Update="Assets/Brand/*.svg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

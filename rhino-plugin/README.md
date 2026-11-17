@@ -21,53 +21,38 @@ Rhino keeps loaded plugin assemblies locked until it exits; a running session ca
 hot-reload a rebuilt plugin. The build script installs immediately when possible;
 otherwise a hidden updater waits for Rhino to close and then installs automatically.
 The previous build is backed up alongside the installed file. Update status is written
-to `bin/update-status.txt`. `scripts/Update-Plugin.ps1` can also install an already staged build.
+to `bin/update-status.txt`. If Crayon was installed with the setup wizard, Rhino loads the
+package in `%APPDATA%\McNeel\Rhinoceros\packages\8.0\crayon-rhino` instead: close Rhino and run
+`.\scripts\Install-Package.ps1` to install the current build as a new package version. `scripts/Update-Plugin.ps1` can also install an already staged build.
 You can also run `dotnet build RhinoSketchingTool.csproj -c Release` directly from
 this folder when local PowerShell scripts are disabled.
 
 ## Drawing and views
 
-The tools dock contains Select, Draw, Erase, Comments, and Capture view. Drag its grip
-to dock it or float it; double-click its grip to return to the bottom centre. Options
-follow the active tool, beside a side dock and above/below a horizontal dock. Small
-viewports wrap and scale the bars to keep their controls reachable. Saved views offers
-save, restore, rename and delete; erasing all sketches requires a second click.
+The toolbar holds Select, Pen, Eraser, Comments and Saved views, sized and styled as the
+prototype's dock bar (`design-ui-ux/.../design/prototype/index.html`), light or dark with
+Crayon's own switch. Every control has a tooltip. Drag its grip to dock it on any edge;
+double-click the grip to put it back. Under it, an option row changes with the tool:
 
-- **Object** follows the surface under the pointer.
-- **Plane** uses the construction plane.
-- **3D cursor** uses its Surface, Top, Front or Side plane. Place it with a viewport
-  click, edit its coordinates, reset it, or look straight at its plane from Sketch.
-- **View** annotates a captured camera, over the model. Capture a named view with the
-  camera button and return to it using the adjacent dropdown. Existing Rhino Named
-  Views appear there too. Drawing in an unsaved view captures it automatically.
+- **Pen**: Object | Plane | 3D cursor, colour, Snap shapes (the hand-drawn tick). With Plane,
+  **Pick a face** then a click puts the drawing plane on an object's face (the *On a face* chip's
+  x goes back); with 3D cursor, **Place cursor** then a click moves the cursor. No modifier keys.
+- **Eraser**: Whole sketch | Part.
+- **Comments**: one line of help.
+- **Saved views**: Save view, then a chip per Rhino Named View (click to go there, x to delete).
 
-View sketches retain their named-view GUID in the `.3dm` file. Navigating away hides
-them; restoring that view shows them again. Renaming a native named view preserves the
-association; deleting it hides its sketches. Two identical camera captures are distinct
-when selected using Crayon's dropdown, including after save/reopen. Rhino's own Named
-Views panel does not report which of two identical cameras it restored, so use the
-Crayon dropdown to distinguish those captures.
+**Saved views are cameras only.** They are Rhino Named Views, in sync with Rhino's Named
+Views panel both ways. Going to one changes the camera and nothing else. Sketches are 3D
+model content: every sketch shows in every view and never disappears when you orbit.
+Nothing is captured automatically. (Sketches tied to a view by earlier builds now show
+in every view too.)
 
-View annotations stay hidden from Rhino's ordinary geometry selection to prevent them
-appearing in unrelated viewports. Use the eraser in their view, or the Layers tab to
-rename/delete them. Ordinary object, plane, and cursor sketches remain selectable.
+Crayon is turned off only with the switch in the panel header; Esc never turns it off.
 
 The colour picker offers presets, saturation/value, hue and hex entry. Colours belong
 to individual sketches. Snap shapes conservatively recognizes lines, rectangles and
 ellipses for Plane, Cursor and View. Object drawing stays on its surface, so it remains
 freehand. Brush pressure, opacity, hardness and presets are available in Sketch.
-Hold the pen still for 650 ms to preview a clean line or circle, then keep dragging
-to adjust its endpoint or radius before releasing. Pressure variation is retained.
-
-The Sketch tab follows the design prototype: preset samples, editable stroke bars,
-colour picker and 3D cursor controls. Save edits into a preset or save a new one;
-double-click its name to rename it and use its delete button to remove it. Size,
-opacity and hardness each retain an independent pressure-sensitivity control.
-
-The header's light/dark button changes Crayon's sidebar, viewport controls and comment
-labels without changing Rhino's viewport. The choice is remembered; before a choice
-is made Crayon follows Rhino. Crayon's on/off state is also remembered. The Agent
-integration and the grouped sketch/comment layers keep their existing behavior.
 
 ## Assistants and attachments
 
