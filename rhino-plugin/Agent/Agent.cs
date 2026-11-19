@@ -37,7 +37,6 @@ namespace RhinoSketchingTool
             internal uint Document;
             internal Transcript Transcript;
             internal int Entry;
-            internal bool Advance;
             internal bool HideUsed;
             internal DrawingContextSnapshot Context;
         }
@@ -49,6 +48,8 @@ namespace RhinoSketchingTool
             codex.TurnCompleted += success => Completed("codex", success);
         }
 
+        // A turn has ended. The groups it took along are turned off ("Hide groups once sent"), but only
+        // when it went through: after a failure they are still wanted, to send again.
         static void Completed(string provider, bool success)
         {
             if (!prompts.TryGetValue(provider, out PromptGroup prompt)) return;
@@ -62,7 +63,6 @@ namespace RhinoSketchingTool
             var state = AnnotationGroups.Read(doc);
             if (prompt.HideUsed && state.HideUsed && prompt.Context != null)
                 AnnotationGroups.HideUsedGroups(doc, prompt.Context.SketchGroups, prompt.Context.CommentGroups);
-            if (prompt.Advance && state.NewGroup) AnnotationGroups.Advance(doc);
         }
         public static string Label => Provider == "codex" ? "Codex" : "Claude Code";
         public static IChatSession Session => Provider == "codex" ? (IChatSession)codex : claude;
@@ -125,12 +125,28 @@ namespace RhinoSketchingTool
             var state = AnnotationGroups.Read(doc);
             var context = DrawingContext.Capture(doc);
             var prompt = new PromptGroup { Document = doc?.RuntimeSerialNumber ?? 0, Transcript = Session.Transcript,
-                Entry = Session.Transcript.Entries.Count, Advance = doc != null && state.NewGroup,
-                HideUsed = state.HideUsed, Context = context };
+                Entry = Session.Transcript.Entries.Count, HideUsed = state.HideUsed, Context = context };
             if (!Session.Send(text, Attachments, context.Text)) return false;
             prompts[Provider] = prompt;
             Attachments.Clear();
+            Sent(doc);
             return true;
+        }
+
+        /// <summary>
+        /// "New group after each prompt": the prompt has gone, with the sketches and comments that
+        /// were there. What is drawn from now on, also while the agent is still working, is for
+        /// the next prompt, so it starts a new group. This is done as the prompt is sent and
+        /// not when the turn ends: a turn that fails, is stopped, or has a tool go wrong must not
+        /// leave new sketches in a group that has already been sent (and is about to be hidden).
+        /// </summary>
+        internal static void Sent(RhinoDoc doc)
+        {
+            try
+            {
+                if (doc != null && AnnotationGroups.Read(doc).NewGroup) AnnotationGroups.Advance(doc);
+            }
+            catch (Exception ex) { RhinoApp.WriteLine("Crayon groups: " + ex.Message); }
         }
 
         static Rhino.PersistentSettings Settings => SketchPlugin.Instance.Settings;

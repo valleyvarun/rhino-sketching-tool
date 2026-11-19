@@ -36,7 +36,8 @@ namespace RhinoSketchingTool
     /// soon as another drawing method is chosen or sketching is turned off. The 3D cursor,
     /// and the views at it, never touch the plane.
     ///
-    /// Strokes are polyline curves on the "Sketch" layer, tagged with a user string so
+    /// Strokes are polyline curves on the "Sketch" layer, each on the sublayer of the group
+    /// it is in (see AnnotationGroups), tagged with a user string so
     /// the eraser only ever touches curves this tool drew. How a stroke is painted (its
     /// width and strength along the way) is saved on the curve too; see StrokePaint.
     ///
@@ -167,6 +168,7 @@ namespace RhinoSketchingTool
         {
             if (conduit.Enabled) return;
             conduit.Enabled = true;
+            AnnotationGroups.Watch();
             RhinoApp.Idle += OnIdle;
             PenHook.Install(); // for pen pressure, and for pen taps on the Sketch panel
             StartComments();
@@ -178,6 +180,8 @@ namespace RhinoSketchingTool
         // and while the Select tool is on, a hidden one is shown.
         void OnIdle(object sender, EventArgs e)
         {
+            // The groups' layers first: a file from before groups were layers gets them here.
+            if (!Dragging && !Rhino.Commands.Command.InCommand()) AnnotationGroups.Tidy();
             conduit.Tidy(!Rhino.Commands.Command.InCommand());
         }
 
@@ -519,8 +523,9 @@ namespace RhinoSketchingTool
             if (drawing.Points.Count >= 2)
             {
                 var doc = drawing.View.Document;
-                BeginChange(doc);
+                // Before the Undo step begins: undoing the stroke must not take its group's layer away.
                 var attributes = StrokeAttributes(doc);
+                BeginChange(doc);
                 attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 attributes.ObjectColor = drawing.Color;
                 var points = drawing.Points.ToArray();
@@ -540,13 +545,13 @@ namespace RhinoSketchingTool
 
         static ObjectAttributes StrokeAttributes(RhinoDoc doc)
         {
-            int layer = doc.Layers.FindByFullPath(LayerName, -1);
-            if (layer < 0) layer = doc.Layers.Add(LayerName, Ink);
+            // Its group's layer: a sublayer of "Sketch", made here if it is not there yet.
+            int layer = AnnotationGroups.LayerForNew(doc, false, out int group);
             var attributes = new ObjectAttributes();
             if (layer >= 0) attributes.LayerIndex = layer;
             attributes.Mode = ObjectMode.Hidden; // Rhino is to leave strokes alone: see the note on this class
             attributes.SetUserString(StrokeKey, "1");
-            AnnotationGroups.TagNew(doc, attributes, false);
+            attributes.SetUserString(AnnotationGroups.GroupKey, group.ToString());
             attributes.Name = NextSketchName(doc); // Sketch 1, Sketch 2, ...: what comments on it call it
             return attributes;
         }
@@ -712,15 +717,8 @@ namespace RhinoSketchingTool
         internal static RhinoObject[] StrokeObjects(RhinoDoc doc) =>
             doc.Objects.FindByUserString(StrokeKey, "*", false, false, true, AnyCurve) ?? new RhinoObject[0];
 
-        /// <summary>False for a stroke whose layer is turned off.</summary>
-        internal static bool OnVisibleLayer(RhinoDoc doc, RhinoObject obj)
-        {
-            if (!AnnotationGroups.Visible(doc, obj.Attributes)) return false;
-            int index = obj.Attributes.LayerIndex;
-            if (index < 0 || index >= doc.Layers.Count) return true;
-            Layer layer = doc.Layers[index];
-            return layer == null || layer.IsVisible;
-        }
+        /// <summary>False for a stroke whose own eye is off, or whose layer (its group's) is turned off.</summary>
+        internal static bool OnVisibleLayer(RhinoDoc doc, RhinoObject obj) => AnnotationGroups.Visible(doc, obj.Attributes);
 
         /// <summary>
         /// The points of a stroke's curve, or null if it has fewer than two. Strokes are

@@ -232,6 +232,10 @@ try {
   assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].type, 'groupActive', 'the pen picks the group new sketches go into');
   await evaluate('document.querySelector("#sketchGroups [data-act=groupVisible]").click()');
   assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].type, 'groupVisible');
+  await evaluate('document.querySelector("#sketchGroups .lrow.grp [data-act=groupDelete]").click()');
+  assert.deepEqual((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))')).map((a) => a.type + ':' + a.value), ['groupDelete:sketch:1'], 'one click on the trash of a group deletes it');
+  await evaluate('document.querySelector("#sketchGroups .lrow.item [data-act=delete]").click()');
+  assert.equal(await evaluate('crayonSidebar.take()'), '', 'a second click straight after is ignored: the rows are about to move up');
   await evaluate('document.querySelector("#sketchGroups .lrow.item [data-act=visible]").click()');
   assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].value, 'b');
   sketch.sketchGroups = [{id:1,name:'Group 1',active:false,visible:true},{id:2,name:'Group 2',active:true,visible:true}];

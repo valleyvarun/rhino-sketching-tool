@@ -28,11 +28,11 @@ namespace RhinoSketchingTool
             var sketchGroups = new HashSet<int>();
             var commentGroups = new HashSet<int>();
             foreach (RhinoObject obj in SketchController.StrokeObjects(doc))
-                if (AnnotationGroups.InContext(state, obj.Attributes)) sketchGroups.Add(AnnotationGroups.GroupOf(obj.Attributes));
+                if (AnnotationGroups.InContext(state, obj.Attributes)) sketchGroups.Add(AnnotationGroups.GroupOf(state, obj.Attributes));
             var settings = new ObjectEnumeratorSettings { ObjectTypeFilter = ObjectType.Point, HiddenObjects = true, NormalObjects = true, LockedObjects = true, VisibleFilter = false };
             foreach (var obj in doc.Objects.GetObjectList(settings))
                 if (obj.Attributes.GetUserString(SketchController.CommentKey) != null && AnnotationGroups.InContext(state, obj.Attributes))
-                    commentGroups.Add(AnnotationGroups.GroupOf(obj.Attributes));
+                    commentGroups.Add(AnnotationGroups.GroupOf(state, obj.Attributes));
             return new[] { sketchGroups.Count, commentGroups.Count };
         }
 
@@ -50,7 +50,7 @@ namespace RhinoSketchingTool
             foreach (RhinoObject obj in SketchController.StrokeObjects(doc))
             {
                 number++;
-                int group = AnnotationGroups.GroupOf(obj.Attributes);
+                int group = AnnotationGroups.GroupOf(state, obj.Attributes);
                 if (!AnnotationGroups.InContext(state, obj.Attributes)) continue;
                 sketchGroups.Add(group);
                 var points = obj.Geometry is Curve curve ? SketchController.StrokePoints(curve, doc.ModelAbsoluteTolerance) : null;
@@ -67,7 +67,7 @@ namespace RhinoSketchingTool
             foreach (var obj in doc.Objects.GetObjectList(settings))
             {
                 if (obj.Attributes.GetUserString(SketchController.CommentKey) == null) continue;
-                int group = AnnotationGroups.GroupOf(obj.Attributes);
+                int group = AnnotationGroups.GroupOf(state, obj.Attributes);
                 if (!AnnotationGroups.InContext(state, obj.Attributes)) continue;
                 commentGroups.Add(group);
                 comments.Add(new JsonMap { ["id"] = obj.Id.ToString(), ["group"] = group,

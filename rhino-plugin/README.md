@@ -66,34 +66,42 @@ Models that do not advertise effort support show only Default.
 
 ### Annotation groups
 
-Layers lists sketches and comments in separate, initially collapsed groups. Each
-collection has exactly one active group, chosen using its small checkbox; new strokes
-or comments go into that group. Eye buttons independently control individual items
-and whole groups. Showing a group preserves any individually hidden items. Existing
-untagged annotations belong to Group 1. Membership, eye states, active groups and the
-following settings are saved in the Rhino document.
+Layers lists sketches and comments in groups. **A group is a Rhino layer**: a sublayer of
+the `Sketch` layer (or of `Comments`), and a sketch is in the group whose layer it is on.
+So the groups are saved in the 3dm file, show in Rhino's own Layers panel, and are there
+again when the file is opened. What is done in either place is done in both: rename a group
+or its layer, turn it off with the group's eye or the layer's light bulb, add a sublayer
+in Rhino to get a new group, delete the layer to delete the group.
 
-Above search, all three switches default on:
+- The **+** beside Sketches or Comments adds a group, and new sketches go into it. Each
+  list has one group being drawn in (its violet tick). There are no groups until something
+  is drawn or + is pressed; the layers are made then, not in every document Rhino opens.
+- The **trash** deletes a group with one click: its sketches (or comments) and its layer.
+  Rhino's Undo brings all of it back. A sketch's own trash works the same way.
+- Each item has its own eye too; showing a group again keeps individually hidden items hidden.
+- A group that is turned off is not drawn into (the ink would not show): the next sketch
+  starts a new group.
+- Each group's tick decides whether it goes to the agent with the next message; the eye
+  only shows or hides.
 
-- **Context only from active group** supplies only the active sketch group's stroke
-  coordinates and the active comment group's text/positions in each assistant prompt.
-  Turning it off supplies all annotation groups. The snapshot supersedes earlier
-  annotation context; assistants are instructed to ignore other groups when using
-  Rhino tools or viewport images. This scopes annotation context, not access to the
-  ordinary Rhino model or an assistant's general tool permissions.
-- **New group for new prompt** creates and activates a fresh group in each collection
-  after a successfully completed assistant turn, but only when its active group
-  contains annotations. Empty sketch and comment groups stay active independently;
-  hidden items still count, and deleted items do not. Failed, interrupted or denied turns
-  keep their current groups. Turning it off keeps collecting in the selected groups.
-- **Visibility off after context used** hides the populated sketch/comment groups
-  included in a prompt after it completes successfully. It also works when automatic
-  group creation is off. Failed, interrupted or denied turns leave visibility alone.
-  Changing active groups while the assistant works does not change which groups get
-  hidden. Empty groups stay visible, and the eye controls can show used groups again.
+A file from before groups were layers has its sketches on the `Sketch` layer itself. When
+it is opened, each of its groups is given its sublayer and its sketches are moved there
+(without an Undo step, and without the file asking to be saved). Group numbers, the ticks,
+the group being drawn in and the two options below are kept as document text.
 
-The snapshot sent with a prompt stays fixed while the assistant works. Visibility
-controls affect drawing display independently of context-group membership.
+Under Agent in Layers, both options default on:
+
+- **New group after each prompt**: as a prompt is sent, a new group is started in each list
+  whose current group has something in it (an empty group is the new group already). What
+  is drawn from then on, also while the agent is still working, belongs to the next
+  prompt. It does not wait for the turn to end, so it does not depend on the turn going
+  well. Turning it off keeps collecting in the same groups.
+- **Hide groups once sent**: when the turn has gone through, the groups the prompt took
+  along are turned off and unticked for the agent. Failed, stopped or denied turns, and
+  turns in which a tool went wrong, leave them showing, to be sent again. It also works
+  with the first option off. The eyes show used groups again.
+
+The snapshot sent with a prompt stays fixed while the assistant works.
 
 On first opening Agent, choose **Claude Code** or **Codex**. Each uses its
 installed CLI and existing account; sign-in and Locate actions are available in the

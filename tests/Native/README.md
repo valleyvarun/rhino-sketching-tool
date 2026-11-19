@@ -12,11 +12,20 @@ Checks cover native view capture/restore, duplicate names and identical-camera v
 
 The integration test covers actual drawing/erasing, save/reopen, exact toolbar/picker rendering, and dock/popup bounds for Top, Left and Right at 1200x700, 280x180 and 200x140 viewport sizes. Inspect the exported toolbar and picker images after changing their renderers.
 
-`groups_in_rhino.py` uses the same isolated launch pattern. It verifies actual stroke
-and comment assignment, independent active groups, item/group visibility, active-only
-versus all-group prompt snapshots, successful/failed/duplicate completion handling,
-the automatic-group toggle, and `.3dm` save/reopen. It makes no model requests and
-writes results to `bin/groups-rhino.log`.
+`groups_in_rhino.py` uses the same isolated launch pattern. Groups are sublayers of
+Rhino's `Sketch` and `Comments` layers; it verifies where new strokes and comments go,
+independent groups being drawn in, item and group eyes (a group's eye is its layer's
+light bulb, both ways), what the agent gets, a new group as a prompt is sent, hiding
+groups once a prompt has gone through (and not after a failed one), the two option
+toggles, and `.3dm` save/reopen, including that the layers alone give the groups back.
+It makes no model requests and writes results to `bin/groups-rhino.log`.
+
+`groups_delete_in_rhino.py`, launched the same way, covers adding, renaming and deleting
+groups together with their layers, a deleted group returning with its layer, sublayers
+made, renamed or deleted in Rhino, and a file from before groups were layers being given
+its sublayers. Results go to `bin/groups-delete.log`.
+
+Both were rewritten on 2026-11-18 for groups as layers and have not been run since.
 # RhinoMCP integration
 
 Run `mcp_in_rhino.py` in a **new, blank** Rhino process with `/scheme=CrayonValidation

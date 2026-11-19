@@ -35,7 +35,8 @@ namespace RhinoSketchingTool
     /// once it has snapped to a sketch), with a chip naming the sketch or the object's
     /// layer. Hovering a comment shows what it is on in the same way.
     ///
-    /// A comment is a point object on the "Comments" layer, with its number, its text,
+    /// A comment is a point object on its group's sublayer of the "Comments" layer (see
+    /// AnnotationGroups), with its number, its text,
     /// what it is on and the view it was made in saved on it as user strings: so it is
     /// part of the 3dm file and of Rhino's undo. Like sketches, the points are hidden
     /// objects that only this plug-in paints, so nothing snaps to or selects them.
@@ -58,7 +59,7 @@ namespace RhinoSketchingTool
         const double TagHeight = 19, TagGap = 5;
         const double PictureMargin = 8;
         static readonly Media.Color TagDark = Picture.Rgb(0x16, 0x17, 0x1b), ChipDark = Picture.Rgb(0x11, 0x11, 0x11), White = Picture.Rgb(255, 255, 255);
-        static readonly System.Drawing.Color CommentLayerColor = System.Drawing.Color.FromArgb(0x97, 0x31, 0xb0);
+        internal static readonly System.Drawing.Color CommentLayerColor = System.Drawing.Color.FromArgb(0x97, 0x31, 0xb0);
 
         // What is known of one document, read again once it has changed.
         sealed class Scene
@@ -474,14 +475,14 @@ namespace RhinoSketchingTool
 
         void AddComment(RhinoDoc doc, RhinoView view, Comment comment, string text)
         {
-            int layer = doc.Layers.FindByFullPath(CommentLayerName, -1);
-            if (layer < 0) layer = doc.Layers.Add(CommentLayerName, CommentLayerColor);
+            // Its group's layer: a sublayer of "Comments", made here if it is not there yet.
+            int layer = AnnotationGroups.LayerForNew(doc, true, out int group);
             var attributes = new ObjectAttributes();
             if (layer >= 0) attributes.LayerIndex = layer;
             attributes.Mode = ObjectMode.Hidden; // Rhino is to leave comments alone, as it does sketches
             attributes.Name = "Comment " + comment.Number;
             attributes.SetUserString(CommentKey, comment.Number.ToString(CultureInfo.InvariantCulture));
-            AnnotationGroups.TagNew(doc, attributes, true);
+            attributes.SetUserString(AnnotationGroups.GroupKey, group.ToString(CultureInfo.InvariantCulture));
             attributes.SetUserString(CommentTextKey, text);
             attributes.SetUserString(CommentNormalKey, Number(comment.Normal.X) + "," + Number(comment.Normal.Y) + "," + Number(comment.Normal.Z));
             if (comment.Sketch != Guid.Empty) attributes.SetUserString(CommentOnKey, "sketch " + comment.Sketch);

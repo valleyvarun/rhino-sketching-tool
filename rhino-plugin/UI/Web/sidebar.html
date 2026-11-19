@@ -186,7 +186,7 @@ main{ height:100%; }
 @keyframes ckDraw{ from{ stroke-dashoffset:34; } to{ stroke-dashoffset:0; } }
 @keyframes ckErase{ from{ stroke-dashoffset:0; opacity:1; } to{ stroke-dashoffset:-34; opacity:0; } }
 
-/* Layers: flat rows. A group's eye decides whether the agent gets it. */
+/* Layers: flat rows. A group is a sublayer of Rhino's Sketch (or Comments) layer: its eye is that layer's light bulb. */
 .lsec{ display:flex; flex-direction:column; gap:1px; }
 .lsec + .lsec{ margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
 .lrow{ position:relative; display:flex; align-items:center; gap:6px; height:32px; padding:0 6px 0 2px; border-radius:9px; color:var(--ink); font:500 12.5px var(--f-ui); cursor:pointer; transition:background var(--t-fast); }
@@ -227,6 +227,8 @@ main{ height:100%; }
 .lx.gck .lt.anim-on .ck-b{ animation:ckDraw .34s var(--spring) .07s both; }
 .lrow.item{ height:30px; padding-left:22px; font-weight:400; }
 .lrow.off .ln, .lrow.off .dot, .lrow.off .cnum, .lrow.off .lc{ opacity:.38; }
+/* deleted with one click: it fades at once, and is gone when Rhino has done it */
+.going{ opacity:.3; pointer-events:none; transition:opacity var(--t-fast); }
 .lrow input{ flex:1; min-width:0; font:inherit; color:var(--ink); border:0; outline:0; border-radius:6px; padding:3px 6px; background:var(--field); box-shadow:inset 0 0 0 1.5px var(--accent); }
 .lempty{ margin:0; padding:2px 10px 6px 50px; font-size:11.5px; color:var(--muted); }
 .lempty.top{ padding-left:32px; }
@@ -453,6 +455,7 @@ function renderSketch(force){
 
 /* ---------- Layers ---------- */
 var shut={}; // groups folded shut, by "kind:id"; all start open
+var lastDelete=0, deleteTimer=0;
 function eyeButton(act,id,on,label){
   return '<button type="button" class="lx" data-act="'+act+'" data-value="'+esc(id)+'" aria-pressed="'+!!on+'" title="'+(on?'Hide ':'Show ')+esc(label)+'" aria-label="'+(on?'Hide ':'Show ')+esc(label)+'">'+(on?IC.eye:IC.eyeOff)+'</button>';
 }
@@ -477,20 +480,22 @@ function groupRows(kind,groups,items){
       '<span class="lc">'+members.length+'</span>'+
       '<button type="button" class="lx gck" role="radio" data-act="groupActive" data-value="'+key+'" aria-checked="'+!!g.active+'" title="'+(g.active?'You are '+(kind==='sketch'?'sketching':'commenting')+' in this group':(kind==='sketch'?'Sketch':'Comment')+' in this group')+'" aria-label="'+(kind==='sketch'?'Sketch':'Comment')+' in '+esc(g.name)+'">'+IC.tick.replace('<svg ','<svg class="lt" ')+'</button>'+
       '<button type="button" class="lx" data-act="groupRenameStart" data-value="'+key+'" title="Rename group" aria-label="Rename '+esc(g.name)+'">'+IC.rename+'</button>'+
-      '<button type="button" class="lx del" data-act="groupDelete" data-value="'+key+'" data-count="'+members.length+'" title="Delete group" aria-label="Delete '+esc(g.name)+'">'+IC.trash+'</button></div>';
+      '<button type="button" class="lx del" data-act="groupDelete" data-value="'+key+'" data-count="'+members.length+'" title="'+(members.length?'Delete this group and its '+members.length+' '+(kind==='sketch'?(members.length===1?'sketch':'sketches'):(members.length===1?'comment':'comments')):'Delete this group')+' (Undo in Rhino brings it back)" aria-label="Delete '+esc(g.name)+'">'+IC.trash+'</button></div>';
     if(shut[key])return row;
     return row+(members.length?members.map(function(x){return itemRow(x,kind,g.visible)}).join(''):'<p class="lempty">'+(kind==='sketch'?'No sketches yet':'No comments yet')+'</p>');
-  }).join('');
+  }).join('')+
+  // nothing is ever left out: what is in no listed group yet shows below them
+  items.filter(function(x){return !groups.some(function(g){return g.id===(x.group||1)})}).map(function(x){return itemRow(x,kind,true)}).join('');
 }
 function renderLayers(force){
   if(document.activeElement&&document.activeElement.tagName==='INPUT'&&$('layers').contains(document.activeElement))return; // renaming
-  var fallback=[{id:1,name:'Group 1',visible:true,active:true}];
-  var sg=S.sketchGroups||fallback, cg=S.commentGroups||fallback, sk=S.sketches||[], cm=S.comments||[];
+  // the groups are the document's own (sublayers in Rhino): none until something is drawn or + is pressed
+  var sg=S.sketchGroups||[], cg=S.commentGroups||[], sk=S.sketches||[], cm=S.comments||[];
   var sig=JSON.stringify([sk,cm,sg,cg,S.newGroup,S.hideUsed,shut]); if(sig===layersSig&&!force)return; layersSig=sig;
   $('sketchMeta').textContent=sk.length===1?'1 sketch':sk.length+' sketches';
   $('commentMeta').textContent=cm.length===1?'1 comment':cm.length+' comments';
-  $('sketchGroups').innerHTML=groupRows('sketch',sg,sk);
-  $('commentGroups').innerHTML=groupRows('comment',cg,cm);
+  $('sketchGroups').innerHTML=groupRows('sketch',sg,sk)||'<p class="lempty top">No sketches yet. Draw one, or press + for a group.</p>';
+  $('commentGroups').innerHTML=groupRows('comment',cg,cm)||'<p class="lempty top">No comments yet. Pin one, or press + for a group.</p>';
   // the agent gets every ticked group, without the items whose own eye is off
   var count=function(groups,items){return groups.filter(function(g){return g.context!==false&&items.some(function(x){return (x.group||1)===g.id&&x.ownVisible!==false})}).length};
   var n=count(sg,sk)+count(cg,cm);
@@ -509,11 +514,15 @@ document.addEventListener('click',function(e){
       document.querySelectorAll('.lrow.grp').forEach(function(r){ if(r.dataset.group.split(':')[0]===kind) r.classList.toggle('picked',r.dataset.group===b.dataset.value); });
       post('groupActive',b.dataset.value); return; }
     if(b.dataset.act==='groupRenameStart'){ var gl=b.closest('.lrow').querySelector('.ln'); if(gl)startRename(gl); return; }
-    if((b.dataset.act==='delete'||b.dataset.act==='groupDelete')&&!b.classList.contains('armed')){
-      var n=+(b.dataset.count||0), what=b.dataset.value&&b.dataset.value.indexOf('comment')===0?(n===1?'comment':'comments'):(n===1?'sketch':'sketches');
-      b.classList.add('armed'); b.style.color='var(--danger)';
-      b.title=b.dataset.act==='groupDelete'?(n?'Click again to delete the group and its '+n+' '+what:'Click again to delete the group'):'Click again to delete';
-      setTimeout(function(){b.classList.remove('armed');b.style.color='';b.title=b.dataset.act==='groupDelete'?'Delete group':'Delete';},2200); return; }
+    if(b.dataset.act==='delete'||b.dataset.act==='groupDelete'){
+      // One click deletes; Undo in Rhino brings it back. (Asking for a second click showed nothing
+      // under the pointer, so the trash seemed to do nothing.) The rows below move up once this one
+      // is gone: a second click already on its way must not take the next row with it.
+      var now=Date.now(); if(now-lastDelete<700)return; lastDelete=now;
+      var going=b.closest('.lrow');
+      if(going){ going.classList.add('going'); if(going.classList.contains('grp')) for(var nx=going.nextElementSibling; nx&&!nx.classList.contains('grp'); nx=nx.nextElementSibling) nx.classList.add('going'); }
+      clearTimeout(deleteTimer); deleteTimer=setTimeout(function(){renderLayers(true)},1500); // kept after all? then show it again
+      post(b.dataset.act,b.dataset.value); return; }
     post(b.dataset.act,b.dataset.value);
     return;
   }

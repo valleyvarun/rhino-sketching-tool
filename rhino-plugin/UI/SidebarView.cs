@@ -21,6 +21,7 @@ namespace RhinoSketchingTool
         readonly WebView web = new WebView { BrowserContextMenuEnabled = false };
         readonly UITimer timer = new UITimer { Interval = 0.2 };
         bool ready, taking, dirty = true;
+        int sinceLayers; // ticks since the Layers page was last brought up to date
         string told;
         uint document;
         bool? lastDark;
@@ -57,6 +58,9 @@ namespace RhinoSketchingTool
                 dirty = true;
             }
             Take();
+            // Layers shows what is in the document, and Rhino's own Layers panel, Undo or opening a
+            // file can change that: look again about once a second, whatever has been heard of.
+            if (!header && tab() == "layers" && ++sinceLayers >= 5) dirty = true;
             // Header is tiny; the brush page also follows changes made in the viewport.
             if (dirty || header || tab() == "sketch") Tell();
         }
@@ -64,6 +68,7 @@ namespace RhinoSketchingTool
         void Tell()
         {
             dirty = false;
+            sinceLayers = 0;
             var state = new JsonMap { ["active"] = controller.Active, ["tab"] = tab(), ["dark"] = dark() };
             if (header)
             {
@@ -110,7 +115,8 @@ namespace RhinoSketchingTool
             state["document"] = doc?.Name ?? "";
             state["documentId"] = doc?.RuntimeSerialNumber ?? 0;
             if (doc == null) return;
-            var groups = AnnotationGroups.Heal(doc);
+            // The groups are the sublayers of Rhino's "Sketch" and "Comments" layers: read from the document each time.
+            var groups = AnnotationGroups.Read(doc);
             state["sketchGroups"] = AnnotationGroups.AsJson(groups.Sketches, groups.ActiveSketch);
             state["commentGroups"] = AnnotationGroups.AsJson(groups.Comments, groups.ActiveComment);
             state["activeOnly"] = groups.ActiveOnly;
@@ -121,7 +127,7 @@ namespace RhinoSketchingTool
             {
                 number++;
                 sketches.Add(new JsonMap { ["id"] = obj.Id.ToString(), ["name"] = AnnotationGroups.SketchName(obj, number),
-                    ["group"] = AnnotationGroups.GroupOf(obj.Attributes), ["ownVisible"] = obj.Attributes.GetUserString(AnnotationGroups.HiddenKey) != "1",
+                    ["group"] = AnnotationGroups.GroupOf(groups, obj.Attributes), ["ownVisible"] = obj.Attributes.GetUserString(AnnotationGroups.HiddenKey) != "1",
                     ["visible"] = SketchController.OnVisibleLayer(doc, obj),
                     ["overlay"] = !string.IsNullOrEmpty(obj.Attributes.GetUserString(SketchController.ViewStrokeKey)),
                     ["color"] = "#" + (obj.Attributes.ObjectColor.ToArgb() & 0xffffff).ToString("X6") });
@@ -131,7 +137,7 @@ namespace RhinoSketchingTool
                 var attributes = doc.Objects.FindId(comment.Id)?.Attributes;
                 if (attributes == null) continue;
                 comments.Add(new JsonMap { ["id"] = comment.Id.ToString(), ["number"] = comment.Number, ["text"] = comment.Text, ["visible"] = comment.Visible,
-                    ["group"] = AnnotationGroups.GroupOf(attributes), ["ownVisible"] = attributes.GetUserString(AnnotationGroups.HiddenKey) != "1" });
+                    ["group"] = AnnotationGroups.GroupOf(groups, attributes), ["ownVisible"] = attributes.GetUserString(AnnotationGroups.HiddenKey) != "1" });
             }
         }
 
