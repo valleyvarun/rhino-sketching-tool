@@ -36,18 +36,33 @@ prototype's dock bar (`design-ui-ux/.../design/prototype/index.html`), light or 
 Crayon's own switch. Every control has a tooltip. Drag its grip to dock it on any edge;
 double-click the grip to put it back. Under it, an option row changes with the tool:
 
-- **Pen**: Object | Plane | 3D cursor, colour, Snap shapes (the hand-drawn tick). With Plane,
-  **Pick a face** then a click puts the drawing plane on an object's face (the *On a face* chip's
-  x goes back); with 3D cursor, **Place cursor** then a click moves the cursor. No modifier keys.
+- **Pen**: Object | Plane | 3D cursor | Over view, colour, Snap shapes (the hand-drawn tick). With
+  Plane, **Pick a face** then a click puts the drawing plane on an object's face (the *On a face*
+  chip's x goes back); with 3D cursor, **Place cursor** then a click moves the cursor; with Over
+  view, **Pick a view** opens the list of saved views (see below). No modifier keys.
 - **Eraser**: Whole sketch | Part.
 - **Comments**: one line of help.
-- **Saved views**: Save view, then a chip per Rhino Named View (click to go there, x to delete).
+- **Saved views**: Save view, then a button that says which saved view the viewport is in
+  (*Saved views* when it is in none) and opens the list of them all: click one to go there,
+  x (twice) to delete it. *Save this view* is at the top of the list too.
 
-**Saved views are cameras only.** They are Rhino Named Views, in sync with Rhino's Named
-Views panel both ways. Going to one changes the camera and nothing else. Sketches are 3D
-model content: every sketch shows in every view and never disappears when you orbit.
-Nothing is captured automatically. (Sketches tied to a view by earlier builds now show
-in every view too.)
+**Saved views are cameras.** They are Rhino Named Views, in sync with Rhino's Named Views
+panel both ways. Going to one from the Saved views row changes the camera and nothing else,
+and nothing is captured automatically. Sketches drawn with Object, Plane or 3D cursor are
+3D model content: they show in every view and never disappear when you orbit.
+
+**Over view** is the exception, and is for marking up a view as you would a print of it.
+Choose it under the pen, then pick a saved view from the list (or *Save this view* to
+save and pick the one on screen): the viewport goes to that view, and what you draw is
+drawn over it, not into the model. Such a sketch shows only while a viewport is in that
+view, over everything in the model, and disappears as soon as the camera moves away;
+going back to the view (from either list, or Rhino's Named Views panel) brings it back.
+With the camera moved away, the next press of the pen only returns to the view. The
+eraser reaches these sketches in their view only, Select leaves them alone, and Layers
+marks them with a small camera. Deleting a saved view in Crayon deletes what was drawn
+over it (one Undo step); deleted in Rhino's own panel, its sketches show nowhere but
+are still listed in Layers. The agent is told which view such a sketch belongs to, and
+that it is not 3D.
 
 Crayon is turned off only with the switch in the panel header; Esc never turns it off.
 

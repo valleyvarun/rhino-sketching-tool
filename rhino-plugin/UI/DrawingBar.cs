@@ -13,25 +13,31 @@ namespace RhinoSketchingTool
 {
     // The option row under the tool dock: it changes with the tool, as the prototype's
     // #subbar (design/prototype/index.html, renderSubbar):
-    //   Pen       Object | Plane    colour    Snap shapes (hand-drawn tick)
+    //   Pen       Object | Plane | 3D cursor | Over view    the method's own control    colour    Snap shapes
     //   Eraser    Whole sketch | Part
     //   Comments  one line of help
-    //   Views     + Save view    a chip per Rhino Named View (click: go there, x: delete)
+    //   Views     + Save view    the saved view the viewport is in, which opens the list of them all
     //   Select    no row
+    // The saved views (Rhino Named Views) are a dropdown list: "Save this view", then a row
+    // per view. In the Views row a click goes to the view (the camera only); under the
+    // pen's Over view it picks the view to draw over. Each row's x deletes the view.
     // It uses the same viewport coordinates for painting and hit testing, including when
     // DPI, viewport size, or dock orientation changes.
     internal sealed partial class Toolbar
     {
-        enum OptionsPopup { None, Colors }
+        enum OptionsPopup { None, Colors, Views }
         OptionsPopup optionsPopup;
         DisplayBitmap optionsPicture, popupPicture;
         string optionsSignature, popupSignature;
         double hue = 220, saturation = .15, value = .15;
         int pickerArgb;
-        int chipPage;                  // which page of saved views the row shows
-        int armedChip = -1;            // the view chip whose x was clicked once: a second click deletes
+        int viewPage;                  // which page of saved views the list shows
+        int armedRow = -1;             // the row whose x was clicked once: a second click deletes
         int armedAt;                   // when (Environment.TickCount)
-        const double BarGap = 8, RowHeight = 44, PopupWidth = 284, MaxChips = 8;
+        string viewListLabel = "";     // what the button that opens the list says, as last laid out
+        const double BarGap = 8, RowHeight = 44, PopupWidth = 284;
+        const int MaxRows = 8;
+        const double ListTop = 43, ListRow = 30, ListWidth = 232; // the list: "Save this view" above a hairline, then the rows
         const double SegPad = 3, GroupGap = 6, ButtonHeight = 30, SegButtonHeight = 28;
         static readonly Color[] Swatches = { Color.FromArgb(35,38,44), Color.FromArgb(151,49,176), Color.FromArgb(211,46,39), Color.FromArgb(17,132,91), Color.FromArgb(32,94,211) };
 
@@ -44,6 +50,8 @@ namespace RhinoSketchingTool
             public List<Wpf.Rect> Wells;     // the grey wells behind segmented buttons
             public IReadOnlyList<string> Views;
             public bool HasOptions;
+            public int Rows, RowStart;       // the list of saved views: how many rows it shows, from which view on,
+            public bool More;                // and whether a "More" row follows them
         }
 
         // What the row holds for the tool in use. Each group is laid out together; a
@@ -56,10 +64,12 @@ namespace RhinoSketchingTool
             switch (controller.Tool)
             {
                 case SketchTool.Draw:
-                    groups.Add(new Group { Seg = true, Parts = { Part.Object, Part.Plane, Part.Cursor } });
-                    // Plane: pick a face to draw on (then a chip to go back); 3D cursor: place it.
+                    groups.Add(new Group { Seg = true, Parts = { Part.Object, Part.Plane, Part.Cursor, Part.View } });
+                    // Plane: pick a face to draw on (then a chip to go back); 3D cursor: place it;
+                    // Over view: pick the saved view to draw over.
                     if (controller.Method == DrawMethod.Plane) groups.Add(new Group { Parts = { controller.OnPickedFace ? Part.FaceChip : Part.PickFace } });
                     if (controller.Method == DrawMethod.Cursor) groups.Add(new Group { Parts = { Part.PlaceCursor } });
+                    if (controller.Method == DrawMethod.View) groups.Add(new Group { Parts = { Part.ViewList } });
                     groups.Add(new Group { Parts = { Part.Color } });
                     groups.Add(new Group { Parts = { Part.Snap } });
                     break;
@@ -71,11 +81,7 @@ namespace RhinoSketchingTool
                     break;
                 case SketchTool.Views:
                     groups.Add(new Group { Parts = { Part.SaveView } });
-                    var chips = new Group();
-                    int per = ChipsPerPage(views);
-                    for (int i = 0; i < per && ChipIndex(Part.Chip0 + i, views) < views.Count; i++) chips.Parts.Add(Part.Chip0 + i);
-                    if (views.Count > MaxChips) chips.Parts.Add(Part.ChipMore);
-                    if (chips.Parts.Count > 0) groups.Add(chips);
+                    groups.Add(new Group { Parts = { Part.ViewList } });
                     break;
             }
             return groups;
@@ -85,13 +91,38 @@ namespace RhinoSketchingTool
         string PickFaceLabel => controller.Picking == PickMode.Face ? "Click a face" : "Pick a face";
         string PlaceCursorLabel => controller.Picking == PickMode.Cursor ? "Click to place" : "Place cursor";
 
-        // Up to eight chips; with more views, seven a page and a "More" chip that turns the page.
-        static int ChipsPerPage(IReadOnlyList<string> views) => views.Count > MaxChips ? (int)MaxChips - 1 : (int)MaxChips;
-        int ChipIndex(Part chip, IReadOnlyList<string> views)
+        // The pen's list picks the view to draw over; the Saved views list goes to a view.
+        bool PenList => controller.Tool == SketchTool.Draw;
+
+        // What the button that opens the list says: the view in use.
+        string ViewListLabel(IReadOnlyList<string> views) => PenList
+            ? controller.OverViewName ?? "Pick a view"
+            : controller.CurrentViewName ?? (views.Count == 0 ? "No saved views" : "Saved views");
+
+        // How many views the list shows at once: up to eight, fewer in a short viewport (room is
+        // its height at 100 %). When there are more, the last row is "More", which turns the page.
+        static int RowsPerPage(IReadOnlyList<string> views, double room)
         {
-            int per = ChipsPerPage(views), pages = Math.Max(1, (views.Count + per - 1) / per);
-            if (chipPage >= pages) chipPage = 0;
-            return chipPage * per + (chip - Part.Chip0);
+            int fit = Math.Max(2, Math.Min(MaxRows, (int)Math.Floor((room - ListTop - 6) / ListRow)));
+            return views.Count > fit ? fit - 1 : fit;
+        }
+
+        // Where a row's x is, within the list.
+        static Wpf.Rect ListX(Frame f, int row) => new Wpf.Rect(f.PopupSize.Width - 5 - 27, ListTop + row * ListRow + 3, 24, 24);
+
+        void OpenViewList()
+        {
+            optionsPopup = OptionsPopup.Views;
+            popupSignature = null;
+            viewPage = 0;
+            armedRow = -1;
+        }
+
+        /// <summary>The pen is on "Over view" and no view is picked: show the list to pick one from.</summary>
+        internal void AskForView()
+        {
+            OpenViewList();
+            Redraw();
         }
 
         double OptionWidth(Part part, IReadOnlyList<string> views)
@@ -101,6 +132,8 @@ namespace RhinoSketchingTool
                 case Part.Object: return 9 + 16 + 6 + LabelWidth("Object") + 11;
                 case Part.Plane: return 9 + 16 + 6 + LabelWidth("Plane") + 11;
                 case Part.Cursor: return 9 + 16 + 6 + LabelWidth("3D cursor") + 11;
+                case Part.View: return 9 + 16 + 6 + LabelWidth("Over view") + 11;
+                case Part.ViewList: return 10 + 15 + 6 + Math.Min(150, LabelWidth(viewListLabel)) + 4 + 16 + 7;
                 case Part.PickFace: return 11 + 15 + 6 + LabelWidth(PickFaceLabel) + 11;
                 case Part.FaceChip: return 10 + LabelWidth("On a face") + 6 + 18 + 4;
                 case Part.PlaceCursor: return 11 + 15 + 6 + LabelWidth(PlaceCursorLabel) + 11;
@@ -110,15 +143,7 @@ namespace RhinoSketchingTool
                 case Part.Snap: return 11 + 16 + 7 + LabelWidth("Snap shapes") + 11;
                 case Part.Hint: return 8 + LabelWidth(HintText) + 6;
                 case Part.SaveView: return 11 + 15 + 6 + LabelWidth("Save view") + 11;
-                default:
-                    if (part >= Part.Chip0 && part <= Part.Chip7)
-                    {
-                        int index = ChipIndex(part, views);
-                        string name = index < views.Count ? views[index] : "";
-                        return Math.Min(160, 10 + LabelWidth(name) + 4) + 24;
-                    }
-                    if (part == Part.ChipMore) return 11 + LabelWidth("More") + 11;
-                    return 0;
+                default: return 0;
             }
         }
 
@@ -129,6 +154,9 @@ namespace RhinoSketchingTool
             Layout(out Wpf.Size toolSize);
             double availableWidth = Math.Max(100, viewport.Width / scale - 2 * Inset);
             IReadOnlyList<string> views = controller.NamedViewNames;
+            // Only worked out when the row has the button: it means asking which saved view the camera is in.
+            bool hasList = !collapsed && (controller.Tool == SketchTool.Views || (controller.Tool == SketchTool.Draw && controller.Method == DrawMethod.View));
+            viewListLabel = hasList ? ViewListLabel(views) : "";
             var groups = collapsed ? new List<Group>() : OptionGroups(views);
 
             double preferred = 10;
@@ -180,9 +208,17 @@ namespace RhinoSketchingTool
             var pair = collapsed || !hasOptions ? toolSize
                 : Upright ? new Wpf.Size(toolSize.Width + BarGap + optionSize.Width, Math.Max(toolSize.Height, optionSize.Height))
                 : new Wpf.Size(Math.Max(toolSize.Width, width), toolSize.Height + BarGap + optionSize.Height);
+            // The list of saved views belongs to the button that opens it: gone with it (another tool or method).
+            if (optionsPopup == OptionsPopup.Views && !items.Exists(i => i.Part == Part.ViewList)) CloseOptionsPopup();
+            // The page of views the list shows; past the last page it starts again.
+            int perPage = RowsPerPage(views, viewport.Height / scale - 2 * Inset);
+            if (viewPage * perPage >= Math.Max(1, views.Count)) viewPage = 0;
+            int rows = Math.Max(0, Math.Min(perPage, views.Count - viewPage * perPage));
+            bool more = views.Count > perPage;
+            double listHeight = ListTop + Math.Max(1, rows) * ListRow + (more ? ListRow : 0) + 6;
             // Rhino's four-view layout can be quite short at high DPI. Fit the entire
             // dock pair, then use the same scale for rendering and pointer coordinates.
-            double neededHeight = Math.Max(pair.Height, optionsPopup == OptionsPopup.Colors ? 180 : 0);
+            double neededHeight = Math.Max(pair.Height, optionsPopup == OptionsPopup.Colors ? 180 : optionsPopup == OptionsPopup.Views ? ListTop + 3 * ListRow + 6 : 0);
             double fitScale = Math.Min(viewport.Width / (pair.Width + Inset * 2), viewport.Height / (neededHeight + Inset * 2));
             if (fitScale + .001 < scale && scale > .1)
                 return OptionsFrame(view, Math.Max(.1, fitScale));
@@ -197,6 +233,7 @@ namespace RhinoSketchingTool
             var frame = new Frame
             {
                 Scale = scale, Items = items, Wells = wells, OptionsSize = optionSize, HasOptions = hasOptions, Views = views,
+                Rows = rows, RowStart = viewPage * perPage, More = more,
                 // Docked at the bottom, the option row sits above the toolbar.
                 ToolOrigin = new ScreenPoint(origin.X + (int)(toolX * scale), origin.Y + (int)((bottomDock && hasOptions ? optionSize.Height + BarGap : 0) * scale)),
                 OptionOrigin = new ScreenPoint(origin.X + (int)(optionX * scale), origin.Y + (int)((bottomDock ? 0 : toolSize.Height + BarGap) * scale)),
@@ -217,10 +254,11 @@ namespace RhinoSketchingTool
                     : frame.ToolOrigin.X + (toolSize.Width + BarGap) * scale;
                 frame.OptionOrigin = new ScreenPoint((int)Math.Round(Math.Max(0, rowX)), (int)Math.Round(rowY));
             }
-            double popupWidth = Math.Min(PopupWidth, availableWidth);
-            double popupHeight = Math.Min(302, Math.Max(180, viewport.Height / scale - 2 * Inset));
+            bool list = optionsPopup == OptionsPopup.Views;
+            double popupWidth = Math.Min(list ? ListWidth : PopupWidth, availableWidth);
+            double popupHeight = list ? listHeight : Math.Min(302, Math.Max(180, viewport.Height / scale - 2 * Inset));
             frame.PopupSize = new Wpf.Size(popupWidth, popupHeight);
-            var anchor = items.Find(i => i.Part == Part.Color).Box;
+            var anchor = items.Find(i => i.Part == (list ? Part.ViewList : Part.Color)).Box;
             double px = frame.OptionOrigin.X + anchor.X * scale;
             double py = frame.OptionOrigin.Y + (anchor.Bottom + 8) * scale;
             if (py + popupHeight * scale > viewport.Height - Inset * scale)
@@ -238,6 +276,14 @@ namespace RhinoSketchingTool
         {
             if (collapsed) return Part.None;
             var p = Local(point, f.PopupOrigin, f.Scale);
+            if (optionsPopup == OptionsPopup.Views && new Wpf.Rect(f.PopupSize).Contains(p))
+            {
+                if (p.Y >= 6 && p.Y < 36) return Part.RowSave;
+                int row = p.Y >= ListTop ? (int)((p.Y - ListTop) / ListRow) : -1;
+                if (row >= 0 && row < f.Rows) return p.X >= f.PopupSize.Width - 34 ? Part.RowX0 + row : Part.Row0 + row;
+                if (f.More && row == Math.Max(1, f.Rows)) return Part.RowMore;
+                return Part.Popup;
+            }
             if (optionsPopup != OptionsPopup.None && new Wpf.Rect(f.PopupSize).Contains(p))
             {
                 if (SvBox(f).Contains(p)) return Part.Saturation;
@@ -252,12 +298,7 @@ namespace RhinoSketchingTool
             p = Local(point, f.OptionOrigin, f.Scale);
             if (!new Wpf.Rect(f.OptionsSize).Contains(p)) return Part.None;
             foreach (var item in f.Items)
-                if (item.Box.Contains(p))
-                {
-                    if (item.Part >= Part.Chip0 && item.Part <= Part.Chip7 && p.X >= item.Box.Right - 24)
-                        return Part.ChipX0 + (item.Part - Part.Chip0);
-                    return item.Part == Part.Hint ? Part.Bar : item.Part;
-                }
+                if (item.Box.Contains(p)) return item.Part == Part.Hint ? Part.Bar : item.Part;
             return Part.Bar;
         }
 
@@ -265,31 +306,51 @@ namespace RhinoSketchingTool
 
         bool ClickOptions(Part part, RhinoView view, ScreenPoint point)
         {
-            if (part >= Part.Chip0 && part <= Part.Chip7)
+            if (part >= Part.Row0 && part <= Part.Row7)
             {
-                var views = controller.NamedViewNames;
-                int i = ChipIndex(part, views);
-                armedChip = -1;
-                if (i < views.Count) controller.RestoreView(views[i]); // the camera only
+                // A row of the list. Under the pen it is the view to draw over (the camera goes
+                // there too); in the Saved views row only the camera changes.
+                Frame f = OptionsFrame(view);
+                int i = f.RowStart + (part - Part.Row0);
+                bool pen = PenList;
+                CloseOptionsPopup();
+                if (i < f.Views.Count)
+                {
+                    if (pen) controller.DrawOverView(f.Views[i]);
+                    else controller.RestoreView(f.Views[i]);
+                }
                 return true;
             }
-            if (part >= Part.ChipX0 && part <= Part.ChipX7)
+            if (part >= Part.RowX0 && part <= Part.RowX7)
             {
-                // Deleting a Rhino Named View takes two clicks, as deleting does in Layers.
-                int slot = part - Part.ChipX0;
-                if (armedChip != slot || unchecked(Environment.TickCount - armedAt) > 2500) { armedChip = slot; armedAt = Environment.TickCount; return true; }
-                armedChip = -1;
-                var views = controller.NamedViewNames;
-                int i = ChipIndex(Part.Chip0 + slot, views);
-                if (i < views.Count) controller.DeleteView(views[i]);
+                // Deleting a Rhino Named View takes two clicks: its x turns red after the first.
+                int slot = part - Part.RowX0;
+                if (armedRow != slot || unchecked(Environment.TickCount - armedAt) > 2500) { armedRow = slot; armedAt = Environment.TickCount; return true; }
+                armedRow = -1;
+                Frame f = OptionsFrame(view);
+                int i = f.RowStart + slot;
+                if (i < f.Views.Count) controller.DeleteView(f.Views[i]);
                 return true;
             }
-            if (part == Part.ChipMore) { chipPage++; armedChip = -1; ChipIndex(Part.Chip0, controller.NamedViewNames); return true; }
+            if (part == Part.RowMore) { viewPage++; armedRow = -1; return true; }
+            if (part == Part.RowSave) { CaptureNamedView(); return true; }
             switch (part)
             {
                 case Part.Object: SetDrawMethod(DrawMethod.Surface); break;
                 case Part.Plane: SetDrawMethod(DrawMethod.Plane); break;
                 case Part.Cursor: SetDrawMethod(DrawMethod.Cursor); break;
+                case Part.View:
+                {
+                    // The view to draw over is picked next, as a face is for Plane. One picked
+                    // before is still the one: the camera goes back to it.
+                    string before = controller.OverViewName;
+                    SetDrawMethod(DrawMethod.View);
+                    if (before == null) OpenViewList(); else controller.DrawOverView(before);
+                    break;
+                }
+                case Part.ViewList:
+                    if (optionsPopup == OptionsPopup.Views) CloseOptionsPopup(); else OpenViewList();
+                    break;
                 case Part.PickFace: controller.Picking = controller.Picking == PickMode.Face ? PickMode.None : PickMode.Face; break;
                 case Part.FaceChip: controller.BackToGrid(); break;
                 case Part.PlaceCursor: controller.Picking = controller.Picking == PickMode.Cursor ? PickMode.None : PickMode.Cursor; break;
@@ -317,16 +378,19 @@ namespace RhinoSketchingTool
             controller.Tool = SketchTool.Draw;
         }
 
-        // Saves the camera as a Rhino Named View. Nothing else changes: not the tool, not the sketches.
+        // Saves the camera as a Rhino Named View. Nothing else changes: not the tool, not the
+        // sketches. Saved from the pen's list (Over view), it is also the view to draw over.
         void CaptureNamedView()
         {
+            bool pen = PenList && controller.Method == DrawMethod.View;
             CloseOptionsPopup();
             // Dialogs are opened after the viewport mouse callback returns.
             Application.Instance.AsyncInvoke(() =>
             {
                 string name = AskText("Save view", "Name this view", "View " + (controller.NamedViewNames.Count + 1));
                 if (name == null) return;
-                controller.CaptureView(name);
+                string saved = controller.CaptureView(name);
+                if (pen && saved != null) controller.DrawOverView(saved);
                 Redraw();
             });
         }
@@ -400,8 +464,8 @@ namespace RhinoSketchingTool
         {
             if (collapsed || !f.HasOptions) return;
             if (optionsPopup == OptionsPopup.Colors && pickerArgb != controller.StrokeColor.ToArgb()) ReadColor();
-            if (armedChip >= 0 && unchecked(Environment.TickCount - armedAt) > 2500) armedChip = -1;
-            string signature = f.OptionsSize + "|" + f.Scale + "|" + chipPage + "|" + armedChip + "|" + controller.Tool + "|" + controller.Method + "|" + controller.Picking + "|" + controller.OnPickedFace + "|" + controller.Erase + "|" + controller.CurrentViewName + "|" + Hex + "|" + controller.SnapShapes + "|" + hover + "|" + pressed + "|" + Theme.Dark + "|" + string.Join("\n", f.Views);
+            if (armedRow >= 0 && unchecked(Environment.TickCount - armedAt) > 2500) armedRow = -1;
+            string signature = f.OptionsSize + "|" + f.Scale + "|" + optionsPopup + "|" + viewListLabel + "|" + controller.OverViewName + "|" + controller.Tool + "|" + controller.Method + "|" + controller.Picking + "|" + controller.OnPickedFace + "|" + controller.Erase + "|" + controller.CurrentViewName + "|" + Hex + "|" + controller.SnapShapes + "|" + hover + "|" + pressed + "|" + Theme.Dark + "|" + string.Join("\n", f.Views);
             if (optionsPicture == null || signature != optionsSignature)
             {
                 optionsPicture?.Dispose();
@@ -410,8 +474,11 @@ namespace RhinoSketchingTool
             }
             int margin = (int)(Margin * f.Scale);
             e.Display.DrawBitmap(optionsPicture, f.OptionOrigin.X - margin, f.OptionOrigin.Y - margin);
-            if (optionsPopup == OptionsPopup.None || controller.Tool != SketchTool.Draw) return;
+            if (optionsPopup == OptionsPopup.None) return;
+            if (optionsPopup == OptionsPopup.Colors && controller.Tool != SketchTool.Draw) return;
             signature = optionsPopup + "|" + f.PopupSize + "|" + f.Scale + "|" + Hex + "|" + hue + "|" + saturation + "|" + value + "|" + Theme.Dark;
+            if (optionsPopup == OptionsPopup.Views)
+                signature += "|" + viewPage + "|" + armedRow + "|" + hover + "|" + pressed + "|" + PenList + "|" + controller.CurrentViewName + "|" + controller.OverViewName + "|" + string.Join("\n", f.Views);
             if (popupPicture == null || signature != popupSignature)
             {
                 popupPicture?.Dispose();
@@ -434,7 +501,7 @@ namespace RhinoSketchingTool
         {
             c.PushTransform(new Media.TranslateTransform(Margin, Margin));
             Picture.Card(c, new Wpf.Rect(f.PopupSize), 14);
-            PaintColors(c, f);
+            if (optionsPopup == OptionsPopup.Views) PaintViews(c, f); else PaintColors(c, f);
             c.Pop();
         });
 
@@ -464,6 +531,7 @@ namespace RhinoSketchingTool
                 case Part.Object: return controller.Method == DrawMethod.Surface;
                 case Part.Plane: return controller.Method == DrawMethod.Plane;
                 case Part.Cursor: return controller.Method == DrawMethod.Cursor;
+                case Part.View: return controller.Method == DrawMethod.View;
                 case Part.EraseWhole: return controller.Erase == EraseMode.Stroke;
                 case Part.ErasePart: return controller.Erase == EraseMode.Part;
                 default: return false;
@@ -492,8 +560,21 @@ namespace RhinoSketchingTool
                 return;
             }
 
-            bool seg = part == Part.Object || part == Part.Plane || part == Part.Cursor || part == Part.EraseWhole || part == Part.ErasePart;
-            bool chip = part >= Part.Chip0 && part <= Part.Chip7;
+            bool seg = part == Part.Object || part == Part.Plane || part == Part.Cursor || part == Part.View || part == Part.EraseWhole || part == Part.ErasePart;
+            if (part == Part.ViewList)
+            {
+                // The button that opens the list of saved views. It says which view is in use:
+                // the one the viewport is in, or (under the pen) the one being drawn over.
+                bool open = optionsPopup == OptionsPopup.Views;
+                bool named = PenList ? controller.OverViewName != null : controller.CurrentViewName != null;
+                c.DrawRoundedRectangle(Fill(open ? SoftSel : Well), null, box, 10, 10);
+                if (over) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
+                PaintIcon(c, Icons.Views, new Wpf.Point(box.X + 10 + 7.5, mid.Y), 15, named ? Accent : Ink2, 1, 0);
+                var said = Picture.Text(viewListLabel, 12, Wpf.FontWeights.Medium, named ? Ink : Ink2, 150);
+                c.DrawText(said, new Wpf.Point(box.X + 10 + 15 + 6, mid.Y - said.Height / 2));
+                PaintIcon(c, Icons.Chevron, new Wpf.Point(box.Right - 7 - 8, mid.Y), 16, over ? Ink : Ink2, 1, open ? 180 : 0);
+                return;
+            }
             if (part == Part.FaceChip)
             {
                 // The prototype's .pchip: "On a face" in the accent, with an x that goes back to the grid.
@@ -515,14 +596,6 @@ namespace RhinoSketchingTool
                 c.DrawText(t, new Wpf.Point(box.X + 11 + 15 + 6, mid.Y - t.Height / 2));
                 return;
             }
-            if (part == Part.ChipMore)
-            {
-                c.DrawRoundedRectangle(Fill(Well), null, box, 10, 10);
-                if (over) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
-                var more = Picture.Text("More", 12, Wpf.FontWeights.Medium, Ink2);
-                c.DrawText(more, new Wpf.Point(box.X + 11, mid.Y - more.Height / 2));
-                return;
-            }
             if (seg)
             {
                 // .seg button: the selected one gets the soft grey fill; hover only darkens the text.
@@ -530,25 +603,20 @@ namespace RhinoSketchingTool
                 else if (down) c.DrawRoundedRectangle(Fill(Shade, PressShade), null, box, 9, 9);
                 var colour = Selected(part) || over ? Ink : Ink2;
                 double tx = box.X + 11;
-                if (part == Part.Object || part == Part.Plane || part == Part.Cursor)
+                if (part == Part.Object || part == Part.Plane || part == Part.Cursor || part == Part.View)
                 {
-                    PaintIcon(c, part == Part.Object ? Icons.OnObject : part == Part.Plane ? Icons.OnPlane : Icons.CursorMark, new Wpf.Point(box.X + 9 + 8, mid.Y), 16, colour, 1, 0);
+                    PaintIcon(c, part == Part.Object ? Icons.OnObject : part == Part.Plane ? Icons.OnPlane : part == Part.View ? Icons.Views : Icons.CursorMark, new Wpf.Point(box.X + 9 + 8, mid.Y), 16, colour, 1, 0);
                     tx = box.X + 9 + 16 + 6;
                 }
-                string label = part == Part.Object ? "Object" : part == Part.Plane ? "Plane" : part == Part.Cursor ? "3D cursor" : part == Part.EraseWhole ? "Whole sketch" : "Part";
+                string label = part == Part.Object ? "Object" : part == Part.Plane ? "Plane" : part == Part.Cursor ? "3D cursor" : part == Part.View ? "Over view" : part == Part.EraseWhole ? "Whole sketch" : "Part";
                 var text = Picture.Text(label, 12, Wpf.FontWeights.Medium, colour);
                 c.DrawText(text, new Wpf.Point(tx, mid.Y - text.Height / 2));
                 return;
             }
 
-            // .sb-t: a well-coloured button, darker on hover. A view chip is the same, soft grey when it is the view on screen.
-            int slot = chip ? part - Part.Chip0 : -1;
-            int chipIndex = chip ? ChipIndex(part, f.Views) : -1;
-            bool current = chip && chipIndex < f.Views.Count && f.Views[chipIndex] == controller.CurrentViewName;
-            bool overX = chip && (hover == Part.ChipX0 + slot || pressed == Part.ChipX0 + slot);
-            bool armed = chip && armedChip == slot;
-            c.DrawRoundedRectangle(Fill(current ? SoftSel : Well), null, box, 10, 10);
-            if (over || overX) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
+            // .sb-t: a well-coloured button, darker on hover.
+            c.DrawRoundedRectangle(Fill(Well), null, box, 10, 10);
+            if (over) c.DrawRoundedRectangle(Fill(Shade, down ? PressShade : HoverShade), null, box, 10, 10);
 
             if (part == Part.Snap)
             {
@@ -564,14 +632,51 @@ namespace RhinoSketchingTool
                 c.DrawText(text, new Wpf.Point(box.X + 11 + 15 + 6, mid.Y - text.Height / 2));
                 return;
             }
-            if (chip && chipIndex < f.Views.Count)
+        }
+
+        // The list of saved views: "Save this view" above a hairline, then a row per view
+        // (soft grey for the one in use), each with an x that deletes it, and "More" when
+        // there are more than fit.
+        void PaintViews(Media.DrawingContext c, Frame f)
+        {
+            double width = f.PopupSize.Width;
+            bool pen = PenList;
+            var save = new Wpf.Rect(5, 6, width - 10, 30);
+            if (hover == Part.RowSave || pressed == Part.RowSave) c.DrawRoundedRectangle(Fill(Shade, pressed == Part.RowSave ? PressShade : HoverShade), null, save, 8, 8);
+            PaintIcon(c, Icons.Plus, new Wpf.Point(save.X + 9 + 7.5, save.Y + 15), 15, Ink, 1, 0);
+            var saveText = Picture.Text("Save this view", 12, Wpf.FontWeights.Medium, Ink, width - 50);
+            c.DrawText(saveText, new Wpf.Point(save.X + 9 + 15 + 6, save.Y + 15 - saveText.Height / 2));
+            c.DrawLine(new Media.Pen(Fill(Shade, LineShade), 1), new Wpf.Point(10, 39.5), new Wpf.Point(width - 10, 39.5));
+
+            if (f.Rows == 0)
             {
-                var text = Picture.Text(f.Views[chipIndex], 12, Wpf.FontWeights.Medium, Ink, box.Width - 34);
-                c.DrawText(text, new Wpf.Point(box.X + 10, mid.Y - text.Height / 2));
-                var x = new Wpf.Rect(box.Right - 26, box.Y + 3, 24, 24);
+                var none = Picture.Text("No saved views yet", 12, Wpf.FontWeights.Normal, Muted, width - 26);
+                c.DrawText(none, new Wpf.Point(14, ListTop + ListRow / 2 - none.Height / 2));
+            }
+            string inUse = pen ? controller.OverViewName : controller.CurrentViewName;
+            for (int i = 0; i < f.Rows; i++)
+            {
+                string name = f.Views[f.RowStart + i];
+                var row = new Wpf.Rect(5, ListTop + i * ListRow + 1, width - 10, ListRow - 2);
+                bool over = hover == Part.Row0 + i || pressed == Part.Row0 + i;
+                bool overX = hover == Part.RowX0 + i || pressed == Part.RowX0 + i;
+                if (name == inUse) c.DrawRoundedRectangle(Fill(SoftSel), null, row, 8, 8);
+                if (over || overX) c.DrawRoundedRectangle(Fill(Shade, pressed == Part.Row0 + i ? PressShade : HoverShade), null, row, 8, 8);
+                var text = Picture.Text(name, 12, Wpf.FontWeights.Medium, Ink, width - 10 - 9 - 34);
+                c.DrawText(text, new Wpf.Point(row.X + 9, row.Y + row.Height / 2 - text.Height / 2));
+                Wpf.Rect x = ListX(f, i);
+                bool armed = armedRow == i;
                 if (armed) c.DrawRoundedRectangle(Fill(Picture.Danger, 0.14), null, x, 7, 7);
                 else if (overX) c.DrawRoundedRectangle(Fill(Shade, HoverShade), null, x, 7, 7);
                 PaintIcon(c, Icons.Close, new Wpf.Point(x.X + 12, x.Y + 12), 13, armed ? Picture.Danger : overX ? Ink : Muted, 1, 0);
+            }
+            if (f.More)
+            {
+                var row = new Wpf.Rect(5, ListTop + Math.Max(1, f.Rows) * ListRow + 1, width - 10, ListRow - 2);
+                if (hover == Part.RowMore || pressed == Part.RowMore) c.DrawRoundedRectangle(Fill(Shade, pressed == Part.RowMore ? PressShade : HoverShade), null, row, 8, 8);
+                var more = Picture.Text("More views", 12, Wpf.FontWeights.Medium, Ink2, width - 50);
+                c.DrawText(more, new Wpf.Point(row.X + 9, row.Y + row.Height / 2 - more.Height / 2));
+                PaintIcon(c, Icons.Chevron, new Wpf.Point(row.Right - 14, row.Y + row.Height / 2), 16, Ink2, 1, -90);
             }
         }
 

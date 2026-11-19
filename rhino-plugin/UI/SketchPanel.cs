@@ -90,7 +90,7 @@ namespace RhinoSketchingTool
             {
                 foreach (DrawMethod method in Enum.GetValues(typeof(DrawMethod)))
                 {
-                    var button = new Button { Text = method == DrawMethod.Surface ? "Object" : method.ToString() };
+                    var button = new Button { Text = method == DrawMethod.Surface ? "Object" : method == DrawMethod.View ? "Over view" : method.ToString() };
                     button.Click += (s, e) => { controller.Method = method; controller.Tool = SketchTool.Draw; };
                     controls.Items.Add(button);
                 }

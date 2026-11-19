@@ -32,7 +32,8 @@ namespace RhinoSketchingTool
         enum Part { None, Bar, Grip, Select, Pen, Eraser, Comments, Views, Separator, Collapse,
             Object, Plane, Cursor, View, ViewList, Color, Snap, Popup, Saturation, Hue, Hex, Swatch0, Swatch1, Swatch2, Swatch3, Swatch4,
             EraseWhole, ErasePart, Hint, SaveView, PickFace, FaceChip, PlaceCursor,
-            Chip0, Chip1, Chip2, Chip3, Chip4, Chip5, Chip6, Chip7, ChipX0, ChipX1, ChipX2, ChipX3, ChipX4, ChipX5, ChipX6, ChipX7, ChipMore }
+            // the dropdown list of saved views: "Save this view", a row per view, each row's x, and "More"
+            RowSave, Row0, Row1, Row2, Row3, Row4, Row5, Row6, Row7, RowX0, RowX1, RowX2, RowX3, RowX4, RowX5, RowX6, RowX7, RowMore }
 
         // Sizes, in pixels at 100 % display scaling.
         // The prototype's dock bar (data-bar="dock", data-type="icons"): 42 px buttons,
@@ -545,6 +546,8 @@ namespace RhinoSketchingTool
                 case Part.Object: return "Draw on objects";
                 case Part.Plane: return "Draw on the construction plane";
                 case Part.Cursor: return "Draw on a plane through the 3D cursor";
+                case Part.View: return "Draw over a saved view: the sketch shows only in that view";
+                case Part.ViewList: return PenList ? "Choose the saved view to draw over" : "Go to a saved view";
                 case Part.PickFace: return controller.Picking == PickMode.Face ? "Click a face of an object (click here again to cancel)" : "Click a face of an object to draw on it";
                 case Part.FaceChip: return "Back to the construction plane";
                 case Part.PlaceCursor: return controller.Picking == PickMode.Cursor ? "Click in the model (click here again to cancel)" : "Click in the model to put the 3D cursor there";
@@ -554,9 +557,7 @@ namespace RhinoSketchingTool
                 case Part.ErasePart: return "Erase only where you drag";
                 case Part.SaveView: return "Save what you see now as a named view";
                 default:
-                    if (part >= Part.Chip0 && part <= Part.Chip7) return "Go to this view";
-                    if (part >= Part.ChipX0 && part <= Part.ChipX7) return armedChip == part - Part.ChipX0 ? "Click again to delete this view" : "Delete view";
-                    if (part == Part.ChipMore) return "More saved views";
+                    if (part >= Part.RowX0 && part <= Part.RowX7) return armedRow == part - Part.RowX0 ? "Click again to delete this view" : "Delete this view, and what is drawn over it";
                     return null;
             }
         }
@@ -577,6 +578,11 @@ namespace RhinoSketchingTool
             {
                 origin = frame.OptionOrigin;
                 if (frame.Items != null) foreach (Item item in frame.Items) if (item.Part == hover) box = item.Box;
+            }
+            if (box.IsEmpty && hover >= Part.RowX0 && hover <= Part.RowX7)
+            {
+                origin = frame.PopupOrigin; // a row's x, in the list of saved views
+                box = ListX(frame, hover - Part.RowX0);
             }
             if (box.IsEmpty) return;
             var size = view.ActiveViewport.Size;

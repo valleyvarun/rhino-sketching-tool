@@ -142,6 +142,7 @@ namespace RhinoSketchingTool
         {
             public StrokeDabs Dabs;
             public int Layer;
+            public string ViewKey; // drawn over this saved view: painted only there, over everything. Null for a 3D sketch
             public bool Visible;
         }
 
@@ -241,10 +242,11 @@ namespace RhinoSketchingTool
 
                 sheet.Dabs[serial] = dabs;
                 bool groupVisible = AnnotationGroups.Visible(doc, obj.Attributes);
-                sheet.Strokes.Add(new Painted { Dabs = dabs, Layer = obj.Attributes.LayerIndex, Visible = groupVisible });
-                // A view overlay must never become native geometry visible/selectable in
+                string viewKey = obj.Attributes.GetUserString(SketchController.ViewStrokeKey);
+                sheet.Strokes.Add(new Painted { Dabs = dabs, Layer = obj.Attributes.LayerIndex, ViewKey = viewKey, Visible = groupVisible });
+                // A sketch over a view must never become native geometry visible/selectable in
                 // every viewport. It remains available to Crayon's scoped eraser.
-                bool shouldSelect = selectable && groupVisible;
+                bool shouldSelect = selectable && groupVisible && string.IsNullOrEmpty(viewKey);
                 if (obj.IsHidden == shouldSelect && !sheet.Refused.Contains(obj.Id)) sheet.Misplaced.Add(obj.Id);
             }
             return sheet;
@@ -260,8 +262,10 @@ namespace RhinoSketchingTool
             return StrokeDabs.Build(points, StrokePaint.Read(obj.Attributes, points.Length), color);
         }
 
-        // The strokes to paint in a view: all of the document's whose layer is on.
-        IEnumerable<StrokeDabs> Strokes(DrawEventArgs e)
+        // The strokes to paint in a view: all of the document's whose layer is on. The 3D
+        // ones, which every view shows, or (viewOnly) the ones drawn over the saved view
+        // this viewport is in.
+        IEnumerable<StrokeDabs> Strokes(DrawEventArgs e, bool viewOnly = false)
         {
             RhinoDoc doc = e.RhinoDoc;
             // Strokes belong to the model. A layout page shows them through its details.
@@ -269,9 +273,18 @@ namespace RhinoSketchingTool
 
             int layer = -1;
             bool visible = true;
+            string currentView = null;
+            bool asked = false; // which saved view the viewport is in is only worked out if a sketch needs it
             foreach (Painted stroke in Read(doc).Strokes)
             {
                 if (!stroke.Visible) continue;
+                bool viewStroke = !string.IsNullOrEmpty(stroke.ViewKey);
+                if (viewStroke != viewOnly) continue;
+                if (viewStroke)
+                {
+                    if (!asked) { asked = true; currentView = SketchController.ViewKeyFor(doc, e.Viewport); }
+                    if (stroke.ViewKey != currentView) continue;
+                }
                 if (stroke.Layer != layer) // strokes mostly share one layer: ask about it once
                 {
                     layer = stroke.Layer;
@@ -349,7 +362,8 @@ namespace RhinoSketchingTool
                     {
                         var obj = doc.Objects.FindId(id);
                         bool shouldSelect = selectable && obj != null &&
-                            AnnotationGroups.Visible(doc, obj.Attributes);
+                            AnnotationGroups.Visible(doc, obj.Attributes) &&
+                            string.IsNullOrEmpty(obj.Attributes.GetUserString(SketchController.ViewStrokeKey));
                         bool done = shouldSelect ? doc.Objects.Show(id, true) : doc.Objects.Hide(id, true);
                         if (!done) sheet.Refused.Add(id);
                     }
@@ -398,6 +412,7 @@ namespace RhinoSketchingTool
             // so tell it where they are, or they would be cut off. (They are painted a
             // little nearer the camera than their curves; PaintedBox allows for that.)
             foreach (StrokeDabs stroke in Strokes(e)) e.IncludeBoundingBox(stroke.PaintedBox(e.Viewport));
+            foreach (StrokeDabs stroke in Strokes(e, true)) e.IncludeBoundingBox(stroke.PaintedBox(e.Viewport));
             StrokeDabs drawing = Live();
             if (drawing != null && controller.LiveVisibleInView(e.RhinoDoc, e.Viewport)) e.IncludeBoundingBox(drawing.PaintedBox(e.Viewport));
 
@@ -435,7 +450,7 @@ namespace RhinoSketchingTool
             frameNumber++;
             foreach (StrokeDabs stroke in Strokes(e)) Paint(e.Display, e.Viewport, stroke);
             StrokeDabs drawing = Live();
-            if (drawing != null && controller.LiveVisibleInView(e.RhinoDoc, e.Viewport)) Paint(e.Display, e.Viewport, drawing);
+            if (drawing != null && !controller.LiveIsView && controller.LiveVisibleInView(e.RhinoDoc, e.Viewport)) Paint(e.Display, e.Viewport, drawing);
         }
 
         void Paint(DisplayPipeline display, RhinoViewport viewport, StrokeDabs stroke)
@@ -466,6 +481,21 @@ namespace RhinoSketchingTool
         // The foreground is drawn over everything, so the cursor shows through objects.
         protected override void DrawForeground(DrawEventArgs e)
         {
+            // Sketches over a view are notes on the picture, not part of the model: nothing
+            // in the model hides them, and only the viewport that is in their view has them.
+            var over = new List<StrokeDabs>(Strokes(e, true));
+            StrokeDabs drawing = Live();
+            if (drawing != null && controller.LiveIsView && controller.LiveVisibleInView(e.RhinoDoc, e.Viewport)) over.Add(drawing);
+            if (over.Count > 0) // the pipeline is left alone when there is nothing of the kind to paint
+            {
+                e.Display.PushDepthTesting(false);
+                try
+                {
+                    foreach (StrokeDabs stroke in over) Paint(e.Display, e.Viewport, stroke);
+                }
+                finally { e.Display.PopDepthTesting(); }
+            }
+
             if (!controller.CursorVisible) return;
             Point3d origin = controller.Cursor;
             double length = AxisLength(e.Viewport);

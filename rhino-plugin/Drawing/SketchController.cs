@@ -239,7 +239,7 @@ namespace RhinoSketchingTool
         void SetMethod(DrawMethod value)
         {
             if (method == DrawMethod.Plane && value != DrawMethod.Plane) ReturnPlanes();
-            method = value == DrawMethod.View ? DrawMethod.Plane : value;
+            method = value;
             picking = PickMode.None;
         }
 
@@ -335,8 +335,26 @@ namespace RhinoSketchingTool
             }
 
             var viewport = view.ActiveViewport;
-            // Saved views are cameras only (Rhino Named Views). A sketch is always 3D model
-            // content that every view shows; it is never tied to, or captured as, a view.
+            // "Over view" draws over the saved view that was picked, and only while this
+            // viewport is in it. Every other method makes 3D model content that every view shows.
+            string viewKey = null;
+            if (method == DrawMethod.View)
+            {
+                string picked = OverViewName;
+                if (picked == null)
+                {
+                    Toolbar.AskForView(); // no view picked yet (or it has been deleted): offer the list
+                    return true;
+                }
+                if (ViewKeyFor(view.Document, viewport) != overView)
+                {
+                    // The camera has been moved since: back to the view. This click draws
+                    // nothing, because what was under the pointer is now somewhere else.
+                    RestoreView(picked, view);
+                    return true;
+                }
+                viewKey = overView;
+            }
             drawing = new DrawDrag
             {
                 View = view,
@@ -346,6 +364,7 @@ namespace RhinoSketchingTool
                         ? new Plane(viewport.CameraTarget, viewport.CameraDirection)
                         : viewport.ConstructionPlane(),
                 Color = StrokeColor,
+                ViewKey = viewKey,
                 Method = method,
             };
             ExtendStroke(point, pressure);
@@ -364,6 +383,11 @@ namespace RhinoSketchingTool
             if (view == null || view.RuntimeSerialNumber != dragView.RuntimeSerialNumber)
             {
                 EndDrag(); // wandered into another viewport
+                return;
+            }
+            if (drawing?.ViewKey != null && !LiveVisibleInView(view.Document, view.ActiveViewport))
+            {
+                EndDrag(); // the camera moved during a sketch over a view: two projections must not mix
                 return;
             }
             if (drawing != null) ExtendStroke(point, pressure);
@@ -528,6 +552,7 @@ namespace RhinoSketchingTool
                 BeginChange(doc);
                 attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 attributes.ObjectColor = drawing.Color;
+                if (drawing.ViewKey != null) attributes.SetUserString(ViewStrokeKey, drawing.ViewKey); // drawn over a view: shows only there
                 var points = drawing.Points.ToArray();
                 var paint = Paint(drawing, true);
                 if (SnapShapes && drawing.Method != DrawMethod.Surface)
@@ -1132,6 +1157,7 @@ namespace RhinoSketchingTool
             public List<Target> Targets;
             public Color Color;
             public DrawMethod Method;
+            public string ViewKey; // "Over view": the saved view this is drawn over; null for a 3D sketch
             public Guid ObjectId;
             public ScreenPoint Last;
 

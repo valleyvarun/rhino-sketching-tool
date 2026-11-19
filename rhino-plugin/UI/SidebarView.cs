@@ -130,6 +130,7 @@ namespace RhinoSketchingTool
                     ["group"] = AnnotationGroups.GroupOf(groups, obj.Attributes), ["ownVisible"] = obj.Attributes.GetUserString(AnnotationGroups.HiddenKey) != "1",
                     ["visible"] = SketchController.OnVisibleLayer(doc, obj),
                     ["overlay"] = !string.IsNullOrEmpty(obj.Attributes.GetUserString(SketchController.ViewStrokeKey)),
+                    ["view"] = SketchController.ViewNameOf(doc, obj.Attributes) ?? "",
                     ["color"] = "#" + (obj.Attributes.ObjectColor.ToArgb() & 0xffffff).ToString("X6") });
             }
             foreach (Comment comment in controller.Comments(doc))
@@ -268,9 +269,9 @@ namespace RhinoSketchingTool
                 }
                 if (type == "select")
                 {
-                    // View sketches stay hidden Rhino objects: ordinary selection would
-                    // expose their proxy geometry in every viewport. Rename/delete are
-                    // available here; the eraser edits them in their associated view.
+                    // Sketches over a view stay hidden Rhino objects: ordinary selection would
+                    // expose their curves in every viewport. Rename/delete are available
+                    // here; the eraser works on them in their view.
                     if (!string.IsNullOrEmpty(obj.Attributes.GetUserString(SketchController.ViewStrokeKey))) return;
                     controller.Tool = SketchTool.Select;
                     doc.Objects.UnselectAll();
