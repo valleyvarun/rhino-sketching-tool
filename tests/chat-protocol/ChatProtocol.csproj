@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework><LangVersion>latest</LangVersion></PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <MacTransport Condition="'$(MacTransport)' == '' and '$(OS)' != 'Windows_NT'">true</MacTransport>
+    <TargetFramework Condition="'$(MacTransport)' != 'true'">net48</TargetFramework>
+    <TargetFramework Condition="'$(MacTransport)' == 'true'">net8.0</TargetFramework>
+    <DefineConstants Condition="'$(MacTransport)' == 'true'">$(DefineConstants);MAC</DefineConstants>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../rhino-plugin/Agent/EffortLevels.cs" Link="EffortLevels.cs" />
     <Compile Include="../../rhino-plugin/Agent/McpConfiguration.cs" Link="McpConfiguration.cs" />
@@ -9,6 +16,8 @@
     <Compile Include="../../rhino-plugin/Agent/ChatAttachment.cs" Link="ChatAttachment.cs" />
     <Compile Include="../../rhino-plugin/Agent/ChatHistory.cs" Link="ChatHistory.cs" />
     <Compile Include="../../rhino-plugin/Agent/Providers/ClaudeCli.cs" Link="ClaudeCli.cs" />
+    <Compile Include="../../rhino-plugin/Agent/Providers/CodexCli.cs" Link="CodexCli.cs" />
+    <Compile Include="../../rhino-plugin/Mac/MacProcess.cs" Link="MacProcess.cs" />
     <Compile Include="../../rhino-plugin/Infrastructure/Json.cs" Link="Json.cs" />
     <Compile Include="../../rhino-plugin/Infrastructure/ChildProcess.cs" Link="ChildProcess.cs" />
   </ItemGroup>

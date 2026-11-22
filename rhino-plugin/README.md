@@ -6,6 +6,9 @@ and an assistant in Rhino's dockable sidebar. Run the `Crayon` Rhino command to 
 ## Build and load
 
 Requires Rhino 8 for Windows, a .NET SDK, and .NET Framework 4.8 reference assemblies.
+(Crayon for Rhino 8 for Mac is built from these same sources by `../mac`: what is
+Windows-only here has a Mac counterpart under `#if MAC`. See
+[`../mac/README.md`](../mac/README.md).)
 
 ```powershell
 # Build and automatically update the installed plugin.
@@ -174,6 +177,7 @@ prevent Crayon from loading. See [McNeel's platform documentation](https://mcnee
 | `Agent/` | Conversations, attachments, RhinoMCP discovery and session configuration |
 | `Agent/Providers/` | Claude and Codex CLI transport adapters |
 | `Infrastructure/` | Shared JSON serialization |
+| `Mac/` | What Rhino for Mac needs in place of WPF and Win32: drawing, display scale and pen, programs and paths. Compiled into the Mac build only (`#if MAC`) |
 | `Assets/Brand/` | Official Crayon logo files copied from `design-ui-ux` |
 | `scripts/` | Build and headless UI validation |
 

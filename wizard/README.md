@@ -1,6 +1,7 @@
 # Crayon Setup
 
 `dist/CrayonSetup.exe` is the single Windows download linked from the website.
+Mac users get [CrayonSetup.pkg](../mac/dist/CrayonSetup.pkg), which opens in Apple's Installer.
 The wizard has two actions: **Install Crayon**, then **Finish**. It has no account,
 registration, or sign-in screens. The original Crayon SVGs are copied into `Assets`;
 the PNG and Windows icon are rendered from that same artwork.
@@ -53,15 +54,15 @@ Requires Windows, Rhino 8 (including Yak), a .NET SDK and .NET Framework 4.8 tar
 
 ```powershell
 .\wizard\scripts\Build.ps1
-# For a versioned release; give changed plugin contents a new version, so builds can be told apart:
-.\wizard\scripts\Build.ps1 -Version 1.0.0
+# To specify this release explicitly:
+.\wizard\scripts\Build.ps1 -Version 0.2.0
 ```
 
 The build stages the latest plugin, builds a local Yak package, embeds it in the
 installer, and writes `dist/CrayonSetup.exe` plus `dist/CrayonSetup.sha256`.
 Publish the executable at `wizard/dist/CrayonSetup.exe` with the website. Nothing
-is published to Yak or a website by the build. Development builds use a unique
-prerelease version; setup replaces an installed Crayon whatever its version.
+is published to Yak or a website by the build. By default the Windows installer, its
+embedded Yak package and the Rhino plug-in use the version in [release.version](../release.version).
 
 The generated executable is **unsigned**. Before public distribution, sign it using
 your publisher certificate and timestamp service, then regenerate the SHA-256 file.

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pkg-info format-version="2" identifier="com.crayon.rhino8.setup" version="@VERSION@"
+          auth="none" relocatable="false" overwrite-permissions="true" postinstall-action="none">
+  <bundle-version/>
+  <upgrade-bundle/>
+  <update-bundle/>
+  <atomic-update-bundle/>
+  <strict-identifier/>
+  <relocate/>
+  <scripts>
+    <postinstall file="./postinstall" timeout="600"/>
+  </scripts>
+</pkg-info>

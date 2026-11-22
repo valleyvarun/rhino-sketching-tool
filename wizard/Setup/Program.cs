@@ -50,6 +50,11 @@ namespace CrayonSetup
         public Wizard()
         {
             using (var stream = SystemHost.Resource("Window.xaml")) Window = (Window)XamlReader.Load(stream);
+            string release = SystemHost.ResourceText("package-info.txt").Split('\n')[0].Trim();
+            string versionLabel = "v" + (release.EndsWith(".0", StringComparison.Ordinal) && !release.Contains("-")
+                ? release.Substring(0, release.Length - 2) : release);
+            Window.Title = "Crayon Setup " + versionLabel;
+            Find<TextBlock>("SetupVersion").Text = "SETUP  " + versionLabel;
             using (var stream = SystemHost.Resource("logo.png"))
             {
                 var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.StreamSource = stream; image.EndInit(); image.Freeze();

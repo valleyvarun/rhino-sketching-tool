@@ -1,0 +1,9 @@
+#mtree
+/set uid=0 gid=0 type=file mode=0644
+./Distribution content=Distribution
+./Resources type=dir mode=0755
+./Resources/welcome.html content=Resources/welcome.html
+./Resources/conclusion.html content=Resources/conclusion.html
+./Crayon.pkg type=dir mode=0755
+./Crayon.pkg/PackageInfo content=Crayon.pkg/PackageInfo
+./Crayon.pkg/Scripts content=Crayon.pkg/Scripts

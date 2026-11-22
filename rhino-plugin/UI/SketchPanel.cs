@@ -26,8 +26,17 @@ namespace RhinoSketchingTool
             return dark;
         }
 
+#if MAC
+        readonly uint documentSerial;
+        bool listening;
+        public SketchPanel(uint documentSerialNumber)
+#else
         public SketchPanel()
+#endif
         {
+#if MAC
+            documentSerial = documentSerialNumber;
+#endif
             BackgroundColor = Color.FromArgb(0xf6, 0xf7, 0xf9);
             try
             {
@@ -49,10 +58,14 @@ namespace RhinoSketchingTool
                 tabs.SelectedIndexChanged += (s, e) => { tab = tabs.SelectedIndex == 0 ? "agent" : tabs.SelectedIndex == 1 ? "sketch" : "layers"; ShowTab(); };
                 Content = new TableLayout { Rows = { new TableRow(tabs), new TableRow(content) { ScaleHeight = true } } };
             }
+#if MAC
+            Listen(true);
+#else
             controller.Changed += (s, e) => { header?.RefreshState(); settings?.RefreshState(); };
             controller.SceneChanged += (s, e) => settings?.RefreshState();
             PenHook.PanelWindow = () => Loaded ? NativeHandle : IntPtr.Zero;
             Application.Instance.AsyncInvoke(SketchPlugin.ShowTabIcon);
+#endif
             ShowTab();
         }
 
@@ -70,7 +83,11 @@ namespace RhinoSketchingTool
         void ShowTab()
         {
             content.Content = tab == "agent" ? (Control)agentView : settings ?? Fallback();
-            if (tab == "agent") Agent.Open();
+            if (tab == "agent"
+#if MAC
+                && IsCurrent(this)
+#endif
+            ) Agent.Open();
             header?.RefreshState();
             settings?.RefreshState();
         }
@@ -94,23 +111,85 @@ namespace RhinoSketchingTool
                     button.Click += (s, e) => { controller.Method = method; controller.Tool = SketchTool.Draw; };
                     controls.Items.Add(button);
                 }
+#if MAC
+                controls.Items.Add(new Label { Text = "The detailed sidebar could not be shown. Drawing controls remain available in the viewport.", Wrap = WrapMode.Word });
+#else
                 controls.Items.Add(new Label { Text = "The detailed sidebar needs Microsoft Edge WebView2. Drawing controls remain available in the viewport.", Wrap = WrapMode.Word });
+#endif
             }
             return controls;
         }
 
         public void PanelShown(uint documentSerialNumber, ShowPanelReason reason)
         {
+#if MAC
+            Listen(true);
+            if (!IsCurrent(this)) return;
+#endif
             Sidebar.Shown(reason);
             if (tab == "agent") Agent.Open();
         }
         public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) { }
         public void PanelClosing(uint documentSerialNumber, bool onCloseDocument)
         {
+#if MAC
+            bool wasCurrent = IsCurrent(this);
+            Listen(false);
+            if (!wasCurrent) return;
+#endif
             if (onCloseDocument) return;
             controller.Active = false;
             Agent.Session.Close();
         }
+
+#if MAC
+        // Actions arrive asynchronously from WebKit. The user may have activated another
+        // model or closed this inspector since clicking a button.
+        internal static bool IsCurrent(Control control)
+        {
+            for (; control != null; control = control.Parent)
+                if (control is SketchPanel panel)
+                    return panel.listening && RhinoDoc.ActiveDoc?.RuntimeSerialNumber == panel.documentSerial;
+            return false;
+        }
+
+        internal static void TrackTextFocus(Control control, Func<bool> focused)
+        {
+            control.Load += (s, e) => KeyHook.TextEntry.Add(focused);
+            control.UnLoad += (s, e) => KeyHook.TextEntry.Remove(focused);
+        }
+
+        void RefreshControls(object sender, EventArgs e)
+        {
+            header?.RefreshState();
+            settings?.RefreshState();
+        }
+
+        void Listen(bool on)
+        {
+            if (listening == on) return;
+            listening = on;
+            if (on)
+            {
+                controller.Changed += RefreshControls;
+                controller.SceneChanged += RefreshControls;
+            }
+            else
+            {
+                controller.Changed -= RefreshControls;
+                controller.SceneChanged -= RefreshControls;
+            }
+            agentView.Listen(on);
+            header?.Listen(on);
+            settings?.Listen(on);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) Listen(false);
+            base.Dispose(disposing);
+        }
+#endif
     }
     internal static class Sidebar
     {
@@ -133,6 +212,11 @@ namespace RhinoSketchingTool
         // Rhino is up, with its panels where they were last time.
         static void OnFirstIdle(object sender, EventArgs e)
         {
+#if MAC
+            // Rhino for Mac can sit idle at its start window with no model open. A panel belongs
+            // to a model's window there, so the introduction waits for the first one.
+            if (RhinoDoc.ActiveDoc == null) return;
+#endif
             RhinoApp.Idle -= OnFirstIdle;
             SketchPlugin.ShowTabIcon();
             settled = true;

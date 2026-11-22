@@ -18,7 +18,11 @@ namespace RhinoSketchingTool
         readonly Func<string> tab;
         readonly Func<bool> dark;
         readonly Action<string, string> shellAction;
+#if MAC
+        readonly WebView web = new WebView();
+#else
         readonly WebView web = new WebView { BrowserContextMenuEnabled = false };
+#endif
         readonly UITimer timer = new UITimer { Interval = 0.2 };
         bool ready, taking, dirty = true;
         int sinceLayers; // ticks since the Layers page was last brought up to date
@@ -35,6 +39,9 @@ namespace RhinoSketchingTool
             this.shellAction = shellAction;
             Content = web;
             web.DocumentLoaded += (s, e) => { ready = true; told = null; dirty = true; };
+#if MAC
+            web.DocumentLoaded += (s, e) => web.BrowserContextMenuEnabled = false;
+#endif
             web.DocumentLoading += (s, e) => { if (e.Uri != null && (e.Uri.Scheme == "http" || e.Uri.Scheme == "https")) e.Cancel = true; };
             web.OpenNewWindow += (s, e) => e.Cancel = true;
             using (Stream stream = GetType().Assembly.GetManifestResourceStream("RhinoSketchingTool.sidebar.html"))
@@ -42,14 +49,30 @@ namespace RhinoSketchingTool
                 web.LoadHtml(reader.ReadToEnd().Replace("{{MODE}}", header ? "header" : "body").Replace("{{LOGO}}", SketchPlugin.BrandSvg));
             timer.Elapsed += (s, e) => Tick();
             timer.Start();
+#if MAC
+            SketchPanel.TrackTextFocus(this, () => Loaded && Visible && web.HasFocus);
+#else
             KeyHook.TextEntry.Add(() => Loaded && Visible && web.HasFocus);
+#endif
         }
 
         public void RefreshState() => dirty = true;
 
+#if MAC
+        /// <summary>Start or stop asking the page for news: Rhino for Mac drops a document's panel when the document closes.</summary>
+        public void Listen(bool on)
+        {
+            if (on && !timer.Started) timer.Start();
+            else if (!on && timer.Started) timer.Stop();
+        }
+#endif
+
         void Tick()
         {
             if (!ready || !Loaded || !Visible) return;
+#if MAC
+            if (!SketchPanel.IsCurrent(this)) return;
+#endif
             bool appearance = dark();
             if (lastDark != appearance) { lastDark = appearance; dirty = true; }
             if (document != (RhinoDoc.ActiveDoc?.RuntimeSerialNumber ?? 0))
@@ -150,7 +173,13 @@ namespace RhinoSketchingTool
             {
                 string answer = (await web.ExecuteScriptAsync("return crayonSidebar.take();") ?? "").Trim().Trim('"');
                 if (answer.Length == 0 || answer == "null") return;
-                foreach (object item in Json.List(Json.Parse(Uri.UnescapeDataString(answer)))) Act(Json.Map(item));
+                foreach (object item in Json.List(Json.Parse(Uri.UnescapeDataString(answer))))
+                {
+#if MAC
+                    if (!SketchPanel.IsCurrent(this)) return;
+#endif
+                    Act(Json.Map(item));
+                }
                 dirty = true;
             }
             catch (Exception ex) { RhinoApp.WriteLine("Crayon sidebar: " + ex.Message); }

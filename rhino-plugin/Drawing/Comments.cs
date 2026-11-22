@@ -5,9 +5,15 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
+#if MAC // no WPF on a Mac: the same names, made with Eto (Mac/MacDrawing.cs)
+using Media = RhinoSketchingTool.MacDrawing;
+using ScreenPoint = System.Drawing.Point;
+using Wpf = RhinoSketchingTool.MacDrawing;
+#else
 using Media = System.Windows.Media;
 using ScreenPoint = System.Drawing.Point;
 using Wpf = System.Windows;
+#endif
 
 namespace RhinoSketchingTool
 {
@@ -100,7 +106,9 @@ namespace RhinoSketchingTool
         Comment writing;         // the comment whose text is being typed,
         RhinoView writingView;   // in this view,
         CommentEditor editor;    // in this box
-        ScreenPoint editorAt;    // where the box was last put, in the view's pixels
+#if !MAC
+        ScreenPoint editorAt;    // where the in-place box was last put, in the view's pixels
+#endif
 
         /// <summary>Raised (once Rhino is idle) after sketches, comments or layers have changed.</summary>
         public event EventHandler SceneChanged;
@@ -404,7 +412,11 @@ namespace RhinoSketchingTool
             aim = null;
             overComment = Guid.Empty;
             if (editor == null) editor = new CommentEditor { Finished = FinishWriting };
+#if MAC
+            editor.Open(view.Document, comment.Text);
+#else
             PlaceEditor(true);
+#endif
             if (!editor.IsOpen)
             {
                 // No box, so nothing can be typed: the comment is let go.
@@ -414,6 +426,7 @@ namespace RhinoSketchingTool
             view.Redraw();
         }
 
+#if !MAC
         // Put the box over the label's text, which moves when the view does.
         void PlaceEditor(bool open)
         {
@@ -431,6 +444,7 @@ namespace RhinoSketchingTool
             if (open) editor.Open(onScreen, scale, WritingWidth, PillHeight - 6, writing.Text);
             else editor.MoveTo(onScreen, scale);
         }
+#endif
 
         /// <summary>
         /// The text box has closed. Null means Esc: a new comment is dropped, an old one
@@ -499,7 +513,7 @@ namespace RhinoSketchingTool
         }
 
         // The eraser passes over a view: comments whose label or point it touches go.
-        bool EraseCommentsAt(RhinoView view, ScreenPoint point)
+        bool EraseCommentsAt(RhinoView view, ScreenPoint point, double radius)
         {
             RhinoDoc doc = view.Document;
             double scale = Toolbar.Scale(view);
@@ -509,7 +523,7 @@ namespace RhinoSketchingTool
                 if (!comment.Visible) continue;
                 if (!LabelBox(view.ActiveViewport, doc, comment, scale, out System.Drawing.RectangleF pill, out _, out _)) continue;
                 Point2d? at = ToScreen(view.ActiveViewport, comment.Point);
-                bool touched = pill.Contains(point) || (at.HasValue && at.Value.DistanceTo(new Point2d(point.X, point.Y)) < EraseRadius);
+                bool touched = pill.Contains(point) || (at.HasValue && at.Value.DistanceTo(new Point2d(point.X, point.Y)) < radius);
                 if (!touched) continue;
                 RhinoObject obj = doc.Objects.FindId(comment.Id);
                 if (obj == null) continue;
@@ -548,6 +562,9 @@ namespace RhinoSketchingTool
             RhinoDoc doc = e.RhinoDoc;
             RhinoView view = e.Viewport.ParentView;
             if (doc == null || view == null) return;
+#if MAC
+            MacDisplay.Note(e); // how dense the display is where this view is being drawn
+#endif
             double scale = Toolbar.Scale(view);
 
             bool writingHere = writing != null && writingView != null && writingView.ActiveViewportID == e.Viewport.Id && writingView.Document == doc;
@@ -563,8 +580,10 @@ namespace RhinoSketchingTool
                 // A new comment is not in the document until it has text.
                 if (writing.Id == Guid.Empty && LabelBox(e.Viewport, doc, writing, scale, out _, out ScreenPoint corner, out LabelPicture label))
                     e.Display.DrawBitmap(label.Bitmap, corner.X, corner.Y);
-                // The view may have moved under the text box.
+#if !MAC
+                // The view may have moved under the in-place text box.
                 Eto.Forms.Application.Instance.AsyncInvoke(() => PlaceEditor(false));
+#endif
             }
 
             if (active && tool == SketchTool.Comment && aim != null && aim.View == view.RuntimeSerialNumber && view.ActiveViewportID == e.Viewport.Id)
@@ -675,6 +694,106 @@ namespace RhinoSketchingTool
         }
     }
 
+#if MAC
+    /// <summary>
+    /// Where a comment's text is typed on a Mac: a small dialog. Return (or Save) keeps the
+    /// text, Esc (or Cancel) gives up, and saving no text removes the comment.
+    ///
+    /// On Windows the text is typed in place, in a bare box floating over the label (the
+    /// class below). Putting that box in the right spot takes the viewport's place on
+    /// screen in the window system's own units, which nobody has been able to try on a Mac.
+    /// A dialog needs none of it, and takes the same calls.
+    /// </summary>
+    internal sealed class CommentEditor
+    {
+        Eto.Forms.Dialog<string> dialog;
+        Eto.Forms.TextBox box;
+        string pendingText;
+        int session;
+
+        /// <summary>Called once when the dialog closes, with the text: null if it was given up.</summary>
+        public Action<string> Finished;
+
+        public bool IsOpen => pendingText != null;
+
+        public void Open(RhinoDoc doc, string text)
+        {
+            Commit();
+            pendingText = text ?? "";
+            int current = ++session;
+            // Once the click that asked for it has been dealt with: a dialog must not open in the
+            // middle of Rhino's mouse handling.
+            Eto.Forms.Application.Instance.AsyncInvoke(() => Ask(doc, current));
+        }
+
+        void Ask(RhinoDoc doc, int current)
+        {
+            if (!IsOpen || session != current) return;
+            string result = null;
+            try
+            {
+                var input = box = new Eto.Forms.TextBox { Text = pendingText, PlaceholderText = "Add a comment", Width = 320 };
+                var save = new Eto.Forms.Button { Text = "Save" };
+                var cancel = new Eto.Forms.Button { Text = "Cancel" };
+                using var asking = dialog = new Eto.Forms.Dialog<string> { Title = "Comment", Padding = 16, Resizable = false };
+                save.Click += (s, e) => asking.Close(input.Text ?? "");
+                cancel.Click += (s, e) => asking.Close(null);
+                asking.DefaultButton = save;
+                asking.AbortButton = cancel;
+                asking.Content = new Eto.Forms.StackLayout
+                {
+                    Spacing = 12,
+                    Items = { input, new Eto.Forms.StackLayout { Orientation = Eto.Forms.Orientation.Horizontal, Spacing = 8, Items = { cancel, save } } },
+                };
+                asking.Shown += (s, e) => input.Focus();
+                result = asking.ShowModal(Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc));
+            }
+            catch (Exception ex)
+            {
+                Rhino.RhinoApp.WriteLine("Crayon comments: " + ex.Message);
+            }
+            Finish(current, result);
+        }
+
+        /// <summary>Close, keeping what has been typed.</summary>
+        public void Commit()
+        {
+            if (IsOpen) Close(box?.Text ?? pendingText);
+        }
+
+        /// <summary>Close as Esc does.</summary>
+        public void Cancel()
+        {
+            if (IsOpen) Close(null);
+        }
+
+        /// <summary>For tests: type into the box.</summary>
+        internal void Type(string text)
+        {
+            if (box != null) box.Text = text;
+            else if (IsOpen) pendingText = text ?? "";
+        }
+
+        void Close(string text)
+        {
+            int current = session;
+            try
+            {
+                dialog?.Close(text);
+            }
+            finally { Finish(current, text); }
+        }
+
+        void Finish(int current, string text)
+        {
+            if (!IsOpen || session != current) return;
+            pendingText = null;
+            dialog = null;
+            box = null;
+            Finished?.Invoke(text);
+        }
+    }
+#else
     /// <summary>
     /// The box a comment's text is typed in: a bare text field floating over the comment's
     /// label in the viewport. Return keeps the text, Esc gives up, and clicking anywhere
@@ -776,4 +895,5 @@ namespace RhinoSketchingTool
             Finished?.Invoke(text);
         }
     }
+#endif
 }

@@ -25,7 +25,11 @@ namespace RhinoSketchingTool
     internal static class ChatHistory
     {
         /// <summary>Where conversations are kept. Tests point it at their own folder.</summary>
+#if MAC // ~/Library/Application Support/Crayon/history
+        public static string Folder = Path.Combine(MacProcess.ApplicationSupport, "Crayon", "history");
+#else
         public static string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Crayon", "history");
+#endif
 
         static List<JsonMap> listed; // the list, until something is saved
 

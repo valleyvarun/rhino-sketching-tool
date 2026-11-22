@@ -42,6 +42,9 @@ internal static class Program
         Process codexWorker = null, claudeWorker = null;
         try
         {
+#if MAC
+            CheckMacLaunch(folder);
+#endif
             codex.Warm();
             Until(codex, () => codex.Account.SignedIn == true && codex.Models.Count > 1);
             codexWorker = Process.GetProcessById(int.Parse(File.ReadAllText(Path.Combine(folder, "codex-child.pid"))));
@@ -167,4 +170,42 @@ internal static class Program
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
         finally { codex.Close(); claude.Close(); codexWorker?.Dispose(); claudeWorker?.Dispose(); }
     }
+
+#if MAC
+    // Run the generated sign-in script with /bin/sh. Launch Services and Terminal itself
+    // still need a Rhino for Mac smoke test.
+    static void CheckMacLaunch(string folder)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        string bin = Path.Combine(folder, "tools for O'Brien");
+        Directory.CreateDirectory(bin);
+        string claude = Path.Combine(bin, "claude"), codex = Path.Combine(bin, "codex");
+        File.WriteAllText(claude, "#!/bin/sh\n[ -z \"$CLAUDECODE\" ] || exit 3\ncodex \"$@\"\n");
+        File.WriteAllText(codex, "#!/bin/sh\nprintf '%s\\n' \"$@\" > received-arguments\nexit 17\n");
+        var runnable = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+        File.SetUnixFileMode(claude, runnable);
+        File.SetUnixFileMode(codex, runnable);
+        string search = Environment.GetEnvironmentVariable("PATH");
+        try
+        {
+            Environment.SetEnvironmentVariable("PATH", bin + ":" + search);
+            string missing = Path.Combine(bin, "missing");
+            Check(ClaudeCli.Find(missing).Single() == claude && CodexCli.Find(missing).Single() == codex,
+                "Both Mac providers discover an executable on PATH after a saved choice disappears");
+        }
+        finally { Environment.SetEnvironmentVariable("PATH", search); }
+
+        string done = Path.Combine(folder, "login's result");
+        string script = Path.Combine(folder, "mock login.command");
+        string[] args = { "two words", "O'Brien", "\"quoted\" $literal", "", "trailing\\" };
+        File.WriteAllText(script, MacProcess.TerminalScript(new[] { claude }.Concat(args).ToArray(), folder, "Crayon sign-in", done));
+        var info = new ProcessStartInfo("/bin/sh") { UseShellExecute = false };
+        info.ArgumentList.Add(script);
+        info.Environment["CLAUDECODE"] = "1";
+        using (var process = Process.Start(info))
+            Check(process.WaitForExit(5000) && File.ReadAllText(done) == "17", "Terminal sign-in reports the provider's exit code");
+        Check(File.ReadAllLines(Path.Combine(folder, "received-arguments")).SequenceEqual(args),
+            "Terminal sign-in preserves the working folder, companion PATH and literal arguments");
+    }
+#endif
 }

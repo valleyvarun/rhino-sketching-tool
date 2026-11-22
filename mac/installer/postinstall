@@ -1,0 +1,62 @@
+#!/bin/bash -p
+# A currentUserHome Distribution runs as the installing account. A system Installer
+# invocation is accepted only for the signed-in console account on the startup disk.
+set -o pipefail
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+unset CDPATH BASH_ENV ENV
+fail() { echo "Crayon: $* Open this installer in Finder from the account that uses Rhino." >&2; exit 1; }
+
+here="$(cd -P "$(dirname "$0")" && pwd -P)" || fail "Cannot open the package scripts."
+uid="$(/usr/bin/id -u)" || exit 1
+if [ "$uid" = 0 ]; then
+  account_id="$(/usr/bin/stat -f '%u' /dev/console)" || fail "No signed-in account was found."
+else
+  account_id="$uid"
+fi
+case "$account_id" in ''|0|*[!0-9]*) fail "A signed-in user is required." ;; esac
+account="$(/usr/bin/id -nu "$account_id")" || fail "Cannot identify the installing account."
+case "$account" in ''|root|nobody|daemon|loginwindow|_*|*/*) fail "A personal Mac account is required." ;; esac
+user_home="$(/usr/bin/dscacheutil -q user -a uid "$account_id" | /usr/bin/awk '/^dir: / {sub(/^dir: /,""); print; exit}')" || exit 1
+case "$user_home" in /|/var/root|/private/var/root|'') fail "Cannot determine this account's home folder." ;;
+  /*) ;; *) fail "The home folder is invalid." ;;
+esac
+[ -d "$user_home" ] && [ "$(/usr/bin/stat -Lf '%u' "$user_home")" = "$account_id" ] || fail "The home folder does not belong to this account."
+
+# Depending on Installer's domain, the package location ($2) or target ($3)
+# can be the user's home. Reject unrelated homes and offline target volumes.
+for target in "$2" "$3"; do
+  case "$target" in /|/System/Volumes/Data|'') ;;
+    *) [ "$target" -ef "$user_home" ] || fail "The selected destination belongs to a different account or volume." ;;
+  esac
+done
+user_env=(/usr/bin/env -i HOME="$user_home" USER="$account" LOGNAME="$account" PATH="$PATH")
+
+if [ "$uid" != 0 ]; then
+  cd "$user_home" || fail "Cannot open this account's home folder."
+  exec "${user_env[@]}" /bin/bash "$here/engine.sh"
+fi
+
+# PackageKit may extract root's script archive into a directory the user cannot
+# traverse. Stream the two regular package resources into a private user-owned
+# cache directory. All writes, extraction, Yak and publisher scripts run as that user.
+cd "$here" || exit 1
+set -- ./*.yak
+[ "$#" -eq 1 ] || fail "The installer is missing its Crayon package."
+for resource in . ./engine.sh "$1"; do
+  [ ! -L "$resource" ] && [ "$(/usr/bin/stat -f '%u' "$resource")" = 0 ] || fail "The installer resources could not be verified."
+  mode="$(/usr/bin/stat -f '%Lp' "$resource")" || exit 1
+  [ $(( 0$mode & 022 )) = 0 ] || fail "The installer resources are writable by another user."
+done
+[ -f ./engine.sh ] && [ -f "$1" ] || fail "The installer is incomplete."
+/usr/bin/tar -cf - ./engine.sh "$1" |
+  /bin/launchctl asuser "$account_id" /usr/bin/sudo -nH -u "#$account_id" -- "${user_env[@]}" /bin/bash -c '
+    set -e
+    [ "$EUID" -ne 0 ] || exit 1
+    umask 077
+    cd "$HOME"
+    mkdir -p "Library/Caches/Crayon"
+    stage="$(mktemp -d "$HOME/Library/Caches/Crayon/package.XXXXXX")"
+    trap '\''rm -rf "$stage"'\'' EXIT
+    /usr/bin/tar -xf - -C "$stage"
+    /bin/bash "$stage/engine.sh"
+  '

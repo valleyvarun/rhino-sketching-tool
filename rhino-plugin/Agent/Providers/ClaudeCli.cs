@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+#if !MAC
 using Microsoft.Win32;
+#endif
 
 namespace RhinoSketchingTool
 {
@@ -16,9 +18,15 @@ namespace RhinoSketchingTool
     /// </summary>
     internal static class ClaudeCli
     {
+#if MAC
+        public const string InstallHint =
+            "Claude Code was not found. Install it from https://claude.com/claude-code (the Claude desktop app and the " +
+            "Claude Code extension for VS Code also include it), then try again, or choose the claude program with Locate Claude Code.";
+#else
         public const string InstallHint =
             "Claude Code was not found. Install it from https://claude.com/claude-code (the Claude desktop app and the " +
             "Claude Code extension for VS Code also include it), then try again, or choose claude.exe with Locate Claude Code.";
+#endif
 
         /// <summary>
         /// The command that starts Claude Code: the program, then any arguments that must
@@ -44,10 +52,16 @@ namespace RhinoSketchingTool
         {
             try
             {
+#if MAC
+                // On a Mac a program is any file the user may run: the installers' own, or npm's
+                // script, which starts by itself with Node on the child process's PATH.
+                return MacProcess.IsProgram(path) ? new[] { path } : null;
+#else
                 if (!File.Exists(path)) return null;
                 string extension = Path.GetExtension(path).ToLowerInvariant();
                 if (extension == ".exe") return new[] { path };
                 if (extension == ".cmd" || extension == ".bat") return FromNpmShim(path);
+#endif
             }
             catch (Exception)
             {
@@ -56,6 +70,7 @@ namespace RhinoSketchingTool
             return null;
         }
 
+#if !MAC
         // npm installs a .cmd shim. Its target is run directly: cmd.exe would mangle the arguments.
         static string[] FromNpmShim(string shim)
         {
@@ -92,9 +107,29 @@ namespace RhinoSketchingTool
             }
             return null;
         }
+#endif
 
         static IEnumerable<string> Candidates()
         {
+#if MAC
+            // PATH as Rhino has it. Started from the Dock or Finder, that is the system's folders only.
+            string found = MacProcess.OnPath("claude", Environment.GetEnvironmentVariable("PATH"));
+            if (found != null) yield return found;
+
+            // The native installer's ~/.local/bin, Homebrew, and npm and its relatives; then the
+            // copy an earlier npm installation moved into ~/.claude.
+            string home = MacProcess.Home;
+            foreach (string folder in MacProcess.ProgramFolders()) yield return Path.Combine(folder, "claude");
+            yield return Path.Combine(home, ".claude", "local", "claude");
+
+            // Copies that come with other apps, newest version first.
+            foreach (KeyValuePair<Version, string> copy in MacCopies(home).OrderByDescending(item => item.Key))
+                yield return copy.Value;
+
+            // Last, PATH as the user's own shell has it: asking the shell takes a moment.
+            found = MacProcess.OnPath("claude", MacProcess.ShellPath);
+            if (found != null) yield return found;
+#else
             // PATH as this process has it, then as Windows has it saved (Claude Code may
             // have been installed after Rhino started).
             foreach (string search in new[] { Environment.GetEnvironmentVariable("PATH"), SavedPath() })
@@ -117,7 +152,52 @@ namespace RhinoSketchingTool
             bundled.AddRange(EditorCopies(home));
             foreach (KeyValuePair<Version, string> copy in bundled.OrderByDescending(item => item.Key))
                 yield return copy.Value;
+#endif
         }
+
+#if MAC
+        // The Claude desktop app keeps copies in ~/Library/Application Support/Claude/claude-code/<version>,
+        // and the Claude Code extension of VS Code and its relatives brings its own.
+        static IEnumerable<KeyValuePair<Version, string>> MacCopies(string home)
+        {
+            var found = new List<KeyValuePair<Version, string>>();
+            try
+            {
+                string root = Path.Combine(MacProcess.ApplicationSupport, "Claude", "claude-code");
+                if (Directory.Exists(root))
+                    foreach (string version in Directory.GetDirectories(root))
+                    {
+                        var places = new List<string> { version };
+                        places.AddRange(Directory.GetDirectories(version));
+                        foreach (string place in places)
+                        {
+                            string candidate = Path.Combine(place, "claude");
+                            if (File.Exists(candidate)) found.Add(new KeyValuePair<Version, string>(VersionIn(Path.GetFileName(version)), candidate));
+                        }
+                    }
+            }
+            catch (Exception)
+            {
+            }
+            foreach (string editor in new[] { ".vscode", ".vscode-insiders", ".cursor", ".windsurf" })
+            {
+                try
+                {
+                    string root = Path.Combine(home, editor, "extensions");
+                    if (!Directory.Exists(root)) continue;
+                    foreach (string folder in Directory.GetDirectories(root, "anthropic.claude-code-*"))
+                    {
+                        string candidate = Path.Combine(folder, "resources", "native-binary", "claude");
+                        if (File.Exists(candidate)) found.Add(new KeyValuePair<Version, string>(VersionIn(Path.GetFileName(folder)), candidate));
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            return found;
+        }
+#else
 
         static string OnPath(string name, string search)
         {
@@ -217,6 +297,7 @@ namespace RhinoSketchingTool
             }
             return found;
         }
+#endif
 
         // The version in a folder name: anthropic.claude-code-2.1.319-win32-x64, or 2.1.321 alone.
         static Version VersionIn(string name)

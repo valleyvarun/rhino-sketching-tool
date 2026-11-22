@@ -454,6 +454,9 @@ namespace RhinoSketchingTool
                 // Skip pointer jitter: only add a point after moving a couple of pixels.
                 double dx = point.X - drawing.Last.X, dy = point.Y - drawing.Last.Y;
                 moved = Math.Sqrt(dx * dx + dy * dy);
+#if MAC
+                moved /= MacDisplay.Scale(drawing.View); // in pixels at 100 %, as the brush's size and the speeds below are
+#endif
                 if (moved < MinPointSpacing) return;
             }
 
@@ -461,6 +464,9 @@ namespace RhinoSketchingTool
             // scale between the two where the stroke is right now.
             if (!viewport.GetWorldToScreenScale(hit.Point, out double scale) || !(scale > 0))
                 scale = drawing.Scales.Count > 0 ? drawing.Scales[drawing.Scales.Count - 1] : 1;
+#if MAC
+            else scale /= MacDisplay.Scale(drawing.View); // pixels at 100 % to a model unit: a brush of 6 is as wide on a Retina display as on any other
+#endif
 
             double pressure = NextPressure(moved, penPressure);
             drawing.Travel.Add(drawing.Points.Count == 0 ? 0 : drawing.Travel[drawing.Travel.Count - 1] + moved);
@@ -605,7 +611,13 @@ namespace RhinoSketchingTool
             var doc = erasing.View.Document;
             var viewport = erasing.View.ActiveViewport;
             var pointer = new Point2d(point.X, point.Y);
-            bool changed = EraseCommentsAt(erasing.View, point);
+            double radius = EraseRadius, spacing = EraseStep;
+#if MAC
+            double scale = MacDisplay.Scale(erasing.View);
+            radius *= scale;
+            spacing *= scale;
+#endif
+            bool changed = EraseCommentsAt(erasing.View, point, radius);
 
             for (int i = erasing.Strokes.Count - 1; i >= 0; i--)
             {
@@ -613,7 +625,7 @@ namespace RhinoSketchingTool
                 if (!StrokeVisibleInView(doc, viewport, stroke.Attributes)) continue;
                 var screen = new Point2d?[stroke.Points.Length];
                 for (int k = 0; k < screen.Length; k++) screen[k] = ToScreen(viewport, stroke.Points[k]);
-                if (!Touches(screen, pointer)) continue;
+                if (!Touches(screen, pointer, radius)) continue;
 
                 BeginChange(doc);
                 RhinoObject gone = doc.Objects.FindId(stroke.Id);
@@ -635,7 +647,7 @@ namespace RhinoSketchingTool
                     double pixels = screen[k - 1].HasValue && screen[k].HasValue
                         ? screen[k - 1].Value.DistanceTo(screen[k].Value)
                         : 0;
-                    int steps = Math.Max(1, (int)Math.Ceiling(pixels / EraseStep));
+                    int steps = Math.Max(1, (int)Math.Ceiling(pixels / spacing));
                     for (int s = 1; s <= steps; s++)
                     {
                         double t = (double)s / steps;
@@ -649,7 +661,7 @@ namespace RhinoSketchingTool
                 for (int k = 0; k < dense.Count; k++)
                 {
                     var s = ToScreen(viewport, dense[k]);
-                    if (s.HasValue && s.Value.DistanceTo(pointer) < EraseRadius)
+                    if (s.HasValue && s.Value.DistanceTo(pointer) < radius)
                     {
                         KeepRun(doc, stroke, run, runPlaces);
                     }
@@ -682,7 +694,7 @@ namespace RhinoSketchingTool
             places.Clear();
         }
 
-        static bool Touches(Point2d?[] screen, Point2d pointer)
+        static bool Touches(Point2d?[] screen, Point2d pointer, double radius)
         {
             for (int i = 0; i + 1 < screen.Length; i++)
             {
@@ -692,7 +704,7 @@ namespace RhinoSketchingTool
                 double lengthSquared = ab.X * ab.X + ab.Y * ab.Y;
                 double t = lengthSquared > 0 ? (ap.X * ab.X + ap.Y * ab.Y) / lengthSquared : 0;
                 t = Math.Max(0, Math.Min(1, t));
-                if ((a + ab * t).DistanceTo(pointer) < EraseRadius) return true;
+                if ((a + ab * t).DistanceTo(pointer) < radius) return true;
             }
             return false;
         }

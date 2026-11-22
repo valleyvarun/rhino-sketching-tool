@@ -1,0 +1,108 @@
+name: Mac installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      sign_and_notarize:
+        description: Sign and notarize the verified installer with Apple
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify package on macOS
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Inspect and test the committed installer
+        run: bash mac/tests/verify-package.sh mac/dist/CrayonSetup.pkg
+
+  sign:
+    name: Sign, notarize and staple
+    needs: verify
+    if: inputs.sign_and_notarize
+    runs-on: macos-15
+    environment: mac-signing
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: mac/dist/CrayonSetup.pkg
+          sparse-checkout-cone-mode: false
+
+      - name: Sign the installer
+        shell: bash
+        env:
+          MAC_INSTALLER_P12_BASE64: ${{ secrets.MAC_INSTALLER_P12_BASE64 }}
+          MAC_INSTALLER_P12_PASSWORD: ${{ secrets.MAC_INSTALLER_P12_PASSWORD }}
+          MAC_INSTALLER_IDENTITY: ${{ secrets.MAC_INSTALLER_IDENTITY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${MAC_INSTALLER_P12_BASE64:?Missing certificate in mac-signing}" "${MAC_INSTALLER_P12_PASSWORD:?Missing certificate password}"
+          case "$MAC_INSTALLER_IDENTITY" in
+            "Developer ID Installer: "*) ;;
+            *) echo "MAC_INSTALLER_IDENTITY must name a Developer ID Installer certificate" >&2; exit 1 ;;
+          esac
+
+          certificate="$RUNNER_TEMP/crayon-installer.p12"
+          keychain="$RUNNER_TEMP/crayon-signing.keychain-db"
+          trap 'security delete-keychain "$keychain" >/dev/null 2>&1 || true; rm -f "$certificate"' EXIT
+          printf '%s' "$MAC_INSTALLER_P12_BASE64" | base64 -D > "$certificate"
+          password=$(openssl rand -hex 32)
+          security create-keychain -p "$password" "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$MAC_INSTALLER_P12_PASSWORD" -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" >/dev/null
+
+          mkdir -p "$RUNNER_TEMP/signed"
+          pkg="$RUNNER_TEMP/signed/CrayonSetup.pkg"
+          productsign --keychain "$keychain" --sign "$MAC_INSTALLER_IDENTITY" --timestamp mac/dist/CrayonSetup.pkg "$pkg"
+          pkgutil --check-signature "$pkg"
+
+      - name: Submit to Apple's notary service
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${ASC_KEY_ID:?Missing App Store Connect key ID}" "${ASC_ISSUER_ID:?Missing issuer ID}" "${ASC_PRIVATE_KEY_BASE64:?Missing private key}"
+          private_key="$RUNNER_TEMP/crayon-notary.p8"
+          submission="$RUNNER_TEMP/crayon-notary.json"
+          trap 'rm -f "$private_key"' EXIT
+          printf '%s' "$ASC_PRIVATE_KEY_BASE64" | base64 -D > "$private_key"
+          xcrun notarytool submit "$RUNNER_TEMP/signed/CrayonSetup.pkg" \
+            --key "$private_key" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" \
+            --wait --timeout 100m --output-format json > "$submission"
+          jq '{id, status, message}' "$submission"
+          jq -e '.status == "Accepted"' "$submission" > /dev/null
+
+      - name: Check the stapled installer and record its checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/signed"
+          xcrun stapler staple CrayonSetup.pkg
+          xcrun stapler validate CrayonSetup.pkg
+          pkgutil --check-signature CrayonSetup.pkg
+          spctl --assess --type install --verbose=2 CrayonSetup.pkg
+          shasum -a 256 CrayonSetup.pkg | tee CrayonSetup.sha256
+
+      - name: Save the signed package and checksum
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: Crayon-mac-signed
+          path: |
+            ${{ runner.temp }}/signed/CrayonSetup.pkg
+            ${{ runner.temp }}/signed/CrayonSetup.sha256
+          if-no-files-found: error

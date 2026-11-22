@@ -104,8 +104,16 @@ namespace RhinoSketchingTool
         public static void Attach(Control owner)
         {
             if (!ProviderChosen || Session.Status != "idle") return;
+#if MAC
+            CheckDocument();
+            Transcript target = Session.Transcript;
+#endif
             var dialog = new OpenFileDialog { Title = "Attach files", MultiSelect = true };
             if (ShowFileDialog(dialog, owner) != DialogResult.Ok) return;
+#if MAC
+            CheckDocument();
+            if (target != Session.Transcript || Session.Status != "idle") return;
+#endif
             foreach (string path in dialog.Filenames)
             {
                 if (Attachments.Any(file => string.Equals(file.Path, path, StringComparison.OrdinalIgnoreCase))) continue;
@@ -213,6 +221,26 @@ namespace RhinoSketchingTool
         }
 
         // Never leave a warmed assistant targeting a document that has been closed or replaced.
+#if MAC
+        internal static void CheckDocument() => SwitchDocument(RhinoDoc.ActiveDoc?.RuntimeSerialNumber ?? 0);
+
+        internal static void ActiveDocumentChanged(object sender, DocumentEventArgs e) => SwitchDocument(e.DocumentSerialNumber);
+
+        internal static void DocumentClosed(object sender, DocumentEventArgs e)
+        {
+            if (e.DocumentSerialNumber == document) SwitchDocument(0);
+        }
+
+        static void SwitchDocument(uint current)
+        {
+            if (current == document) return;
+            claude.Reset();
+            codex.Reset();
+            prompts.Clear();
+            foreach (var attachments in files.Values) attachments.Clear();
+            document = current;
+        }
+#else
         internal static void CheckDocument()
         {
             uint current = RhinoDoc.ActiveDoc?.RuntimeSerialNumber ?? 0;
@@ -229,6 +257,7 @@ namespace RhinoSketchingTool
             prompts.Clear();
             document = 0;
         }
+#endif
 
         internal static void RetryConnection()
         {
@@ -242,13 +271,29 @@ namespace RhinoSketchingTool
         {
             string model = RhinoDoc.ActiveDoc?.Path;
             if (!string.IsNullOrEmpty(model) && Directory.Exists(Path.GetDirectoryName(model))) return Path.GetDirectoryName(model);
+#if MAC
+            return Path.Combine(MacProcess.ApplicationSupport, "Crayon", "agent");
+#else
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Crayon", "agent");
+#endif
         }
 
         /// <summary>Let the user pick the copy of Claude Code to use from now on.</summary>
         public static void Locate(Control owner)
         {
+#if MAC
+            // A program has no telltale extension on a Mac, so any file can be picked. The picker
+            // starts where the installers put theirs: a folder it would otherwise keep hidden.
+            var dialog = new OpenFileDialog { Title = "Locate " + Label };
+            try
+            {
+                string usual = Path.Combine(MacProcess.Home, ".local", "bin");
+                if (Directory.Exists(usual)) dialog.Directory = new Uri(usual);
+            }
+            catch (Exception) { /* wherever the picker opens by itself */ }
+#else
             var dialog = new OpenFileDialog { Title = "Locate " + Label, Filters = { new FileFilter("Command line program", ".exe", ".cmd") } };
+#endif
             if (ShowFileDialog(dialog, owner) != DialogResult.Ok) return;
             string path = dialog.FileName;
             if (ClaudeCli.Command(path) == null)

@@ -11,17 +11,20 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="event-name" aria-label="AEC TECH Hackathon">
-        <span class="event-logo"><span class="aec">AEC</span> TECH</span>
-        <span class="event-label">Hackathon</span>
+      <div class="header-credits">
+        <ul class="team" aria-label="Team members">
+          <li>Varun</li>
+          <li>Anmol</li>
+          <li>Ansh</li>
+          <li>Kevin</li>
+        </ul>
+        <div class="event-name" aria-label="AEC TECH Hackathon">
+          <span class="event-logo"><span class="aec">AEC</span> TECH</span>
+          <span class="event-label">Hackathon</span>
+        </div>
       </div>
       <h1><span class="crayon-brand">CRAYON</span>: <span class="title-subtitle">DRAWING INTELLIGENCE</span></h1>
-      <ul class="team" aria-label="Team members">
-        <li>Varun</li>
-        <li>Anmol</li>
-        <li>Ansh</li>
-        <li>Kevin</li>
-      </ul>
+      <a class="header-download" href="#slide-4">Download Crayon</a>
     </header>
     <main id="main-content" aria-label="Presentation slides" tabindex="0">
       <section class="slide video-grid" id="slide-0" aria-label="Slide 0: Drawing videos">
@@ -39,7 +42,7 @@
       <section class="slide modelling-slide" id="slide-3" aria-label="Slide 3: Vibe modelling">
         <video src="videos/vibe-modelling-house-site-fast.mp4" data-playback-rate="0.75" autoplay muted loop playsinline preload="metadata" aria-label="Vibe modelling a house and site"></video>
       </section>
-      <section class="slide download-slide" id="slide-4" aria-labelledby="slide-4-title">
+      <section class="slide download-slide" id="slide-4" aria-labelledby="slide-4-title" tabindex="-1">
         <canvas class="harold-background" aria-hidden="true"></canvas>
         <!-- Draw/Clear tools disabled; markup retained for later.
         <canvas class="drawing-canvas" id="slide-4-drawing" aria-label="Your drawings on slide 4"></canvas>
@@ -63,11 +66,21 @@
         <div class="download-content">
 
           <h2 id="slide-4-title"><span class="download-title-prefix">Get</span> <span class="crayon-brand">CRAYON</span>.</h2>
-          <p class="download-description">Bring your imagination to Rhino.</p>
-          <a class="download-button" href="wizard/dist/CrayonSetup.exe" download="CrayonSetup.exe" aria-label="Download Crayon setup for Rhino 8 on Windows">
-            <img src="assets/crayon-download.svg" width="28" height="28" alt="" aria-hidden="true">
-            <span>Download</span>
-          </a>
+          <p class="download-description">Draw your imagination in Rhino!</p>
+          <div class="download-buttons">
+            <a class="download-button" href="wizard/dist/CrayonSetup.exe" download="CrayonSetup.exe" aria-label="Download Crayon v0.2 for Windows">
+              <img src="assets/crayon-download.svg" width="28" height="28" alt="">
+              <span>v0.2</span>
+              <span>Download for</span>
+              <img src="assets/windows-grey.png" width="28" height="28" alt="">
+            </a>
+            <a class="download-button" id="mac-download" href="mac/dist/CrayonSetup.pkg" download="CrayonSetup.pkg" aria-label="Download Crayon v0.2 for Mac">
+              <img src="assets/crayon-download.svg" width="28" height="28" alt="">
+              <span>v0.2</span>
+              <span>Download for</span>
+              <img src="assets/mac-grey.png" width="28" height="28" alt="">
+            </a>
+          </div>
 
         </div>
       </section>

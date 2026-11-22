@@ -1,5 +1,36 @@
 "use strict";
 
+const platform = navigator.userAgentData?.platform || navigator.platform;
+const reportsMac = platform ? /^mac/i.test(platform) : /\bMacintosh\b/i.test(navigator.userAgent);
+// iPadOS can report a Mac platform when requesting a desktop site.
+if (reportsMac && !(navigator.maxTouchPoints > 1)) {
+  const macDownload = document.getElementById("mac-download");
+  macDownload.parentElement.prepend(macDownload);
+}
+
+function recordDownload() {
+  fetch("https://ceejkfaygodqzzxcvwkk.supabase.co/rest/v1/downloads", {
+    method: "POST",
+    headers: {
+      apikey: "sb_publishable_KsNEFYPZZAjv_PydecVitw_Mrn0UWdm",
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({ downloaded_at: new Date().toISOString() }),
+    credentials: "omit",
+    keepalive: true,
+  }).then((response) => {
+    if (!response.ok) console.warn("Download tracking returned HTTP", response.status);
+  }).catch(() => console.warn("Download tracking could not reach Supabase."));
+}
+
+for (const link of document.querySelectorAll(".download-buttons a[download]")) {
+  link.addEventListener("click", recordDownload);
+  link.addEventListener("auxclick", (event) => {
+    if (event.button === 1) recordDownload();
+  });
+}
+
 // Play videos on the visible slide and pause them when another slide is shown.
 const slides = document.querySelectorAll(".slide");
 document.querySelectorAll("video[data-playback-rate]").forEach((video) => {

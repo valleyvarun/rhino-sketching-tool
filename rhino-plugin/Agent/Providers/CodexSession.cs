@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using JsonMap = System.Collections.Generic.Dictionary<string, object>;
@@ -84,12 +85,19 @@ namespace RhinoSketchingTool
                 Directory.CreateDirectory(launch.Folder);
                 var args = launch.Command.Skip(1).Concat(new[] { "app-server", "--listen", "stdio://" })
                     .Concat(McpConfiguration.CodexArguments(launch.McpUrl));
+#if MAC
+                var info = new ProcessStartInfo(launch.Command[0])
+#else
                 var info = new ProcessStartInfo(launch.Command[0], string.Join(" ", args.Select(ClaudeCli.Quote)))
+#endif
                 {
                     WorkingDirectory = launch.Folder, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
                     StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8,
                 };
+#if MAC
+                MacProcess.Configure(info, args);
+#endif
                 Process started = process = Process.Start(info);
                 ConcurrentQueue<object> target = queue = new ConcurrentQueue<object>();
                 lock (errors) errors.Clear();
@@ -97,7 +105,11 @@ namespace RhinoSketchingTool
                 new Thread(() => ReadErrors(started)) { IsBackground = true, Name = "crayon-codex-errors" }.Start();
                 Request("initialize", new JsonMap
                 {
-                    ["clientInfo"] = new JsonMap { ["name"] = "crayon_rhino", ["title"] = "Crayon for Rhino", ["version"] = "1.0.0" },
+                    ["clientInfo"] = new JsonMap
+                    {
+                        ["name"] = "crayon_rhino", ["title"] = "Crayon for Rhino",
+                        ["version"] = typeof(CodexSession).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion,
+                    },
                     ["capabilities"] = new JsonMap { ["experimentalApi"] = false, ["requestAttestation"] = false },
                 });
                 return true;

@@ -157,6 +157,22 @@ static class PackageTests
             check(Throws(p.Verify), "Verification fails when Rhino has been told never to load Crayon");
             p.Install(Payload);
             check(!Throws(p.Verify), "Verification passes after a clean install");
+
+            // Exercise the actual release payload over the last timestamped public package.
+            var release = SystemHost.ResourceText("package-info.txt").Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            p = Fresh(registryScratch, out root, release[0], release[1]);
+            Register(Existing(root, "1.0.0-dev.20261119053641", "previous public release", active: true));
+            p.Install(() => SystemHost.Resource("plugin.yak"));
+            p.Verify();
+            check(Folders(root).SequenceEqual(new[] { release[0] }) && Same(Registered(), p.Plugin),
+                "The shipped payload takes over the previous public release's active folder and registration");
+            var setup = typeof(CrayonPackage).Assembly;
+            var pluginVersion = System.Reflection.AssemblyName.GetAssemblyName(p.Plugin).Version;
+            var yaml = File.ReadAllLines(Path.Combine(Path.GetDirectoryName(p.Plugin), "manifest.yml"));
+            check(yaml.Contains("version: " + release[0]) && pluginVersion == setup.GetName().Version &&
+                System.Diagnostics.FileVersionInfo.GetVersionInfo(setup.Location).ProductVersion == release[0] &&
+                System.Diagnostics.FileVersionInfo.GetVersionInfo(p.Plugin).ProductVersion == release[0],
+                "Setup, its Yak manifest and the installed Rhino assembly identify the same release");
         }
         finally
         {
@@ -166,13 +182,13 @@ static class PackageTests
     }
 
     // Each scenario gets its own empty package folder and its own empty registry key.
-    static CrayonPackage Fresh(string registryScratch, out string root)
+    static CrayonPackage Fresh(string registryScratch, out string root, string version = Version, string expectedHash = null)
     {
         scenario++;
         root = Path.Combine(scratch, "packages-" + scenario);
         Directory.CreateDirectory(root);
         rhinoKey = registryScratch + @"\Rhino-" + scenario;
-        return new CrayonPackage(root, rhinoKey, Version, hash);
+        return new CrayonPackage(root, rhinoKey, version, expectedHash ?? hash);
     }
     static Stream Payload() => Package(NewPlugin);
     static Stream Package(byte[] plugin, string extraEntry = null)

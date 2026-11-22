@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Crayon for Rhino 8 for Mac: bin/Release/RhinoSketchingTool.rhp, from the very same
+       sources as the Windows plug-in in ../../rhino-plugin, compiled with MAC defined.
+         dotnet build -c Release        (or ../scripts/Build.ps1, which also makes the download)
+       So far it has only been built on Windows; the project itself asks for nothing of
+       the building computer but a .NET SDK.
+
+       Rhino for Mac runs plug-ins on .NET Core only: .NET 7 up to Rhino 8.19, .NET 8 from
+       8.20. A net7.0 build loads in both. What is Windows-only in the sources (WPF, the
+       keyboard and pen hooks, the registry) is switched for a Mac equivalent under
+       "#if MAC"; see ../README.md. -->
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <TargetExt>.rhp</TargetExt>
+    <AssemblyName>RhinoSketchingTool</AssemblyName>
+    <RootNamespace>RhinoSketchingTool</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <DefineConstants>$(DefineConstants);MAC</DefineConstants>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <!-- .NET 7 is what the oldest Rhino 8 for Mac has; the SDK only minds that it is out of support. -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <!-- NU1701: the RhinoCommon 8.0 package holds one build, used for every runtime.
+         CA1416: System.Drawing is "Windows only" to .NET, but Rhino for Mac brings its own. -->
+    <NoWarn>$(NoWarn);NU1701;CA1416</NoWarn>
+
+    <Title>Crayon for Rhino</Title>
+    <Description>Sketch on objects, planes, a 3D cursor or saved Rhino views, with Claude Code and Codex assistants.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The Rhino 8.0 API, as on Windows, so the plug-in runs on every Rhino 8 service release.
+         Rhino supplies these assemblies at run time (its own System.Drawing included), so
+         none is copied to the output. -->
+    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Drawing.Common" Version="7.0.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../rhino-plugin/**/*.cs" Exclude="../../rhino-plugin/bin/**;../../rhino-plugin/obj/**" LinkBase="Plugin" />
+    <!-- The same pages and logo, under the same names, as the Windows plug-in carries. -->
+    <EmbeddedResource Include="../../rhino-plugin/UI/Web/agent.html" LogicalName="RhinoSketchingTool.agent.html" Link="Web/agent.html" />
+    <EmbeddedResource Include="../../rhino-plugin/UI/Web/sidebar.html" LogicalName="RhinoSketchingTool.sidebar.html" Link="Web/sidebar.html" />
+    <EmbeddedResource Include="../../rhino-plugin/Assets/Brand/crayon-mark.svg" LogicalName="RhinoSketchingTool.crayon-mark.svg" Link="Brand/crayon-mark.svg" />
+  </ItemGroup>
+
+</Project>

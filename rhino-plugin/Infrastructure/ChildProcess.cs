@@ -13,6 +13,21 @@ namespace RhinoSketchingTool
         public static void Stop(Process owned)
         {
             if (owned == null) return;
+#if MAC
+            // No taskkill on a Mac: .NET stops the process and whatever it started itself.
+            try
+            {
+                if (!owned.HasExited) owned.Kill(true);
+            }
+            catch (Exception)
+            {
+                try { if (!owned.HasExited) owned.Kill(); } catch (Exception) { }
+            }
+            finally
+            {
+                owned.Dispose();
+            }
+#else
             try
             {
                 if (owned.HasExited) return;
@@ -49,6 +64,7 @@ namespace RhinoSketchingTool
             {
                 owned.Dispose();
             }
+#endif
         }
     }
 }

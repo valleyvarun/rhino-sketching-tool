@@ -4,8 +4,13 @@ using System.Globalization;
 using Eto.Forms;
 using Rhino;
 using Rhino.Display;
+#if MAC // no WPF on a Mac: the same names, made with Eto (Mac/MacDrawing.cs)
+using Media = RhinoSketchingTool.MacDrawing;
+using Wpf = RhinoSketchingTool.MacDrawing;
+#else
 using Media = System.Windows.Media;
 using Wpf = System.Windows;
+#endif
 using ScreenPoint = System.Drawing.Point;
 using Color = System.Drawing.Color;
 

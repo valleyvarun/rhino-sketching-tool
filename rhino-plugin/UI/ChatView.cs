@@ -140,7 +140,11 @@ namespace RhinoSketchingTool
             effort.SelectedIndexChanged += (s, e) => { if (!syncing && effort.SelectedKey != null) Agent.SetEffort(effort.SelectedKey); };
 
             // Esc in the message box is for the message, not for putting the pen down.
+#if MAC
+            SketchPanel.TrackTextFocus(this, () => input.HasFocus);
+#else
             KeyHook.TextEntry.Add(() => input.HasFocus);
+#endif
 
             SizeChanged += (s, e) => Fit();
             timer.Elapsed += (s, e) => Tick();
@@ -148,11 +152,22 @@ namespace RhinoSketchingTool
             Refresh();
         }
 
+#if MAC
+        public void Listen(bool on)
+        {
+            if (on && !timer.Started) timer.Start();
+            else if (!on && timer.Started) timer.Stop();
+        }
+#endif
+
         // Ten times a second: take in what Claude Code has said, and show it.
         void Tick()
         {
             try
             {
+#if MAC
+                if (!SketchPanel.IsCurrent(this)) return;
+#endif
                 Agent.CheckDocument();
                 mcpMessage.Text = RhinoMcpConnection.Message;
                 mcpNotice.Visible = mcpMessage.Text.Length > 0;
@@ -179,6 +194,9 @@ namespace RhinoSketchingTool
 
         void SendOrStop()
         {
+#if MAC
+            if (!SketchPanel.IsCurrent(this)) return;
+#endif
             if (session.Status != "idle")
             {
                 session.Interrupt();

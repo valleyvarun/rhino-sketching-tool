@@ -17,6 +17,7 @@ body {
   height: 100vh;
   height: 100dvh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
@@ -37,6 +38,32 @@ body {
   flex-direction: row;
   align-items: center;
   gap: 10px;
+}
+
+.header-credits {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-download {
+  justify-self: end;
+  padding: 9px 14px;
+  background: #a33399;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-download:hover {
+  background: #85277d;
+}
+
+.header-download:focus-visible {
+  outline: 2px solid #a33399;
+  outline-offset: 3px;
 }
 
 .event-logo {
@@ -87,7 +114,6 @@ h1 {
 }
 
 .team {
-  justify-self: end;
   display: grid;
   grid-template-columns: repeat(2, max-content);
   gap: 4px 12px;
@@ -276,13 +302,25 @@ main {
   line-height: 1.5;
 }
 
+.download-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 .download-button {
+  --crayon-size: 32px;
+  --platform-size: 16px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 17px 28px;
+  gap: 8px;
+  width: min(100%, 218px);
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 8px 14px;
   border: 1px solid #a33399;
   background: #ffffff;
   color: #a33399;
@@ -292,15 +330,46 @@ main {
   cursor: pointer;
 }
 
+.download-button img {
+  object-fit: contain;
+  width: var(--platform-size);
+  height: var(--platform-size);
+  flex: none;
+}
+
+.download-button img:first-child {
+  width: var(--crayon-size);
+  height: var(--crayon-size);
+  margin-inline-end: -6px;
+}
+
+.download-button:first-child {
+  --crayon-size: 42px;
+  --platform-size: 19px;
+  width: min(100%, 272px);
+  min-height: 64px;
+  gap: 8px;
+  font-size: 17px;
+}
+
+.download-button:hover {
+  background-color: #f8eff7;
+}
+
 .download-button:focus-visible {
   outline: 2px solid #a33399;
   outline-offset: 4px;
 }
 
-.download-note {
-  margin: 14px 0 0;
-  color: #777777;
-  font-size: 12px;
+@media (max-height: 480px) {
+  .download-slide {
+    min-height: min-content;
+    padding-block: 12px;
+  }
+
+  .download-description {
+    margin: 8px 0 16px;
+  }
 }
 
 .video-grid {
@@ -321,9 +390,9 @@ main {
   background: #ffffff;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .site-header {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr auto;
     gap: 8px 12px;
     padding: 6px 16px;
   }
@@ -333,4 +402,29 @@ main {
     grid-row: 2;
   }
 
+}
+
+@media (max-width: 480px) {
+  .site-header {
+    padding: 6px 10px;
+    column-gap: 8px;
+  }
+
+  .header-credits, .team {
+    column-gap: 8px;
+  }
+
+  .event-name {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .event-logo {
+    font-size: 16px;
+  }
+
+  .header-download {
+    padding: 10px;
+    font-size: 13px;
+  }
 }

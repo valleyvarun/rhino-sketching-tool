@@ -520,6 +520,22 @@ namespace RhinoSketchingTool
             if (SigningIn) return;
             Launch launch = Tool(false);
             if (launch == null) return;
+#if MAC
+            // A Mac app's child has no console window to show itself in: the sign-in runs in Terminal.
+            Func<int> ended;
+            try
+            {
+                ended = MacProcess.RunInTerminal(launch.Command.Concat(new[] { "auth", "login" }).ToArray(), launch.Folder, "Crayon: signing in to Claude Code");
+            }
+            catch (Exception ex)
+            {
+                Transcript.AddNotice("Claude Code could not start its sign-in: " + ex.Message, true);
+                return;
+            }
+            SigningIn = true;
+            Transcript.AddNotice("Finish signing in to Claude in the Terminal window that has opened, and in your browser. This chat updates when you are done.");
+            Background("claude-login", () => accounts.Enqueue(new KeyValuePair<string, object>("signed_in", ended())));
+#else
             Process login;
             try
             {
@@ -533,6 +549,7 @@ namespace RhinoSketchingTool
             SigningIn = true;
             Transcript.AddNotice("Finish signing in to Claude in your browser. This chat updates when you are done.");
             Background("claude-login", () => accounts.Enqueue(new KeyValuePair<string, object>("signed_in", Wait(login))));
+#endif
         }
 
         /// <summary>Sign Claude Code out ("claude auth logout"). Editors using Claude Code are signed out too.</summary>
@@ -667,7 +684,11 @@ namespace RhinoSketchingTool
         static ProcessStartInfo StartInfo(Launch launch, IEnumerable<string> arguments, bool hidden)
         {
             IEnumerable<string> all = launch.Command.Skip(1).Concat(arguments);
+#if MAC
+            var info = new ProcessStartInfo(launch.Command[0])
+#else
             var info = new ProcessStartInfo(launch.Command[0], string.Join(" ", all.Select(ClaudeCli.Quote)))
+#endif
             {
                 WorkingDirectory = launch.Folder,
                 UseShellExecute = false,
@@ -683,6 +704,9 @@ namespace RhinoSketchingTool
             }
             // Were Rhino itself started from a Claude Code session, this one must not think it is nested in it.
             info.EnvironmentVariables.Remove("CLAUDECODE");
+#if MAC
+            MacProcess.Configure(info, all);
+#endif
             return info;
         }
 

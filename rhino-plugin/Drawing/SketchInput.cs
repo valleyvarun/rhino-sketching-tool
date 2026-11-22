@@ -509,7 +509,11 @@ namespace RhinoSketchingTool
         double AxisLength(RhinoViewport viewport)
         {
             if (viewport.GetWorldToScreenScale(controller.Cursor, out double pixelsPerUnit) && pixelsPerUnit > 0)
+#if MAC
+                return CursorPixels * MacDisplay.Scale(viewport.ParentView) / pixelsPerUnit; // as long on a Retina display as on any other
+#else
                 return CursorPixels / pixelsPerUnit;
+#endif
             return 1;
         }
     }
@@ -532,6 +536,38 @@ namespace RhinoSketchingTool
     /// </summary>
     internal static class KeyHook
     {
+        // Escape belongs to a focused text editor before it belongs to the drawing tools.
+        public static readonly List<Func<bool>> TextEntry = new List<Func<bool>>();
+
+        static bool Typing()
+        {
+            foreach (Func<bool> box in TextEntry)
+                if (box()) return true;
+            return false;
+        }
+
+#if MAC
+        static Action<bool> onEscape;
+
+        public static void Install(Action<int> digitHandler, Action<bool> escapeHandler, Action escapeTwiceHandler)
+        {
+            if (onEscape == null) RhinoApp.EscapeKeyPressed += Escape;
+            onEscape = escapeHandler;
+        }
+
+        static void Escape(object sender, EventArgs e)
+        {
+            if (Typing()) return;
+            bool running = Command.InCommand();
+            Eto.Forms.Application.Instance.AsyncInvoke(() => onEscape?.Invoke(running));
+        }
+
+        public static void Remove()
+        {
+            RhinoApp.EscapeKeyPressed -= Escape;
+            onEscape = null;
+        }
+#else
         const int WH_KEYBOARD = 2;
         const int HC_ACTION = 0;
         const int VK_BACK = 0x08, VK_RETURN = 0x0D, VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12;
@@ -555,19 +591,6 @@ namespace RhinoSketchingTool
         static Action<bool> onEscape; // told whether a Rhino command was running
         static Action onEscapeTwice;
         static bool typing;  // something is (probably) sitting on the command line
-        /// <summary>
-        /// Text boxes of the plug-in. While one of these says it has the keyboard, Esc is
-        /// for what is being typed there, and is not passed on to the tools.
-        /// </summary>
-        public static readonly List<Func<bool>> TextEntry = new List<Func<bool>>();
-
-        static bool Typing()
-        {
-            foreach (Func<bool> box in TextEntry)
-                if (box()) return true;
-            return false;
-        }
-
         static bool escaped; // the last key pressed was Esc,
         static int escapedAt; // at this time (Environment.TickCount)
 
@@ -712,6 +735,7 @@ namespace RhinoSketchingTool
             }
             return false;
         }
+#endif
     }
 
     /// <summary>
@@ -727,6 +751,12 @@ namespace RhinoSketchingTool
     /// </summary>
     internal static class PenHook
     {
+#if MAC
+        // AppKit supplies pressure on the current event without installing a hook.
+        public static double Pressure => MacPen.Pressure;
+        public static void Install() { }
+        public static void Remove() { }
+#else
         const int WH_GETMESSAGE = 3;
         const int WM_POINTERUPDATE = 0x0245, WM_POINTERDOWN = 0x0246, WM_POINTERCAPTURECHANGED = 0x024C;
         const int WM_MOUSEFIRST = 0x0200, WM_MOUSELAST = 0x020E;
@@ -867,5 +897,6 @@ namespace RhinoSketchingTool
             pressure = reading;
             readAt = System.Environment.TickCount;
         }
+#endif
     }
 }

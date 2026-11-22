@@ -239,12 +239,39 @@ namespace RhinoSketchingTool
         const double LiftSlope = 3;     // strokes clear a surface seen at up to atan(3) = 72 degrees off straight-on
         const double MinLift = 0.002, MaxLift = 0.5; // limits of the lift, as a share of the distance to the camera
 
+#if MAC
+        // Rhino for Mac draws no sprites: its Metal display has yet to be given them (McNeel's
+        // RH-81538, "an OpenGL routine that we need to rewrite for metal"). Points it does
+        // draw. So on a Mac a dab is a round point: a disc of the ink, as wide as the stroke
+        // is there and as strong as the dab. A disc is solid right across, with no soft rim,
+        // but a faint stroke still fades toward its edges, where fewer discs overlap.
+        // Discs of one size and one strength are drawn together.
+        //
+        // The rim of a disc is a step, where the rim of a dab is a fade. So there are more discs
+        // to a spot than dabs, each fainter, which makes each step a small one; and which of two
+        // sizes or two strengths a disc gets goes by a steady rhythm along the stroke rather
+        // than by a toss, so that no few alike come together and show as a lump.
+        const double DiscCover = 20;    // how many discs overlap at any spot of a stroke, where they may be faint enough for that
+        const int Strengths = 24;       // how many strengths of ink the discs of a stroke come in, from Faintest up to solid
+        const double DepthStep = 1.15;  // in a perspective view, discs are sized together while their distances are within this ratio
+        const int MaxRuns = 48;         // and into no more groups than this, however deep the stroke runs
+        const double MaxDisc = 16384;   // pixels: no screen is wider, so no disc need be
+
+        struct Kind
+        {
+            public Point3d[] Places;
+            public float[] Turns; // for each disc a number from 0 to 1, spread evenly along the stroke: see Kept
+            public Color Ink;     // the ink, at this kind's strength
+            public float Width;   // model units
+        }
+#else
         struct Kind
         {
             public DisplayBitmap Dab;
             public DisplayBitmapDrawList Places;
             public float Width; // model units
         }
+#endif
 
         Kind[] kinds;
         Point3d[] points;  // the stroke's own points
@@ -264,26 +291,31 @@ namespace RhinoSketchingTool
             // What each size level looks like. Small dabs are softened: a 3 pixel dot with a
             // sharp edge is just a jagged blob.
             var widths = new double[MaxLevels];
-            var hardness = new double[MaxLevels];
             for (int i = 0; i < MaxLevels; i++)
-            {
                 widths[i] = widest * Math.Pow(LevelStep, i);
-                double limit = 1 - EdgePixels / (widths[i] * paint.PixelsPerUnit);
-                hardness[i] = DabBitmap.Nearest(Math.Max(0, Math.Min(paint.Hardness, limit)));
-            }
 
             double smallestStep = Math.Max(MinSpacing / paint.PixelsPerUnit, widest * 0.01);
             double dabs = 1;
             for (int i = 1; i < count; i++)
             {
                 double width = (paint.Widths[i - 1] + paint.Widths[i]) / 2;
+#if MAC
+                dabs += points[i - 1].DistanceTo(points[i]) / Math.Max(width / DiscCover, smallestStep);
+#else
                 dabs += points[i - 1].DistanceTo(points[i]) / Math.Max(width / Cover(paint.Hardness), smallestStep);
+#endif
             }
             double stretch = Math.Max(1, dabs / MaxDabs);
 
+#if MAC
+            var places = new List<Point3d>[MaxLevels * Strengths];
+            var turns = new List<float>[MaxLevels * Strengths];
+            double phase = Phase(points[0]); // where in its round this stroke's rhythm starts: no two strokes thin out alike
+#else
             const int HardnessLevels = 21;
             var places = new List<Point3d>[MaxLevels * HardnessLevels * Rims.Length];
-            var colors = new List<Color>[MaxLevels * HardnessLevels * Rims.Length];
+            var colors = new List<Color>[places.Length];
+#endif
             int segment = 0, index = 0;
             double along = 0; // distance into the current segment
             double length = count > 1 ? points[0].DistanceTo(points[1]) : 0;
@@ -294,32 +326,60 @@ namespace RhinoSketchingTool
                 Point3d place = points[segment] + (points[next] - points[segment]) * t;
                 double width = paint.Widths[segment] + (paint.Widths[next] - paint.Widths[segment]) * t;
                 double flow = paint.Flows[segment] + (paint.Flows[next] - paint.Flows[segment]) * t;
+                double localHardness = paint.Hardnesses == null ? paint.Hardness : paint.Hardnesses[segment] + (paint.Hardnesses[next] - paint.Hardnesses[segment]) * t;
 
                 // The width usually falls between two size levels. Which of the two the dab
                 // gets is a coin toss weighted toward the closer one, so along a stroke
                 // the levels blend into each other instead of meeting at a visible step.
+#if MAC
+                // A set of solid discs of uniformly varying diameter approximates a dab
+                // with a solid centre and a linear fade towards its rim. At hardness 1
+                // every disc has full diameter. Use their mean diameter for ink coverage.
+                double minimum = Math.Max(0, Math.Min(1, localHardness));
+                double fraction = minimum + (1 - minimum) * Rhythm(index, 0.414213562373095, phase);
+                double diameter = Math.Max(width * fraction, widths[MaxLevels - 1]);
+                double exact = Math.Log(diameter / widest) / Math.Log(LevelStep);
+                int level = (int)Math.Floor(exact + Rhythm(index, 0.7548776662466927));
+#else
                 double exact = Math.Log(width / widest) / Math.Log(LevelStep);
                 int level = (int)Math.Floor(exact + Toss(-1 - index));
+#endif
                 level = Math.Max(0, Math.Min(MaxLevels - 1, level));
 
                 double wanted = Math.Min(0.995, paint.Opacity * flow); // how opaque the stroke should be here
-                double localHardness = paint.Hardnesses == null ? paint.Hardness : paint.Hardnesses[segment] + (paint.Hardnesses[next] - paint.Hardnesses[segment]) * t;
+#if MAC
+                double coverage = width * (1 + minimum) / 2;
+                double step = Math.Max(width / DiscCover, smallestStep) * stretch;
+                if (Dab(wanted, coverage, 1, ref step, out double alpha, out _))
+#else
                 localHardness = DabBitmap.Nearest(Math.Max(0, Math.Min(localHardness, 1 - EdgePixels / (widths[level] * paint.PixelsPerUnit))));
                 int hardnessLevel = (int)Math.Round(localHardness * (HardnessLevels - 1));
                 double step = Math.Max(widths[level] / Cover(localHardness), smallestStep) * stretch;
                 if (Dab(wanted, widths[level], localHardness, ref step, out double alpha, out int rim))
+#endif
                 {
-                    // A colour's alpha has only 255 steps. Rounding up or down by a steady
-                    // coin toss keeps the average right.
-                    int alphaByte = Math.Min(255, (int)Math.Floor(alpha * 255 + Toss(index)));
+#if MAC
+                    // Which of the strengths a disc gets: the two either side of what it should be, turn and
+                    // turn about, so that they average out right. The weakest of them is the faintest dab
+                    // there is (alpha is never under that), so no disc is fainter than Rhino is known to
+                    // draw: whether it leaves out faint points, as it does faint sprite pixels, then does
+                    // not matter.
+                    int strength = (int)Math.Floor((alpha - Faintest) / (1 - Faintest) * (Strengths - 1) + Rhythm(index, 0.5698402909980532));
+                    int kind = level * Strengths + Math.Max(0, Math.Min(Strengths - 1, strength));
+#else
                     int kind = (level * HardnessLevels + hardnessLevel) * Rims.Length + rim;
-                    if (places[kind] == null)
-                    {
-                        places[kind] = new List<Point3d>();
-                        colors[kind] = new List<Color>();
-                    }
+#endif
+                    if (places[kind] == null) places[kind] = new List<Point3d>();
                     places[kind].Add(place);
+#if MAC
+                    if (turns[kind] == null) turns[kind] = new List<float>();
+                    turns[kind].Add((float)Rhythm(index, 0.6180339887498949, phase));
+#else
+                    // Dither between adjacent alpha values to preserve the average.
+                    int alphaByte = Math.Min(255, (int)Math.Floor(alpha * 255 + Toss(index)));
+                    if (colors[kind] == null) colors[kind] = new List<Color>();
                     colors[kind].Add(Color.FromArgb(alphaByte, color));
+#endif
                 }
                 index++;
 
@@ -337,11 +397,17 @@ namespace RhinoSketchingTool
             for (int i = 0; i < places.Length; i++)
             {
                 if (places[i] == null) continue;
+#if MAC
+                int level = i / Strengths, strength = i % Strengths;
+                double ink = Faintest + (1 - Faintest) * strength / (Strengths - 1);
+                kinds.Add(new Kind { Places = places[i].ToArray(), Turns = turns[i].ToArray(), Ink = Color.FromArgb((int)Math.Round(255 * ink), color), Width = (float)widths[level] });
+#else
                 int level = i / (Rims.Length * HardnessLevels), rim = i % Rims.Length;
                 double localHardness = (i / Rims.Length % HardnessLevels) / (double)(HardnessLevels - 1);
                 var list = new DisplayBitmapDrawList();
                 list.SetPoints(places[i], colors[i]);
                 kinds.Add(new Kind { Dab = DabBitmap.For(localHardness, rim), Places = list, Width = (float)widths[level] });
+#endif
             }
             if (kinds.Count == 0) return null;
 
@@ -412,11 +478,174 @@ namespace RhinoSketchingTool
         {
             Transform lift = Lift(viewport, true, out double scale, out bool cramped);
             display.PushModelTransform(lift);
-            foreach (Kind kind in kinds)
-                display.DrawSprites(kind.Dab, kind.Places, (float)(kind.Width * SpriteSize * scale), true);
-            display.PopModelTransform();
+            try
+            {
+#if MAC
+                PaintDiscs(display, viewport);
+#else
+                foreach (Kind kind in kinds)
+                    display.DrawSprites(kind.Dab, kind.Places, (float)(kind.Width * SpriteSize * scale), true);
+#endif
+            }
+            finally { display.PopModelTransform(); }
             return cramped;
         }
+
+#if MAC
+        // The discs of one kind, sorted by how far off they are; and how much smaller each such run is drawn.
+        [ThreadStatic] static List<Point3d>[] runs;
+        [ThreadStatic] static double[] shrinks;
+
+        // A point is sized in pixels, not in model units as a sprite can be. So the size is worked
+        // out for the view as it is now: the stroke's width, times the pixels a model unit covers
+        // where the stroke is. In a parallel view that is the same everywhere. In a perspective
+        // view it shrinks with distance, so a stroke that runs off into the distance has its discs
+        // sized run by run, by how far away they are.
+        void PaintDiscs(DisplayPipeline display, RhinoViewport viewport)
+        {
+            if (runs == null)
+            {
+                runs = new List<Point3d>[MaxRuns];
+                shrinks = new double[MaxRuns];
+            }
+            double density = display.DpiScale > 0 ? display.DpiScale : 1;
+
+            // "pixels" is what a model unit covers where the stroke is: all of it, or (with more
+            // runs than one) the nearest of it, each run being "step" times as far off as the last.
+            double pixels, nearest = 1, step = 1;
+            int count = 1;
+            Vector3d direction = Vector3d.Zero;
+            Point3d camera = Point3d.Origin;
+            if (viewport.IsParallelProjection)
+            {
+                if (!viewport.GetWorldToScreenScale(box.Center, out pixels) || !(pixels > 0)) return;
+            }
+            else
+            {
+                direction = viewport.CameraDirection; // not unit length
+                if (!direction.Unitize()) return;
+                camera = viewport.CameraLocation;
+                double furthest = 0; // how far in front of the camera the stroke begins (nearest) and ends
+                nearest = double.MaxValue;
+                foreach (Point3d point in points)
+                {
+                    double depth = (point - camera) * direction;
+                    if (!(depth > 0)) continue;
+                    if (depth < nearest) nearest = depth;
+                    if (depth > furthest) furthest = depth;
+                }
+                if (!(furthest > 0)) return; // all of it is behind the camera
+
+                // Nothing nearer than the front of the view volume is drawn, so no size is wanted for
+                // there: with the camera in among a stroke, the runs are kept for what can be seen.
+                if (viewport.GetFrustum(out double _, out double _, out double _, out double _, out double front, out double _) && front > nearest)
+                    nearest = Math.Min(front, furthest);
+                nearest = Math.Max(nearest, furthest * 1e-9);
+
+                if (!viewport.GetWorldToScreenScale(camera + direction * nearest, out pixels) || !(pixels > 0)) return;
+                step = DepthStep;
+                count = 1 + (int)Math.Floor(Math.Log(furthest / nearest) / Math.Log(step));
+                if (count > MaxRuns)
+                {
+                    // Deeper than that many runs reach: as many as there are, each deeper.
+                    count = MaxRuns;
+                    step = Math.Pow(furthest / nearest, 1.0 / count);
+                }
+                if (count <= 1)
+                {
+                    // One size for all of it: that of half way (as ratios go) from its near end to its far end.
+                    count = 1;
+                    pixels *= Math.Sqrt(nearest / furthest);
+                }
+            }
+
+            // Projected widths are in viewport units. The minimum point and the
+            // subpixel thinning rule below both use physical framebuffer pixels.
+            var port = viewport.ViewportType == ViewportType.DetailViewport ? viewport.ParentView.MainViewport : viewport;
+            pixels *= MacDisplay.FramePixelsPerUnit(display.FrameSize, port.Size, density);
+            if (count == 1)
+            {
+                foreach (Kind kind in kinds)
+                {
+                    double width = kind.Width * pixels;
+                    if (width >= 1)
+                    {
+                        Discs(display, kind.Places, width, density, kind.Ink);
+                        continue;
+                    }
+                    List<Point3d> few = Run(0);
+                    for (int i = 0; i < kind.Places.Length; i++)
+                        if (Kept(kind.Turns[i], width)) few.Add(kind.Places[i]);
+                    Discs(display, few, width, density, kind.Ink);
+                }
+                return;
+            }
+
+            // A run is drawn at the size of its middle (as ratios go): so much smaller than the nearest of the stroke.
+            double spread = Math.Log(step);
+            for (int i = 0; i < count; i++) shrinks[i] = 1 / Math.Pow(step, i + 0.5);
+            foreach (Kind kind in kinds)
+            {
+                for (int i = 0; i < count; i++) Run(i);
+                for (int i = 0; i < kind.Places.Length; i++)
+                {
+                    Point3d place = kind.Places[i];
+                    double depth = (place - camera) * direction;
+                    if (!(depth > 0)) continue;
+                    int run = depth > nearest ? Math.Min(count - 1, (int)(Math.Log(depth / nearest) / spread)) : 0;
+                    if (Kept(kind.Turns[i], kind.Width * pixels * shrinks[run])) runs[run].Add(place);
+                }
+                for (int i = 0; i < count; i++)
+                    Discs(display, runs[i], kind.Width * pixels * shrinks[i], density, kind.Ink);
+            }
+        }
+
+        static List<Point3d> Run(int index)
+        {
+            List<Point3d> run = runs[index] ?? (runs[index] = new List<Point3d>());
+            run.Clear();
+            return run;
+        }
+
+        // A disc cannot be drawn thinner than a pixel. Where a stroke is thinner than that its discs
+        // are a pixel wide, and fewer: as much fewer as they are too big, by area. So a stroke fades
+        // as it shrinks into the distance, as on Windows, instead of hardening into a solid line.
+        // Which of the discs stay goes by each one's "turn" (see Rhythm), so those that stay are
+        // spread evenly along the stroke, and are the same ones every time it is painted.
+        static bool Kept(double turn, double width) => width >= 1 || turn < width * width;
+
+        // A number from 0 to 1 for each dab in turn, like Toss, but one that comes round evenly: of
+        // any few dabs in a row, as near as can be the same share get a number under any given one.
+        // ("by" is an irrational step; with a different one, or another start, the rhythm is another.)
+        static double Rhythm(int index, double by, double from = 0)
+        {
+            double at = from + index * by;
+            return at - Math.Floor(at);
+        }
+
+        // A number from 0 to 1 that goes by where a point is: the same for the same point, and
+        // unlike for any two that differ.
+        static double Phase(Point3d point)
+        {
+            unchecked
+            {
+                ulong mixed = (ulong)BitConverter.DoubleToInt64Bits(point.X) * 0x9E3779B97F4A7C15UL;
+                mixed = (mixed ^ (mixed >> 29)) + (ulong)BitConverter.DoubleToInt64Bits(point.Y) * 0xC2B2AE3D27D4EB4FUL;
+                mixed = (mixed ^ (mixed >> 31)) + (ulong)BitConverter.DoubleToInt64Bits(point.Z) * 0x165667B19E3779F9UL;
+                return Toss((int)(mixed ^ (mixed >> 32)));
+            }
+        }
+
+        // Rhino multiplies the size of a point by the display's density (2 on a Retina display),
+        // so that is divided out first: the width asked for is in the viewport's own pixels,
+        // and is never under one of those.
+        static void Discs(DisplayPipeline display, IReadOnlyCollection<Point3d> places, double width, double density, Color ink)
+        {
+            if (places.Count == 0) return;
+            float radius = (float)(Math.Min(MaxDisc, Math.Max(1, width)) / 2 / density);
+            display.DrawPoints(places, PointStyle.RoundSimple, radius, ink);
+        }
+#endif
 
         /// <summary>The space the painted stroke wants in a viewport.</summary>
         public BoundingBox PaintedBox(RhinoViewport viewport)

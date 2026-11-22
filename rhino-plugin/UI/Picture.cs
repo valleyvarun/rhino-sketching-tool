@@ -2,9 +2,14 @@ using System;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Runtime.InteropServices;
+#if MAC // no WPF on a Mac: the same names, made with Eto (Mac/MacDrawing.cs)
+using Media = RhinoSketchingTool.MacDrawing;
+using Wpf = RhinoSketchingTool.MacDrawing;
+#else
 using Imaging = System.Windows.Media.Imaging;
 using Media = System.Windows.Media;
 using Wpf = System.Windows;
+#endif
 
 namespace RhinoSketchingTool
 {
@@ -39,6 +44,9 @@ namespace RhinoSketchingTool
         /// </summary>
         public static System.Drawing.Bitmap Render(double width, double height, double scale, Action<Media.DrawingContext> draw)
         {
+#if MAC
+            return Media.Canvas.Render(width, height, scale, draw);
+#else
             var visual = new Media.DrawingVisual();
             using (Media.DrawingContext context = visual.RenderOpen())
             {
@@ -67,6 +75,7 @@ namespace RhinoSketchingTool
                 Marshal.Copy(pixels, row * pixelWidth * 4, data.Scan0 + row * data.Stride, pixelWidth * 4);
             bitmap.UnlockBits(data);
             return bitmap;
+#endif
         }
 
         /// <summary>A white card with rounded corners: a soft shadow underneath, a hairline round it.</summary>
@@ -116,6 +125,9 @@ namespace RhinoSketchingTool
         /// <summary>One line of text in the interface's font, cut short with an ellipsis if it is wider than allowed.</summary>
         public static Media.FormattedText Text(string text, double size, Wpf.FontWeight weight, Media.Color colour, double maxWidth = 0)
         {
+#if MAC
+            return new Media.FormattedText(text, size, weight, colour, maxWidth); // in the Mac's own system font
+#else
             var typeface = new Media.Typeface(new Media.FontFamily("Segoe UI"), Wpf.FontStyles.Normal, weight, Wpf.FontStretches.Normal);
             var formatted = new Media.FormattedText(text, CultureInfo.CurrentUICulture, Wpf.FlowDirection.LeftToRight, typeface, size, Fill(colour), 1.0);
             if (maxWidth > 0)
@@ -125,6 +137,7 @@ namespace RhinoSketchingTool
                 formatted.Trimming = Wpf.TextTrimming.CharacterEllipsis;
             }
             return formatted;
+#endif
         }
     }
 }

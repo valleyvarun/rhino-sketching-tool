@@ -1,4 +1,4 @@
-# Crayon (crayon-final-v2): install and test
+# Install and test Crayon v0.2
 
 ## Install
 
@@ -9,6 +9,16 @@
    If a Crayon is already installed, of any version, setup replaces it: there is nothing to
    uninstall or fix first. Your sketches, settings and chats stay as they are.
 3. Open Rhino and type **`Crayon`**. The Agent tab asks once per session: Claude Code or Codex.
+
+## Install on a Mac
+
+Use Rhino 8.17 or later on an Intel or Apple silicon Mac. The optional RhinoMCP
+model connection needs Apple silicon and .NET 8. Use Rhino 8.20 or later for its bundled runtime.
+
+Quit Rhino, open [CrayonSetup.pkg](mac/dist/CrayonSetup.pkg), and follow the installer.
+Once it finishes, open Rhino and type **`Crayon`**.
+
+Publisher signing, Mac verification and build instructions are in the [Mac guide](mac/README.md).
 
 ## What to try
 
@@ -25,8 +35,11 @@
 
 ## Build
 
+Both installers and the Rhino plug-in take their release number from [release.version](release.version).
+
 ```powershell
 .\wizard\scripts\Build.ps1                 # plug-in + installer -> wizard/dist/CrayonSetup.exe
+.\mac\scripts\Build.ps1                    # Mac plug-in + installer -> mac/dist/CrayonSetup.pkg
 .\rhino-plugin\scripts\Install-Package.ps1 # or: install the current build as a Rhino package (Rhino closed)
 ```
 

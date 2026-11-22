@@ -12,3 +12,11 @@ dotnet build tests/chat-protocol/ChatProtocol.csproj -c Release
 On machines where SDK discovery is restricted, pass `-p:TargetPlatformSdkPath='C:/Program Files (x86)/Windows Kits/10/' -p:TargetPlatformDisplayName=Windows` to the build command. All fixture outputs stay under this test's ignored `bin` directory.
 
 Run the process-tree checks in a Windows session that permits `taskkill` to terminate the test's own child processes. A sandbox that prohibits process-tree traversal will intentionally fail these checks.
+
+On macOS or Linux with the .NET 8 SDK and Node.js, the fixture compiles the Mac provider adapters and exercises Unix executable discovery, the Claude sign-in script and child-process shutdown along with the protocol checks.
+
+```sh
+dotnet run --project tests/chat-protocol/ChatProtocol.csproj -c Release -- "$(command -v node)" tests/chat-protocol/mock-cli.js
+```
+
+Opening Terminal from Rhino and signing in to a real account require a separate check on macOS.

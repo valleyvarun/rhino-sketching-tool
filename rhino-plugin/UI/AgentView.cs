@@ -55,10 +55,30 @@ namespace RhinoSketchingTool
             public readonly Dictionary<int, long> Times = new Dictionary<int, long>();                 // entry id -> when it was first seen
             public int SavedCount = -1;     // entries in the last save, so an unchanged chat is not saved again
         }
+#if MAC
+        // Rhino for Mac makes a panel, and so one of these views, for every open document
+        // (Windows has the one). They all show the same chat, so they share what is known of
+        // it: the conversations, when the one on screen was swapped, and that there is news.
+        static readonly Dictionary<string, Conversation> conversations = new Dictionary<string, Conversation>();
+        static bool historyOpen;
+        static int epoch;        // goes up when the conversation on screen is swapped
+        static int heard;        // goes up whenever any of the views has taken in something new
+        int toldHeard;           // ... and how far this one has got
+        string lastStatus = "idle";
+
+        /// <summary>Start or stop asking the page for news: a view whose document has closed is not coming back.</summary>
+        public void Listen(bool on)
+        {
+            if (Content is ChatView fallback) { fallback.Listen(on); return; }
+            if (on && !timer.Started) timer.Start();
+            else if (!on && timer.Started) timer.Stop();
+        }
+#else
         readonly Dictionary<string, Conversation> conversations = new Dictionary<string, Conversation>();
         static bool historyOpen;
         int epoch;               // goes up when the conversation on screen is swapped
         string lastStatus = "idle";
+#endif
 
         /// <summary>The History list is showing (the header's History button is pressed).</summary>
         public static bool HistoryOpen => historyOpen;
@@ -68,9 +88,17 @@ namespace RhinoSketchingTool
             RhinoMcpConnection.CheckInstalled();
             try
             {
+#if MAC
+                web = new WebView();
+#else
                 web = new WebView { BrowserContextMenuEnabled = false };
+#endif
                 web.DocumentLoaded += (s, e) =>
                 {
+#if MAC
+                    // Eto's WebKit handler changes the context menu by scripting document.body.
+                    web.BrowserContextMenuEnabled = false;
+#endif
                     // A page just loaded knows nothing: it is told everything again.
                     ready = true;
                     told = null;
@@ -90,7 +118,11 @@ namespace RhinoSketchingTool
                 };
                 Content = web;
                 web.LoadHtml(Page());
+#if MAC
+                SketchPanel.TrackTextFocus(this, () => Loaded && Visible && web.HasFocus);
+#else
                 KeyHook.TextEntry.Add(() => Loaded && Visible && web.HasFocus);
+#endif
             }
             catch (Exception ex)
             {
@@ -140,12 +172,23 @@ namespace RhinoSketchingTool
             {
                 // Claude Code is started the first time the tab is looked at. That calls no
                 // model: it only says who is signed in and which models there are.
-                if (Agent.ProviderChosen && !warmed && Loaded && Visible && Width > 0)
+                if (Agent.ProviderChosen && !warmed && Loaded && Visible && Width > 0
+#if MAC
+                    && SketchPanel.IsCurrent(this)
+#endif
+                )
                 {
                     warmed = true;
                     Agent.Open();
                 }
+#if MAC
+                // Whichever view asks first is the one that hears it: it passes the word on to the rest.
+                if (session.Poll()) heard++;
+                if (toldHeard != heard) { toldHeard = heard; dirty = true; }
+                if (!SketchPanel.IsCurrent(this)) return;
+#else
                 if (session.Poll()) dirty = true;
+#endif
                 if (!ready || !Loaded) return; // the page is not there, or not on show: it is told when it is
                 Take();
                 if (dirty) Tell();
@@ -337,6 +380,9 @@ namespace RhinoSketchingTool
             });
             conv.SavedCount = entries.Count;
             dirty = true;
+#if MAC
+            heard++; // History has changed for every view
+#endif
         }
 
         // An entry as it is kept: nothing still running or waiting, and no id (ids are given on opening).
@@ -392,6 +438,9 @@ namespace RhinoSketchingTool
         public void SetHistory(string value)
         {
             historyOpen = value == "open" || (value != "close" && !historyOpen);
+#if MAC
+            heard++;
+#endif
             dirty = true;
         }
 
@@ -443,7 +492,21 @@ namespace RhinoSketchingTool
                 // The answer may come wrapped in quotes. Inside, it is percent-encoded JSON.
                 answer = (answer ?? "").Trim().Trim('"');
                 if (answer.Length == 0 || answer == "null") return;
-                foreach (object item in Json.List(Json.Parse(Uri.UnescapeDataString(answer)))) Act(Json.Map(item));
+                foreach (object item in Json.List(Json.Parse(Uri.UnescapeDataString(answer))))
+                {
+#if MAC
+                    if (!SketchPanel.IsCurrent(this))
+                    {
+                        if (Json.Text(Json.Map(item).At("type")) == "send" && Loaded)
+                            await web.ExecuteScriptAsync("crayon.sent(false);");
+                        continue;
+                    }
+#endif
+                    Act(Json.Map(item));
+                }
+#if MAC
+                heard++;
+#endif
                 dirty = true;
             }
             catch (Exception)

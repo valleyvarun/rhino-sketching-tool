@@ -4,10 +4,16 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using Rhino;
 using Rhino.Display;
+#if MAC // no WPF on a Mac: the same names, made with Eto (Mac/MacDrawing.cs)
+using Media = RhinoSketchingTool.MacDrawing;
+using ScreenPoint = System.Drawing.Point;
+using Wpf = RhinoSketchingTool.MacDrawing;
+#else
 using Imaging = System.Windows.Media.Imaging;
 using Media = System.Windows.Media;
 using ScreenPoint = System.Drawing.Point;
 using Wpf = System.Windows;
+#endif
 
 namespace RhinoSketchingTool
 {
@@ -246,11 +252,16 @@ namespace RhinoSketchingTool
             return (ToolbarDock)nearest;
         }
 
+#if !MAC
         [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr window);
+#endif
 
         // Windows' display scaling where this view is: 1 at 100 %, 1.5 at 150 %.
         internal static double Scale(RhinoView view)
         {
+#if MAC
+            return MacDisplay.Scale(view); // 2 on a Retina display: noted as each view is drawn
+#else
             try
             {
                 uint dpi = Rhino.Runtime.HostUtils.RunningOnWindows ? GetDpiForWindow(view.Handle) : 0;
@@ -261,6 +272,7 @@ namespace RhinoSketchingTool
                 // An older Windows without the call: unscaled.
             }
             return 1;
+#endif
         }
 
         // Only the active viewport has the bar.
@@ -399,6 +411,9 @@ namespace RhinoSketchingTool
             {
                 RhinoView view = e.RhinoDoc?.Views.ActiveView;
                 if (view == null || view.ActiveViewportID != e.Viewport.Id) return;
+#if MAC
+                MacDisplay.Note(e); // how dense the display is where this view is being drawn
+#endif
 
                 var frame = OptionsFrame(view);
                 double scale = frame.Scale;
