@@ -885,6 +885,29 @@ namespace RhinoSketchingTool.MacDrawing
             }
         }
 
+        /// <summary>
+        /// A picture Eto has read (a comment's picture, CommentImages.cs) as the bitmap Rhino
+        /// takes: handed over the same two ways as the pictures made here.
+        /// </summary>
+        internal static System.Drawing.Bitmap ToSystem(E.Bitmap picture)
+        {
+            if (!PixelByPixel)
+            {
+                try
+                {
+                    var stream = new MemoryStream();
+                    picture.Save(stream, E.ImageFormat.Png);
+                    stream.Position = 0;
+                    return new System.Drawing.Bitmap(stream); // the stream is left open, as in Render
+                }
+                catch (Exception)
+                {
+                    PixelByPixel = true;
+                }
+            }
+            return Copy(picture);
+        }
+
         // The same picture, pixel by pixel: Eto says how each of its pixels reads as plain
         // alpha, red, green and blue, which is what a System.Drawing bitmap keeps (and how
         // the brush's dabs are handed to Rhino, in Brush.cs).

@@ -87,6 +87,7 @@ namespace RhinoSketchingTool.DrawingTest
                 {
                     string at = look + "@" + scale.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     Icons("icons" + at, scale);
+                    CommentPicture("icons-comment" + at, scale);
                     Bar("toolbar" + at, scale, "Pen", "Select", "None", false, false);
                     Options("options-pen" + at, scale, "Draw", "Plane", new[] { "Object", "Plane", "Cursor", "View" }, new[] { "PickFace" }, new[] { "Color" }, new[] { "Snap" });
                     Colours("colours" + at, scale);
@@ -116,6 +117,26 @@ namespace RhinoSketchingTool.DrawingTest
             editor.Cancel();
             if (!results.SequenceEqual(new[] { "Existing comment", null }) || editor.IsOpen)
                 throw new Exception("Closing a pending comment dialog lost text or completed twice.");
+
+            // A comment's picture (CommentImages.cs): made no larger than it is kept, read back
+            // from the kept bytes, and handed over as the bitmap Rhino takes, colours intact.
+            using (var large = new Eto.Drawing.Bitmap(2000, 1000, Eto.Drawing.PixelFormat.Format32bppRgba))
+            {
+                using (var graphics = new Eto.Drawing.Graphics(large)) graphics.Clear(Eto.Drawing.Color.FromArgb(100, 149, 237));
+                object[] prepared = { large, null, 0, 0 };
+                bool kept = (bool)typeof(SketchController).GetMethod("PrepareImage", Any).Invoke(null, prepared);
+                var bytes = (byte[])prepared[1];
+                if (!kept || (int)prepared[2] != 1280 || (int)prepared[3] != 640 || bytes == null || bytes.Length < 100)
+                    throw new Exception("A comment's picture was not made ready for keeping.");
+                using (var read = new Eto.Drawing.Bitmap(bytes))
+                using (var handed = (Bitmap)typeof(SketchController).GetMethod("ToSystemBitmap", Any).Invoke(null, new object[] { read }))
+                {
+                    System.Drawing.Color pixel = handed.GetPixel(640, 320);
+                    if (handed.Width != 1280 || handed.Height != 640 || Math.Abs(pixel.R - 100) > 3 || Math.Abs(pixel.G - 149) > 3 || Math.Abs(pixel.B - 237) > 3 || pixel.A != 255)
+                        throw new Exception("A comment's picture did not come back as it was kept: " + handed.Width + " x " + handed.Height + ", " + pixel);
+                }
+                Console.WriteLine("A comment's picture: 2000 x 1000 kept as 1280 x 640 (" + bytes.Length + " bytes), read back and handed over intact.");
+            }
 
             bool strokes = Strokes("strokes");
 #else
@@ -156,6 +177,34 @@ namespace RhinoSketchingTool.DrawingTest
                     paintIcon.Invoke(null, new object[] { context, chevron, new Wpf.Point(Cell / 2 + i * Cell, row), 18.0, Picture.Ink2, 1.0, turns[i] });
                 for (int i = 0; i < all.Length; i++)
                     paintIcon.Invoke(null, new object[] { context, all[i].GetValue(null), new Wpf.Point(20 + i * 34, row + Cell), 20.0, i % 2 == 0 ? Picture.Ink : Picture.Accent, i % 3 == 0 ? 0.55 : 1.0, 0.0 });
+            }));
+        }
+
+        // The signs on a comment's picture (larger, smaller, take it off) and the picture button
+        // on its label, painted by the plug-in's own code (CommentImages.cs): large, and then
+        // as they show, white on a dark square 18 across, and the picture button at 14.
+        static void CommentPicture(string name, double scale)
+        {
+            Type controller = typeof(SketchController);
+            MethodInfo glyph = controller.GetMethod("PaintGlyph", Any), add = controller.GetMethod("PaintAddImage", Any);
+            string[] signs = { "LargerGlyph", "SmallerGlyph", "RemoveGlyph" };
+            var picture = (string[])controller.GetField("PictureGlyph", Any).GetValue(null);
+            const int Cell = 76;
+            double width = 4 * Cell, height = 2 * Cell;
+            Save(name, Picture.Render(width, height, scale, context =>
+            {
+                context.DrawRectangle(Picture.Fill(Picture.Glass), null, new Wpf.Rect(0, 0, width, height));
+                for (int i = 0; i < signs.Length; i++)
+                {
+                    var path = (string)controller.GetField(signs[i], Any).GetRawConstantValue();
+                    glyph.Invoke(null, new object[] { context, path, i * Cell + 8.0, 8.0, 60.0, Picture.Ink, 1.8 });
+                    var box = new Wpf.Rect(i * Cell + 29, Cell + 29, 18, 18);
+                    context.DrawRoundedRectangle(Picture.Fill(Picture.TipBack, 0.8), null, box, 5.5, 5.5);
+                    glyph.Invoke(null, new object[] { context, path, box.X + 4, box.Y + 4, 10.0, Picture.Rgb(255, 255, 255), 1.7 });
+                }
+                foreach (string part in picture)
+                    glyph.Invoke(null, new object[] { context, part, 3 * Cell + 8.0, 8.0, 60.0, Picture.Ink, 1.8 });
+                add.Invoke(null, new object[] { context, new Wpf.Rect(3 * Cell + 27, Cell + 27, 22, 21) });
             }));
         }
 

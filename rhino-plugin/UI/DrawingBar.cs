@@ -92,7 +92,7 @@ namespace RhinoSketchingTool
             return groups;
         }
 
-        string HintText => "Click anywhere to comment";
+        string HintText => "Click anywhere to comment · point at one to add a picture";
         string PickFaceLabel => controller.Picking == PickMode.Face ? "Click a face" : "Pick a face";
         string PlaceCursorLabel => controller.Picking == PickMode.Cursor ? "Click to place" : "Place cursor";
 

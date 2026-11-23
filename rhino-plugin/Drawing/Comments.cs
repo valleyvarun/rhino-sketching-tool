@@ -28,12 +28,17 @@ namespace RhinoSketchingTool
         public Guid Sketch;      // the sketch it was put on, if any
         public Guid Object;      // or the object
         public bool Visible = true; // false while its layer is turned off
+        public string Image = "";   // its picture, if it has one: the picture's id (see CommentImages.cs),
+        public int ImageWidth, ImageHeight; // and its size in pixels
+        public byte[] NewImage;     // a picture given while the text is being typed: not in the document yet
     }
 
     /// <summary>
     /// The Comment tool (the design calls it Marks). Click anywhere to pin a comment,
     /// then type: Return keeps it, Esc or leaving it empty removes it. Clicking a comment
     /// that is already there opens it to be changed. The eraser removes comments too.
+    /// A comment can carry a picture, shown as a thumbnail above its label: see
+    /// CommentImages.cs.
     ///
     /// Where a click lands, in this order: on a sketch line within 14 pixels of the
     /// pointer (the pin snaps onto the line), on the surface under the pointer, on the
@@ -94,6 +99,7 @@ namespace RhinoSketchingTool
             public double AnchorX, AnchorY; // the marked point
             public Wpf.Rect Pill;
             public double TextLeft;
+            public Wpf.Rect AddImage; // the picture button at the end of the pill: no width unless it is there
         }
 
         readonly Dictionary<uint, Scene> scenes = new Dictionary<uint, Scene>(); // by RhinoDoc.RuntimeSerialNumber
@@ -191,6 +197,16 @@ namespace RhinoSketchingTool
                 {
                     if (on[0] == "sketch") comment.Sketch = id;
                     else comment.Object = id;
+                }
+                // Which picture it has and how big: the picture itself is only read when it is shown.
+                string[] image = (attributes.GetUserString(CommentImageKey) ?? "").Split(';');
+                if (image.Length >= 3 && image[0].Length > 0 &&
+                    int.TryParse(image[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int imageWidth) && imageWidth > 0 &&
+                    int.TryParse(image[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int imageHeight) && imageHeight > 0)
+                {
+                    comment.Image = image[0];
+                    comment.ImageWidth = imageWidth;
+                    comment.ImageHeight = imageHeight;
                 }
                 comments.Add(comment);
             }
@@ -333,7 +349,13 @@ namespace RhinoSketchingTool
             Comment existing = LabelAt(view, point);
             if (existing != null)
             {
-                Write(view, existing);
+                // The picture button at the end of the label chooses a picture for the comment;
+                // anywhere else on the label opens its text.
+                if (PlaceLabel(view.ActiveViewport, view.Document, existing, Toolbar.Scale(view), out LabelPlace place) &&
+                    place.AddImage.Width > 0 && place.AddImage.Contains(point))
+                    PickCommentImage(view, existing);
+                else
+                    Write(view, existing);
                 return;
             }
             Aim target = AimAt(view, point);
@@ -386,19 +408,46 @@ namespace RhinoSketchingTool
         // and where the picture goes. False when its point is out of sight.
         bool LabelBox(RhinoViewport viewport, RhinoDoc doc, Comment comment, double scale, out System.Drawing.RectangleF pill, out ScreenPoint corner, out LabelPicture label)
         {
-            pill = System.Drawing.RectangleF.Empty;
-            corner = ScreenPoint.Empty;
-            label = null;
+            bool there = PlaceLabel(viewport, doc, comment, scale, out LabelPlace place);
+            pill = place.Pill;
+            corner = place.Corner;
+            label = place.Label;
+            return there;
+        }
+
+        // The same, with the comment's picture and its buttons if it has one, and the picture
+        // button at the end of the label while the pointer is on it with the Comment tool.
+        bool PlaceLabel(RhinoViewport viewport, RhinoDoc doc, Comment comment, double scale, out LabelPlace place)
+        {
+            place = default(LabelPlace);
             Point2d? screen = ToScreen(viewport, comment.Point);
             System.Drawing.Size size = viewport.Size;
             if (!screen.HasValue || screen.Value.X < 0 || screen.Value.Y < 0 || screen.Value.X > size.Width || screen.Value.Y > size.Height) return false;
 
             bool beingWritten = writing != null && writing.Id == comment.Id && writingView != null && writingView.ActiveViewportID == viewport.Id;
-            string[] link = !beingWritten && comment.Id != Guid.Empty && comment.Id == overComment ? LinkOf(doc, comment) : null;
-            label = LabelFor(comment, link, beingWritten, scale);
+            bool pointedAt = !beingWritten && comment.Id != Guid.Empty && comment.Id == overComment;
+            string[] link = pointedAt ? LinkOf(doc, comment) : null;
+            bool addImage = pointedAt && active && tool == SketchTool.Comment;
+
+            // The picture goes between the pill and the tag that says what the comment is on.
+            bool hasImage = comment.Image.Length > 0 && comment.ImageWidth > 0 && comment.ImageHeight > 0;
+            double imageWidth = 0, imageHeight = 0, room = 0;
+            if (hasImage)
+            {
+                // What there is between the pill and the top of the viewport, for a picture made larger.
+                double above = screen.Value.Y / scale - LabelLift - PillHeight - ImageGap - 2 * ImagePad - 6;
+                ImageSize(comment, enlarged.Contains(comment.Id), size.Width / scale - 16, above, out imageWidth, out imageHeight);
+                room = imageHeight + 2 * ImagePad + ImageGap;
+            }
+
+            LabelPicture label = LabelFor(comment, link, beingWritten, scale, addImage, room);
             double left = Math.Round(screen.Value.X - label.AnchorX * scale), top = Math.Round(screen.Value.Y - label.AnchorY * scale);
-            corner = new ScreenPoint((int)left, (int)top);
-            pill = new System.Drawing.RectangleF((float)(left + label.Pill.X * scale), (float)(top + label.Pill.Y * scale), (float)(label.Pill.Width * scale), (float)(label.Pill.Height * scale));
+            place.Label = label;
+            place.Corner = new ScreenPoint((int)left, (int)top);
+            place.Pill = new System.Drawing.RectangleF((float)(left + label.Pill.X * scale), (float)(top + label.Pill.Y * scale), (float)(label.Pill.Width * scale), (float)(label.Pill.Height * scale));
+            if (label.AddImage.Width > 0)
+                place.AddImage = new System.Drawing.RectangleF((float)(left + label.AddImage.X * scale), (float)(top + label.AddImage.Y * scale), (float)(label.AddImage.Width * scale), (float)(label.AddImage.Height * scale));
+            if (hasImage) PlaceImage(ref place, imageWidth, imageHeight, screen.Value.X, size.Width, scale);
             return true;
         }
 
@@ -412,6 +461,9 @@ namespace RhinoSketchingTool
             aim = null;
             overComment = Guid.Empty;
             if (editor == null) editor = new CommentEditor { Finished = FinishWriting };
+#if !MAC
+            editor.PasteImage = PasteCommentImage; // Ctrl + V with a picture on the clipboard
+#endif
 #if MAC
             editor.Open(view.Document, comment.Text);
 #else
@@ -448,7 +500,8 @@ namespace RhinoSketchingTool
 
         /// <summary>
         /// The text box has closed. Null means Esc: a new comment is dropped, an old one
-        /// stays as it was. Text is kept; no text removes the comment.
+        /// stays as it was. Text is kept; no text removes the comment, unless it has a
+        /// picture, which is a comment in itself.
         /// </summary>
         internal void FinishWriting(string text)
         {
@@ -461,15 +514,16 @@ namespace RhinoSketchingTool
             if (doc != null)
             {
                 text = text?.Trim();
+                bool newImage = comment.NewImage != null; // pasted while the text was being typed
                 if (comment.Id == Guid.Empty)
                 {
-                    if (!string.IsNullOrEmpty(text)) AddComment(doc, view, comment, text);
+                    if (!string.IsNullOrEmpty(text) || (text != null && newImage)) AddComment(doc, view, comment, text);
                 }
-                else if (text != null && text != comment.Text)
+                else if (text != null && (text != comment.Text || newImage))
                 {
                     uint record = doc.BeginUndoRecord("Comment");
                     RhinoObject obj = doc.Objects.FindId(comment.Id);
-                    if (obj != null && text.Length == 0)
+                    if (obj != null && text.Length == 0 && comment.Image.Length == 0)
                     {
                         doc.Objects.Delete(obj, true, true);
                     }
@@ -477,6 +531,7 @@ namespace RhinoSketchingTool
                     {
                         ObjectAttributes attributes = obj.Attributes.Duplicate();
                         attributes.SetUserString(CommentTextKey, text);
+                        if (newImage) WriteImage(attributes, comment.Image, comment.ImageWidth, comment.ImageHeight, comment.NewImage);
                         doc.Objects.ModifyAttributes(obj, attributes, true);
                     }
                     doc.EndUndoRecord(record);
@@ -501,6 +556,7 @@ namespace RhinoSketchingTool
             attributes.SetUserString(CommentNormalKey, Number(comment.Normal.X) + "," + Number(comment.Normal.Y) + "," + Number(comment.Normal.Z));
             if (comment.Sketch != Guid.Empty) attributes.SetUserString(CommentOnKey, "sketch " + comment.Sketch);
             else if (comment.Object != Guid.Empty) attributes.SetUserString(CommentOnKey, "object " + comment.Object);
+            if (comment.NewImage != null) WriteImage(attributes, comment.Image, comment.ImageWidth, comment.ImageHeight, comment.NewImage);
             RhinoViewport viewport = view.ActiveViewport;
             Point3d camera = viewport.CameraLocation, target = viewport.CameraTarget;
             attributes.SetUserString(CommentViewKey, string.Join(";", viewport.Name,
@@ -572,14 +628,20 @@ namespace RhinoSketchingTool
             {
                 if (!comment.Visible) continue;
                 Comment shown = writingHere && writing.Id == comment.Id ? writing : comment;
-                if (LabelBox(e.Viewport, doc, shown, scale, out _, out ScreenPoint corner, out LabelPicture label))
-                    e.Display.DrawBitmap(label.Bitmap, corner.X, corner.Y);
+                if (PlaceLabel(e.Viewport, doc, shown, scale, out LabelPlace place))
+                {
+                    e.Display.DrawBitmap(place.Label.Bitmap, place.Corner.X, place.Corner.Y);
+                    if (place.HasImage) PaintCommentImage(e, doc, shown, place, scale);
+                }
             }
             if (writingHere)
             {
                 // A new comment is not in the document until it has text.
-                if (writing.Id == Guid.Empty && LabelBox(e.Viewport, doc, writing, scale, out _, out ScreenPoint corner, out LabelPicture label))
-                    e.Display.DrawBitmap(label.Bitmap, corner.X, corner.Y);
+                if (writing.Id == Guid.Empty && PlaceLabel(e.Viewport, doc, writing, scale, out LabelPlace place))
+                {
+                    e.Display.DrawBitmap(place.Label.Bitmap, place.Corner.X, place.Corner.Y);
+                    if (place.HasImage) PaintCommentImage(e, doc, writing, place, scale);
+                }
 #if !MAC
                 // The view may have moved under the in-place text box.
                 Eto.Forms.Application.Instance.AsyncInvoke(() => PlaceEditor(false));
@@ -606,16 +668,20 @@ namespace RhinoSketchingTool
 
         // A comment's label. With a link, the dark tag above it says what the comment is
         // on. While it is being written, the text is left out: the text box sits there.
-        LabelPicture LabelFor(Comment comment, string[] link, bool beingWritten, double scale)
+        // addImage puts the picture button at the end of the pill; imageRoom is the height
+        // left clear above the pill for the comment's picture, which is painted separately.
+        LabelPicture LabelFor(Comment comment, string[] link, bool beingWritten, double scale, bool addImage = false, double imageRoom = 0)
         {
-            string key = string.Join("\n", comment.Number, beingWritten ? "" : comment.Text, link == null ? "" : link[0] + " " + link[1], beingWritten, scale, Theme.Dark);
+            string key = string.Join("\n", comment.Number, beingWritten ? "" : comment.Text, link == null ? "" : link[0] + " " + link[1], beingWritten, scale, Theme.Dark, addImage, imageRoom);
             return Cached(key, () =>
             {
                 string shown = comment.Text.Length > 0 ? comment.Text : "Comment";
                 Media.FormattedText text = Picture.Text(shown, 11.5, Wpf.FontWeights.SemiBold, Picture.Ink, MaxTextWidth);
                 Media.FormattedText number = Picture.Text(comment.Number.ToString(CultureInfo.InvariantCulture), 10.5, Wpf.FontWeights.Bold, White);
                 double textWidth = beingWritten ? WritingWidth : Math.Ceiling(text.WidthIncludingTrailingWhitespace);
-                double pillWidth = 3 + DiscSize + PillGap + textWidth + PillEnd;
+                // The picture button lengthens the pill to the right only: the words stay where they were.
+                double plainWidth = 3 + DiscSize + PillGap + textWidth + PillEnd;
+                double pillWidth = plainWidth + (addImage ? AddImageRoom : 0);
 
                 Media.FormattedText kind = null, name = null;
                 double tagWidth = 0;
@@ -625,12 +691,13 @@ namespace RhinoSketchingTool
                     name = Picture.Text(link[1], 10.5, Wpf.FontWeights.SemiBold, White, 220);
                     tagWidth = 7 + kind.WidthIncludingTrailingWhitespace + 5 + name.WidthIncludingTrailingWhitespace + 8;
                 }
-                double above = link != null ? TagHeight + TagGap : 0;
-                double width = Math.Ceiling(Math.Max(pillWidth, tagWidth)) + 2 * PictureMargin;
-                double pillTop = PictureMargin + above, pillLeft = (width - pillWidth) / 2;
+                double above = (link != null ? TagHeight + TagGap : 0) + imageRoom;
+                double width = Math.Ceiling(Math.Max(plainWidth + 2 * (pillWidth - plainWidth), tagWidth)) + 2 * PictureMargin;
+                double pillTop = PictureMargin + above, pillLeft = (width - plainWidth) / 2;
                 double height = pillTop + PillHeight + LabelLift + 5 + PictureMargin;
                 var pill = new Wpf.Rect(pillLeft, pillTop, pillWidth, PillHeight);
                 var anchor = new Wpf.Point(width / 2, pillTop + PillHeight + LabelLift);
+                var add = addImage ? new Wpf.Rect(pill.Right - PillEnd - AddImageRoom + 4, pillTop + 2, AddImageRoom, PillHeight - 4) : new Wpf.Rect(0, 0, 0, 0);
 
                 System.Drawing.Bitmap bitmap = Picture.Render(width, height, scale, context =>
                 {
@@ -642,6 +709,7 @@ namespace RhinoSketchingTool
                     context.DrawEllipse(Picture.Fill(Picture.Accent), null, disc, DiscSize / 2, DiscSize / 2);
                     context.DrawText(number, new Wpf.Point(disc.X - number.Width / 2, disc.Y - number.Height / 2));
                     if (!beingWritten) context.DrawText(text, new Wpf.Point(pillLeft + 3 + DiscSize + PillGap, pillTop + (PillHeight - text.Height) / 2));
+                    if (addImage) PaintAddImage(context, add);
 
                     if (link != null)
                     {
@@ -654,7 +722,7 @@ namespace RhinoSketchingTool
                     }
                 });
                 using (bitmap)
-                    return new LabelPicture { Bitmap = new DisplayBitmap(bitmap), AnchorX = anchor.X, AnchorY = anchor.Y, Pill = pill, TextLeft = pillLeft + 3 + DiscSize + PillGap };
+                    return new LabelPicture { Bitmap = new DisplayBitmap(bitmap), AnchorX = anchor.X, AnchorY = anchor.Y, Pill = pill, TextLeft = pillLeft + 3 + DiscSize + PillGap, AddImage = add };
             });
         }
 
@@ -808,6 +876,12 @@ namespace RhinoSketchingTool
         /// <summary>Called once when the box closes, with the text: null if Esc was pressed.</summary>
         public Action<string> Finished;
 
+        /// <summary>
+        /// Ctrl + V was pressed. True if there was a picture on the clipboard and it has been
+        /// taken for the comment; false leaves the paste to the box, which takes text.
+        /// </summary>
+        public Func<bool> PasteImage;
+
         public bool IsOpen => !done;
 
         /// <summary>Open at a place on screen (in pixels), sized in pixels at 100 % display scaling.</summary>
@@ -852,6 +926,10 @@ namespace RhinoSketchingTool
                 {
                     e.Handled = true;
                     Cancel();
+                }
+                else if (e.Key == Eto.Forms.Keys.V && e.Control && !e.Alt && !e.Shift && PasteImage != null && PasteImage())
+                {
+                    e.Handled = true; // a picture: there is no text to put in the box
                 }
             };
             box.LostFocus += (s, e) => { if (box == mine) Commit(); };

@@ -122,6 +122,7 @@ namespace RhinoSketchingTool
                 SketchPanel.TrackTextFocus(this, () => Loaded && Visible && web.HasFocus);
 #else
                 KeyHook.TextEntry.Add(() => Loaded && Visible && web.HasFocus);
+                WatchPaste();
 #endif
             }
             catch (Exception ex)
@@ -141,6 +142,63 @@ namespace RhinoSketchingTool
             using (var reader = new StreamReader(stream))
                 return reader.ReadToEnd();
         }
+
+#if !MAC
+        // ---------------------------------------------------------- Ctrl + V
+        // The web view is another program's window inside Rhino's. Before it acts on a
+        // shortcut key (anything with Ctrl) it offers the key to its host, as a WPF key event
+        // on the control, and if anything there takes it the page never hears of it: which is
+        // what became of Ctrl + V in Rhino's panel. So the offer is taken here, always, and
+        // the page is handed the clipboard instead: text into the message box, pictures and
+        // copied files as attachments (see Agent.PasteClipboard).
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern short GetAsyncKeyState(int key);
+
+        const int VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12;
+        int pastedAt;
+
+        void WatchPaste()
+        {
+            try
+            {
+                // The control passes the offer on twice, as WPF does keys: on the way down (preview)
+                // and on the way back up. Heard at both, on the control itself, which is before
+                // anything above it on the way up, and (handledEventsToo) even if something has
+                // already claimed the key.
+                if (web.ControlObject is System.Windows.UIElement element)
+                {
+                    var handler = new System.Windows.Input.KeyEventHandler(OnWebKey);
+                    element.AddHandler(System.Windows.UIElement.KeyDownEvent, handler, true);
+                    element.AddHandler(System.Windows.UIElement.PreviewKeyDownEvent, handler, true);
+                }
+            }
+            catch (Exception)
+            {
+                // Not the web view this was written for: pasting is left to it.
+            }
+        }
+
+        void OnWebKey(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key != System.Windows.Input.Key.V) return;
+            // The keys as they are held right now: Ctrl alone (Ctrl + Alt is AltGr, which types a letter).
+            bool ctrl = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0, alt = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0, shift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+            if (!ctrl || alt || shift) return;
+            e.Handled = true; // the page gets the clipboard from here: the browser's own paste would be a second one
+            int now = Environment.TickCount;
+            if (unchecked(now - pastedAt) < 150) return; // the key held down: once is enough
+            pastedAt = now;
+            Application.Instance.AsyncInvoke(Paste); // once the key is out of the way
+        }
+
+        void Paste()
+        {
+            if (!ready || !Agent.ProviderChosen) return;
+            string text = Agent.PasteClipboard();
+            if (!string.IsNullOrEmpty(text)) web.ExecuteScriptAsync("crayon.paste(" + Json.Write(text) + ");");
+            dirty = true; // an attachment may have been added
+        }
+#endif
 
         void Tick()
         {
@@ -244,7 +302,8 @@ namespace RhinoSketchingTool
                 ["contextCommentGroups"] = context[1],
                 ["providerChosen"] = Agent.ProviderChosen,
                 ["providerLabel"] = Agent.Label,
-                ["attachments"] = Agent.Attachments.Select(file => (object)new JsonMap { ["id"] = file.Id, ["name"] = file.Name, ["size"] = file.Size, ["image"] = file.IsImage }).ToList(),
+                // An image goes with a small picture of itself: the page shows that instead of its name.
+                ["attachments"] = Agent.Attachments.Select(file => (object)new JsonMap { ["id"] = file.Id, ["name"] = file.Name, ["size"] = file.Size, ["image"] = file.IsImage, ["thumb"] = ChatImages.Thumb(file) ?? "" }).ToList(),
                 ["status"] = session.Status,
                 ["thinking"] = transcript.Thinking,
                 ["missing"] = session.MissingCli,
@@ -413,10 +472,19 @@ namespace RhinoSketchingTool
                         chips.Add(new JsonMap { ["kind"] = "sketch", ["label"] = groups.Sketches.FirstOrDefault(g => g.Id == id)?.Name ?? "Group " + id });
                     foreach (int id in snapshot.CommentGroups)
                         chips.Add(new JsonMap { ["kind"] = "comment", ["label"] = groups.Comments.FirstOrDefault(g => g.Id == id)?.Name ?? "Group " + id });
+                    // The pictures on those comments go along as files too.
+                    foreach (SketchController.CommentImageRef image in snapshot.Images)
+                        chips.Add(new JsonMap { ["kind"] = "file", ["label"] = image.Label });
                 }
             }
             catch (Exception) { /* no context to show */ }
-            foreach (ChatAttachment file in Agent.Attachments) chips.Add(new JsonMap { ["kind"] = "file", ["label"] = file.Name });
+            foreach (ChatAttachment file in Agent.Attachments)
+            {
+                var chip = new JsonMap { ["kind"] = "file", ["label"] = file.Name };
+                string thumb = ChatImages.Thumb(file);
+                if (thumb != null) chip["thumb"] = thumb; // an image shows as its thumbnail in the message too
+                chips.Add(chip);
+            }
             return chips;
         }
 
@@ -547,6 +615,10 @@ namespace RhinoSketchingTool
                     break;
                 case "removeAttachment":
                     Agent.Attachments.RemoveAll(file => file.Id == value);
+                    break;
+                case "pasteImage":
+                    // A picture pasted into the page itself (Shift + Insert, or a Mac's own paste).
+                    Agent.AttachImageData(Json.Text(action.At("data")));
                     break;
                 case "stop":
                     session.Interrupt();

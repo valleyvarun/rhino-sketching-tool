@@ -42,9 +42,16 @@ double-click the grip to put it back. Under it, an option row changes with the t
 - **Pen**: Object | Plane | 3D cursor | Over view, colour, Snap shapes (the hand-drawn tick). With
   Plane, **Pick a face** then a click puts the drawing plane on an object's face (the *On a face*
   chip's x goes back); with 3D cursor, **Place cursor** then a click moves the cursor; with Over
-  view, **Pick a view** opens the list of saved views (see below). No modifier keys.
+  view, **Pick a view** opens the list of saved views (see below). **Ctrl + Shift + click**
+  with the pen picks a face as well, as it selects one in Rhino (on empty space: back to the
+  viewport's own plane). Other modifier keys are left to Rhino.
 - **Eraser**: Whole sketch | Part.
-- **Comments**: one line of help.
+- **Comments**: one line of help. A comment can carry a **picture**: point at a comment and
+  click the picture button at the end of its label to choose a file, or press Ctrl + V while
+  typing a comment with a picture on the clipboard (Windows). It shows as a small thumbnail
+  above the label; the button in its corner (two diagonal arrows) makes it larger and smaller
+  again, with any tool. Made larger, it has an x that takes it off (Comments tool). The
+  picture is kept in the 3dm file on the comment itself, no larger than 1280 pixels.
 - **Saved views**: Save view, then a button that says which saved view the viewport is in
   (*Saved views* when it is in none) and opens the list of them all: click one to go there,
   x (twice) to delete it. *Save this view* is at the top of the list too.
@@ -68,6 +75,13 @@ are still listed in Layers. The agent is told which view such a sketch belongs t
 that it is not 3D.
 
 Crayon is turned off only with the switch in the panel header; Esc never turns it off.
+
+**Rhino's Auto CPlane is off while Crayon is on.** Both move the viewport's construction
+plane (Auto CPlane onto what is selected, Crayon onto a picked face) and each would take
+the other's plane for the one to go back to. So while Crayon is on, the drawing plane only
+changes when it is picked in Crayon. If Auto CPlane was on, Crayon turns it off the way the
+status bar does (Rhino says so in the command history) and turns it on again as soon as
+Crayon is off; if it was off, it is left alone. See `Drawing/AutoCPlaneLock.cs`.
 
 The colour picker offers presets, saturation/value, hue and hex entry. Colours belong
 to individual sketches. Snap shapes conservatively recognizes lines, rectangles and
@@ -130,6 +144,15 @@ The composer's **+** opens a file picker. Attached files appear above the input 
 be removed before sending. Images are sent as image input; other files are supplied as
 explicit local file references for the assistant's file-reading tools. Images are limited
 to 5 MB. New chat and account settings have separate controls in the chat header.
+
+**Ctrl + V** in the message box pastes text, attaches a picture that is on the clipboard (a
+screenshot, a copied image), and attaches files copied in Explorer. Attached images show as
+small thumbnails, above the box and in the message once it is sent. Pasted pictures are
+kept in `%APPDATA%\Crayon\pasted` for two weeks. (Rhino's panel does not let Ctrl + V reach
+the page, so `AgentView` takes the key and hands the page the clipboard.)
+
+A picture on a comment goes to the assistant too, as an image file, when that comment's
+group is ticked for the agent: up to six per prompt.
 
 Codex uses its local `app-server` protocol, including ChatGPT sign-in, model discovery,
 streaming and approval requests. Claude uses its streaming CLI protocol. Installing a

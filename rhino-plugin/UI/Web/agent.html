@@ -132,6 +132,14 @@ svg{ display:block; }
 .ag-file button{ width:18px; height:18px; padding:0; border:0; border-radius:5px; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
 .ag-file button:hover{ background:var(--press); color:var(--ink); }
 .ag-file button svg{ width:11px; height:11px; }
+/* an attached image: a small thumbnail, with its x in the corner while it can still be removed */
+.ag-files, .ag-ufiles{ align-items:center; }
+.ag-thumb{ position:relative; display:inline-block; flex:none; width:44px; height:44px; border-radius:9px; overflow:hidden; background:var(--well); box-shadow:0 0 0 1px var(--line-2); }
+.ag-thumb img{ display:block; width:100%; height:100%; object-fit:cover; }
+.ag-thumb button{ position:absolute; top:2px; right:2px; width:16px; height:16px; padding:0; border:0; border-radius:50%; background:rgba(18,20,25,.72); color:#fff; display:grid; place-items:center; cursor:pointer; }
+.ag-thumb button:hover{ background:rgba(18,20,25,.92); }
+.ag-thumb button svg{ width:9px; height:9px; }
+.ag-user .ag-thumb{ width:52px; height:52px; }
 .ag-bar{ display:flex; align-items:center; gap:2px; height:30px; margin:8px -4px 0; }
 .ag-ib{ width:30px; height:30px; flex:none; padding:0; border:0; border-radius:9px; background:transparent; color:var(--ink-2); display:grid; place-items:center; cursor:pointer; transition:background .15s, color .15s, box-shadow .25s; }
 .ag-ib:hover{ background:var(--hover); color:var(--ink); }
@@ -405,6 +413,7 @@ function blocksOf(){
 }
 function chipsOf(e){
   return (e.chips || []).map(function(c){
+    if (c.thumb) return '<span class="ag-thumb" title="' + esc(c.label) + '"><img src="' + esc(c.thumb) + '" alt=""></span>'; // an image: its thumbnail
     var ic = c.kind === 'comment' ? UI.bubble : c.kind === 'sketch' ? UI.pen : UI.clip;
     var cls = c.kind === 'comment' ? ' cm' : c.kind === 'sketch' ? ' sk' : '';
     return '<span class="ag-file' + cls + '" title="' + esc(c.label) + '">' + ic + '<span>' + esc(c.label) + '</span></span>';
@@ -587,10 +596,16 @@ function render(){
   if (cm) ctx.push('<span class="ag-chip" title="Comment groups that are showing in Layers go with your message">' + UI.bubble + '<span>' + plural(cm, 'comment group') + '</span></span>');
   var ctxHtml = ctx.join('');
   if ($('chatCtx').dataset.sig !== ctxHtml){ $('chatCtx').dataset.sig = ctxHtml; $('chatCtx').innerHTML = ctxHtml; }
-  var filesHtml = (S.attachments || []).map(function(f){
-    return '<span class="ag-file" title="' + esc(f.name) + '">' + UI.clip + '<span>' + esc(f.name) + '</span><button type="button" data-remove="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '" title="Remove">' + UI.x + '</button></span>';
-  }).join('');
-  if ($('chatFiles').dataset.sig !== filesHtml){ $('chatFiles').dataset.sig = filesHtml; $('chatFiles').innerHTML = filesHtml; }
+  // An image shows as a small thumbnail; any other file by its name.
+  var filesSig = (S.attachments || []).map(function(f){ return f.id + (f.thumb ? '+' : ''); }).join(',');
+  if ($('chatFiles').dataset.sig !== filesSig){
+    $('chatFiles').dataset.sig = filesSig;
+    $('chatFiles').innerHTML = (S.attachments || []).map(function(f){
+      var remove = '<button type="button" data-remove="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '" title="Remove">' + UI.x + '</button>';
+      if (f.thumb) return '<span class="ag-thumb" title="' + esc(f.name) + '"><img src="' + esc(f.thumb) + '" alt="">' + remove + '</span>';
+      return '<span class="ag-file" title="' + esc(f.name) + '">' + UI.clip + '<span>' + esc(f.name) + '</span>' + remove + '</span>';
+    }).join('');
+  }
   $('chatUpload').disabled = S.status !== 'idle';
 
   // The permission mode, and the model by its own name
@@ -645,6 +660,36 @@ input.addEventListener('keydown', function(e){
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); } // Shift + Enter starts a new line
 });
 $('chatForm').addEventListener('submit', function(e){ e.preventDefault(); if (busy()) post('stop'); else send(); });
+
+/* ---------- pasting ---------- */
+// Ctrl + V is taken by AgentView on Windows (Rhino's panel never lets it reach the page): it
+// hands text to crayon.paste below, and attaches pictures itself. A paste that does arrive
+// here (Shift + Insert, a Mac's own paste) is the browser's for text. A picture is sent on
+// as its bytes, to be attached; it comes back as a thumbnail like any other image.
+function pictureData(file, done){
+  var url = URL.createObjectURL(file), img = new Image();
+  img.onload = function(){
+    var k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight, 1));
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    var out = c.toDataURL('image/png');
+    if (out.length > 3500000) out = c.toDataURL('image/jpeg', 0.9); // a large one travels as a JPEG
+    done(out.split(',')[1] || '');
+  };
+  img.onerror = function(){ URL.revokeObjectURL(url); done(''); };
+  img.src = url;
+}
+input.addEventListener('paste', function(e){
+  var data = e.clipboardData, file = null;
+  if (!data) return;
+  var items = data.items || [];
+  for (var i = 0; i < items.length; i++){ if (items[i].kind === 'file' && /^image\//.test(items[i].type)){ file = items[i].getAsFile(); break; } }
+  if (!file || data.getData('text/plain')) return; // text before pictures: Word and Excel copy a picture of the text as well
+  e.preventDefault();
+  pictureData(file, function(b64){ if (b64) post('pasteImage', { data:b64 }); });
+});
 
 /* ---------- menus: the prototype's .ag-menu ---------- */
 function item(attrs, label, sub, checked, icon){
@@ -756,6 +801,16 @@ window.crayon = {
     render(); grow();
     render.told = true; // from now on a change of look cross-fades
     return S.ids.length;
+  },
+  // Text from the clipboard, for the message box: put where the caret is, over whatever is selected.
+  paste:function(text){
+    text = String(text == null ? '' : text).replace(/\r\n?/g, '\n');
+    if (!text || $('chatForm').hidden) return;
+    if (document.activeElement !== input) input.focus();
+    var done = false;
+    try { done = document.execCommand('insertText', false, text); } catch (err) {} // this way Ctrl + Z still undoes it
+    if (!done) input.setRangeText(text, input.selectionStart, input.selectionEnd, 'end');
+    grow(); syncSend();
   },
   // Hand over what the user has done since last asked. (Encoded so that it survives whatever quoting it meets on the way.)
   take:function(){

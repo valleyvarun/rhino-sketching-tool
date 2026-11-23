@@ -11,10 +11,13 @@ namespace RhinoSketchingTool
     {
         internal string Text = "";
         internal int[] SketchGroups = new int[0], CommentGroups = new int[0];
+        internal List<SketchController.CommentImageRef> Images = new List<SketchController.CommentImageRef>(); // the pictures on those comments
     }
 
     internal static class DrawingContext
     {
+        const int MaxImages = 6; // comment pictures one prompt takes along
+
         internal static string Build(RhinoDoc doc) => Capture(doc).Text;
 
         /// <summary>
@@ -44,6 +47,7 @@ namespace RhinoSketchingTool
             var commentGroups = new HashSet<int>();
             var sketches = new List<object>();
             var comments = new List<object>();
+            var images = new List<SketchController.CommentImageRef>();
             int number = 0;
             bool overViews = false;
             // The agent gets every sketch and comment group ticked in Layers, without the
@@ -74,12 +78,23 @@ namespace RhinoSketchingTool
                 int group = AnnotationGroups.GroupOf(state, obj.Attributes);
                 if (!AnnotationGroups.InContext(state, obj.Attributes)) continue;
                 commentGroups.Add(group);
-                comments.Add(new JsonMap { ["id"] = obj.Id.ToString(), ["group"] = group,
+                var comment = new JsonMap { ["id"] = obj.Id.ToString(), ["group"] = group,
                     ["text"] = obj.Attributes.GetUserString("SketchingTool.CommentText") ?? "",
                     ["point"] = obj.Geometry is Rhino.Geometry.Point point ? Point(point.Location) : null,
-                    ["attachedTo"] = obj.Attributes.GetUserString("SketchingTool.CommentOn") ?? "" });
+                    ["attachedTo"] = obj.Attributes.GetUserString("SketchingTool.CommentOn") ?? "" };
+                // A picture on the comment goes with the prompt as an image file: here, its name. Six at most.
+                SketchController.CommentImageRef image = images.Count < MaxImages ? SketchController.ImageRefOf(obj) : null;
+                if (image != null)
+                {
+                    if (images.Any(other => other.FileName == image.FileName)) image.FileName = image.ImageId + "-" + image.FileName; // two comments with one number
+                    comment["image"] = image.FileName;
+                    images.Add(image);
+                }
+                comments.Add(comment);
             }
             var context = new JsonMap { ["scope"] = "the sketch and comment groups checked for the agent in Crayon's Layers tab" };
+            if (images.Count > 0)
+                context["imageNote"] = "A comment with image has a picture the user put on it. That picture is attached to this prompt as the image file of that name.";
             if (overViews)
                 context["note"] = "A sketch with overView was drawn over that saved Rhino Named View, like a note on a print of it: it is flat, on a plane facing that view's camera, and only means something seen from that view. Its points are not positions in the model.";
             context["sketchGroups"] = state.Sketches.Where(g => sketchGroups.Contains(g.Id)).Select(g => (object)new JsonMap { ["id"] = g.Id, ["name"] = g.Name }).ToList();
@@ -87,7 +102,7 @@ namespace RhinoSketchingTool
             context["units"] = doc.ModelUnitSystem.ToString();
             context["sketches"] = sketches;
             context["comments"] = comments;
-            return new DrawingContextSnapshot { SketchGroups = sketchGroups.ToArray(), CommentGroups = commentGroups.ToArray(),
+            return new DrawingContextSnapshot { SketchGroups = sketchGroups.ToArray(), CommentGroups = commentGroups.ToArray(), Images = images,
                 Text = "\n\n<crayon_drawing_context>\n" + Json.Write(context) + "\n</crayon_drawing_context>" };
         }
 

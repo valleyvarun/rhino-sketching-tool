@@ -115,12 +115,81 @@ namespace RhinoSketchingTool
             if (target != Session.Transcript || Session.Status != "idle") return;
 #endif
             foreach (string path in dialog.Filenames)
+                if (!AttachFile(path)) break;
+        }
+
+        // One more file for the next message. False once there are eight: no more will fit.
+        static bool AttachFile(string path)
+        {
+            if (Attachments.Any(file => string.Equals(file.Path, path, StringComparison.OrdinalIgnoreCase))) return true;
+            if (Attachments.Count >= 8) { Session.Transcript.AddNotice("Attach up to eight files per message."); return false; }
+            try { Attachments.Add(new ChatAttachment(path)); }
+            catch (Exception ex) { Session.Transcript.AddNotice(Path.GetFileName(path) + ": " + ex.Message, true); }
+            return true;
+        }
+
+        /// <summary>
+        /// Ctrl + V in the message box. Files copied in Explorer are attached. Text is handed
+        /// back, for the box to take. Failing both, a picture on the clipboard is attached, and
+        /// shows as a thumbnail. (Text before pictures: Word and Excel put a picture of the
+        /// copied text on the clipboard beside the text itself.)
+        /// </summary>
+        public static string PasteClipboard()
+        {
+            if (!ProviderChosen) return null;
+            try
             {
-                if (Attachments.Any(file => string.Equals(file.Path, path, StringComparison.OrdinalIgnoreCase))) continue;
-                if (Attachments.Count >= 8) { Session.Transcript.AddNotice("Attach up to eight files per message."); break; }
-                try { Attachments.Add(new ChatAttachment(path)); }
-                catch (Exception ex) { Session.Transcript.AddNotice(Path.GetFileName(path) + ": " + ex.Message, true); }
+                Eto.Forms.Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+                if (clipboard.ContainsUris)
+                {
+                    bool any = false;
+                    foreach (Uri uri in clipboard.Uris ?? new Uri[0])
+                    {
+                        if (!uri.IsFile || !File.Exists(uri.LocalPath)) continue;
+                        any = true;
+                        if (!AttachFile(uri.LocalPath)) break;
+                    }
+                    if (any) return null;
+                }
+                if (clipboard.ContainsText) return clipboard.Text;
+                if (clipboard.ContainsImage)
+                    using (Eto.Drawing.Image image = clipboard.Image)
+                        AttachFile(ChatImages.Save(image));
             }
+            catch (Exception ex)
+            {
+                Session.Transcript.AddNotice("That could not be pasted: " + ex.Message, true);
+            }
+            return null;
+        }
+
+        /// <summary>A picture pasted into the page itself, which hands over its bytes (as base64): kept as a file, and attached.</summary>
+        public static void AttachImageData(string base64)
+        {
+            if (!ProviderChosen || string.IsNullOrEmpty(base64)) return;
+            try { AttachFile(ChatImages.Save(Convert.FromBase64String(base64))); }
+            catch (Exception ex) { Session.Transcript.AddNotice("That picture could not be pasted: " + ex.Message, true); }
+        }
+
+        // The pictures on the comments a prompt takes along go with it, as image files of the
+        // names the context gives them. Whatever goes wrong here, the prompt is still sent.
+        static List<ChatAttachment> CommentPictures(RhinoDoc doc, DrawingContextSnapshot context)
+        {
+            var pictures = new List<ChatAttachment>();
+            if (doc == null) return pictures;
+            foreach (SketchController.CommentImageRef image in context.Images)
+            {
+                try
+                {
+                    string path = SketchController.ExportImage(doc, image, ChatImages.Folder("comment-pictures"));
+                    if (path != null) pictures.Add(new ChatAttachment(path));
+                }
+                catch (Exception)
+                {
+                    // That comment goes without its picture.
+                }
+            }
+            return pictures;
         }
 
         public static bool Send(string text)
@@ -134,7 +203,9 @@ namespace RhinoSketchingTool
             var context = DrawingContext.Capture(doc);
             var prompt = new PromptGroup { Document = doc?.RuntimeSerialNumber ?? 0, Transcript = Session.Transcript,
                 Entry = Session.Transcript.Entries.Count, HideUsed = state.HideUsed, Context = context };
-            if (!Session.Send(text, Attachments, context.Text)) return false;
+            var sending = new List<ChatAttachment>(Attachments);
+            sending.AddRange(CommentPictures(doc, context));
+            if (!Session.Send(text, sending, context.Text)) return false;
             prompts[Provider] = prompt;
             Attachments.Clear();
             Sent(doc);

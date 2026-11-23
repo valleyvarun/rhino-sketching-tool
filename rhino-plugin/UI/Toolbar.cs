@@ -563,7 +563,7 @@ namespace RhinoSketchingTool
                 case Part.Cursor: return "Draw on a plane through the 3D cursor";
                 case Part.View: return "Draw over a saved view: the sketch shows only in that view";
                 case Part.ViewList: return PenList ? "Choose the saved view to draw over" : "Go to a saved view";
-                case Part.PickFace: return controller.Picking == PickMode.Face ? "Click a face of an object (click here again to cancel)" : "Click a face of an object to draw on it";
+                case Part.PickFace: return controller.Picking == PickMode.Face ? "Click a face of an object (click here again to cancel)" : "Click a face of an object to draw on it · or Ctrl+Shift+click one";
                 case Part.FaceChip: return "Back to the construction plane";
                 case Part.PlaceCursor: return controller.Picking == PickMode.Cursor ? "Click in the model (click here again to cancel)" : "Click in the model to put the 3D cursor there";
                 case Part.Color: return "Pen colour";

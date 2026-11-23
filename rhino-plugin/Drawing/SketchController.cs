@@ -29,12 +29,14 @@ namespace RhinoSketchingTool
     ///
     /// "Pick a face" in the pen's option row, then a click on a surface, moves the
     /// construction plane onto it (on empty space it puts the plane back); "Place cursor",
-    /// then a click, moves the 3D cursor. No modifier keys: they belong to Rhino.
+    /// then a click, moves the 3D cursor. With the pen, Ctrl + Shift + click picks a face
+    /// too, as it selects one in Rhino. Other modifier keys are left to Rhino.
     ///
     /// Moving the plane onto a surface is the one thing here that changes Rhino's
     /// construction plane, and it is only a loan: the plane goes back to where it was as
     /// soon as another drawing method is chosen or sketching is turned off. The 3D cursor,
-    /// and the views at it, never touch the plane.
+    /// and the views at it, never touch the plane. Rhino's own Auto CPlane, which moves the
+    /// same plane, is off for as long as sketching is on (see AutoCPlaneLock).
     ///
     /// Strokes are polyline curves on the "Sketch" layer, each on the sublayer of the group
     /// it is in (see AnnotationGroups), tagged with a user string so
@@ -180,15 +182,20 @@ namespace RhinoSketchingTool
         // and while the Select tool is on, a hidden one is shown.
         void OnIdle(object sender, EventArgs e)
         {
+            bool inCommand = Rhino.Commands.Command.InCommand();
             // The groups' layers first: a file from before groups were layers gets them here.
-            if (!Dragging && !Rhino.Commands.Command.InCommand()) AnnotationGroups.Tidy();
-            conduit.Tidy(!Rhino.Commands.Command.InCommand());
+            if (!Dragging && !inCommand) AnnotationGroups.Tidy();
+            conduit.Tidy(!inCommand);
+            // Last, so that strokes are hidden again before Rhino looks at what is selected:
+            // Rhino's Auto CPlane is off while Crayon is on, and back as soon as it is off.
+            if (!inCommand) AutoCPlaneLock.Sync(active);
         }
 
         /// <summary>Stop everything, painting included. For when Rhino closes.</summary>
         public void Shutdown()
         {
             Active = false;
+            AutoCPlaneLock.Release(); // there is no idle moment left to do it in
             StopComments();
             RhinoApp.Idle -= OnIdle;
             PenHook.Remove();
@@ -310,12 +317,24 @@ namespace RhinoSketchingTool
         /// </summary>
         public bool PointerDown(RhinoView view, ScreenPoint point, bool shift, bool ctrl, double pressure = -1)
         {
-            if (!active || tool == SketchTool.Select || tool == SketchTool.Views || view == null) return false;
+            if (!active || view == null) return false;
+            // The buttons on a comment's picture answer whatever the tool is.
+            if (CommentImageClick(view, point)) return true;
+            if (tool == SketchTool.Select || tool == SketchTool.Views) return false;
             EndDrag();
 
             if (tool == SketchTool.Comment)
             {
                 CommentClick(view, point);
+                return true;
+            }
+            if (tool == SketchTool.Draw && ctrl && shift)
+            {
+                // Ctrl + Shift + click, the way Rhino picks a face: the drawing plane goes onto
+                // the face under the pointer, as "Pick a face" then a click does. On empty
+                // space it goes back to the viewport's own plane.
+                picking = PickMode.None;
+                PickDrawPlane(view, point, false);
                 return true;
             }
             if (picking != PickMode.None)
@@ -774,9 +793,12 @@ namespace RhinoSketchingTool
 
         // ------------------------------------------- drawing plane and 3D cursor
 
-        // "Pick a face", then a click: put the viewport's construction plane on the surface under
-        // the pointer (tangent at the clicked point), or back where it was on empty space.
-        void PickDrawPlane(RhinoView view, ScreenPoint point)
+        // "Pick a face", then a click (or Ctrl + Shift + click with the pen): put the viewport's
+        // construction plane on the surface under the pointer (tangent at the clicked point),
+        // or back where it was on empty space. With nothing of the tool's to put back, the
+        // armed button resets the plane to Rhino's default; the key combination, which is
+        // easily pressed without meaning that, leaves the user's own plane alone.
+        void PickDrawPlane(RhinoView view, ScreenPoint point, bool resetOnMiss = true)
         {
             var viewport = view.ActiveViewport;
             Hit hit = null;
@@ -795,6 +817,7 @@ namespace RhinoSketchingTool
             }
             else if (!ReturnPlane(viewport))
             {
+                if (!resetOnMiss) return; // nothing under the pointer and nothing to put back: everything stays as it is
                 // Nothing of ours to put back: the plane is wherever the user (or an
                 // earlier version of this tool) left it. Reset it to Rhino's default.
                 // Pushed, so that Rhino's own "CPlane Undo" can take this back.

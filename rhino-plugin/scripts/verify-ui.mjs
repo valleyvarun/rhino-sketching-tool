@@ -132,6 +132,30 @@ try {
   await screenshot('codex-attachments');
   await evaluate('document.querySelector("[data-remove]").click()');
   assert.equal((await take())[0].type, 'removeAttachment');
+  // An attached image shows as a small thumbnail with its own x; other files keep their name.
+  const dot = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  state.attachments = [{ id: 'test-image', name: 'pasted.png', image: true, thumb: dot }, { id: 'test-notes', name: 'notes.txt', thumb: '' }];
+  await evaluate('crayon.state(' + JSON.stringify(state) + ')');
+  assert.equal(await evaluate('document.querySelectorAll("#chatFiles .ag-thumb img").length'), 1, 'an attached image shows as a thumbnail');
+  assert.equal(await evaluate('document.querySelectorAll("#chatFiles .ag-file").length'), 1, 'a file that is not an image keeps its name');
+  assert(await evaluate('document.querySelector("#chatFiles .ag-thumb").getBoundingClientRect().width <= 48'), 'the thumbnail is small');
+  await screenshot('codex-image-thumbnail');
+  await evaluate('crayon.take(); document.querySelector("#chatFiles .ag-thumb [data-remove]").click()');
+  assert.deepEqual((await take()).map((a) => a.type + ':' + a.value), ['removeAttachment:test-image']);
+  state.attachments = [];
+  await evaluate('crayon.state(' + JSON.stringify(state) + ')');
+  // Text handed over by AgentView (Ctrl + V) goes in at the caret, with Windows line ends put right.
+  await evaluate('var box = document.querySelector("#chatText"); box.value = "ab"; box.focus(); box.setSelectionRange(1, 1); crayon.paste("X\\r\\nY")');
+  assert.equal(await evaluate('document.querySelector("#chatText").value'), 'aX\nYb', 'pasted text goes in at the caret');
+  assert.equal(await evaluate('document.querySelector("#sendBtn").disabled'), false, 'pasted text can be sent');
+  await evaluate('document.querySelector("#chatText").value = ""; crayon.take()');
+  // A picture pasted into the page itself is handed on as its bytes; text beside a picture stays text.
+  await evaluate('(async () => { var blob = await (await fetch(' + JSON.stringify(dot) + ')).blob(); var data = new DataTransfer(); data.items.add(new File([blob], "shot.png", { type: "image/png" })); document.querySelector("#chatText").dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true })); })()');
+  let pastedPicture = [];
+  for (let i = 0; i < 40 && !pastedPicture.length; i++) { await sleep(50); pastedPicture = await take(); }
+  assert.equal(pastedPicture.length && pastedPicture[0].type, 'pasteImage', 'a pasted picture is handed to the plug-in');
+  assert(pastedPicture[0].data.length > 20 && !/[^A-Za-z0-9+/=]/.test(pastedPicture[0].data), 'as base64');
+  assert.equal(await evaluate('(async () => { var blob = await (await fetch(' + JSON.stringify(dot) + ')).blob(); var data = new DataTransfer(); data.items.add(new File([blob], "shot.png", { type: "image/png" })); data.setData("text/plain", "words"); var event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }); document.querySelector("#chatText").dispatchEvent(event); return event.defaultPrevented; })()'), false, 'text with a picture beside it is pasted as text');
   await evaluate('document.querySelector("#chatText").value = "Make the roof curve"; document.querySelector("#chatText").dispatchEvent(new KeyboardEvent("keydown", {key:"Enter", bubbles:true}))');
   assert.deepEqual((await take()).map((a) => a.type + ':' + a.text), ['send:Make the roof curve']);
   await evaluate('crayon.sent(true)');
@@ -145,6 +169,9 @@ try {
   await call('Emulation.setDeviceMetricsOverride', { width: 260, height: 680, deviceScaleFactor: 1, mobile: false });
   await evaluate('crayon.state({reset:true, status:"working", thinking:true, ids:[90,91],entries:[{id:90,kind:"user",text:"Make ten boxes",chips:[{kind:"sketch",label:"Group 2"}]},{id:91,kind:"ask",name:"run_command",text:"Create ten boxes in Rhino",status:"pending",request:"mcp-request"}]});');
   assert.equal(await evaluate('document.querySelector(".ag-user .ag-file.sk span").textContent'), 'Group 2', 'a message shows the groups it took along');
+  await evaluate('crayon.state({ids:[90,91,92],entries:[{id:92,kind:"user",text:"Like this",chips:[{kind:"file",label:"pasted.png",thumb:' + JSON.stringify(dot) + '},{kind:"file",label:"notes.txt"}]}]});');
+  assert.equal(await evaluate('document.querySelectorAll(".ag-user .ag-thumb img").length'), 1, 'a sent image shows as a thumbnail in the message');
+  await evaluate('crayon.state({ids:[90,91]});');
   assert.equal(await evaluate('document.querySelector(".ag-ai").classList.contains("thinking")'), true, 'the loop runs while the agent works');
   assert.equal(await evaluate('document.querySelector(".ag-think").textContent'), 'Thinking');
   await screenshot('mcp-approval');
