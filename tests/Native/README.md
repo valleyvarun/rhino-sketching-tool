@@ -8,7 +8,7 @@ Start-Process 'C:\Program Files\Rhino 8\System\Rhino.exe' -WindowStyle Hidden -A
 
 Adjust the repository path if needed. The final `Exit` closes only this newly launched process. The script writes its assertions and any exception to `tests/Native/bin/rhino-script.log`; its scratch 3dm stays in that same ignored output folder. Create `tests/Native/bin` before the first run.
 
-Checks cover native view capture/restore, duplicate names and identical-camera views, view navigation/aspect changes, rename/deletion, real pointer-driven sketch creation, scoped erasing and partial-erase metadata, and 3dm save/reopen persistence. The toolbar's actual WPF renderers also export QA images into `rhino-plugin/bin/UiValidation`.
+Checks cover native view capture/restore, duplicate names and identical-camera views, rename/deletion, and pointer-driven sketches on a camera plane. Shaded viewport captures check that Over view sketches appear over a solid in their source view and follow ordinary depth in another view. The tests also verify fixed world coordinates after a camera move and 3dm reopen, erasing from the moved camera, and brush metadata after a partial erase. The toolbar's actual WPF renderers also export QA images into `rhino-plugin/bin/UiValidation`.
 
 The integration test covers actual drawing/erasing, save/reopen, exact toolbar/picker rendering, and dock/popup bounds for Top, Left and Right at 1200x700, 280x180 and 200x140 viewport sizes. Inspect the exported toolbar and picker images after changing their renderers.
 

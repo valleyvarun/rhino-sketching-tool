@@ -298,10 +298,6 @@ namespace RhinoSketchingTool
                 }
                 if (type == "select")
                 {
-                    // Sketches over a view stay hidden Rhino objects: ordinary selection would
-                    // expose their curves in every viewport. Rename/delete are available
-                    // here; the eraser works on them in their view.
-                    if (!string.IsNullOrEmpty(obj.Attributes.GetUserString(SketchController.ViewStrokeKey))) return;
                     controller.Tool = SketchTool.Select;
                     doc.Objects.UnselectAll();
                     doc.Objects.Select(id);

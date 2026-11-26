@@ -26,6 +26,7 @@ namespace RhinoSketchingTool
     ///   Surface  on whatever surface, polysurface, mesh or SubD is under the pointer
     ///   Plane    on the viewport's construction plane
     ///   Cursor   on a plane through the 3D cursor, facing the camera
+    ///   View     on a fixed plane near the selected saved camera
     ///
     /// "Pick a face" in the pen's option row, then a click on a surface, moves the
     /// construction plane onto it (on empty space it puts the plane back); "Place cursor",
@@ -297,6 +298,7 @@ namespace RhinoSketchingTool
         internal StrokePaint LivePaint => drawing != null && drawing.Points.Count > 0 ? Paint(drawing, false) : null;
 
         internal Color LiveColor => drawing != null ? drawing.Color : Ink;
+        internal string LiveSourceView => drawing?.ViewKey;
 
         /// <summary>Changes whenever the stroke being drawn does.</summary>
         internal int LiveVersion => liveVersion;
@@ -348,15 +350,13 @@ namespace RhinoSketchingTool
             }
             if (tool == SketchTool.Erase)
             {
-                erasing = new EraseDrag { View = view, Strokes = CollectStrokes(view.Document, view.ActiveViewport) };
+                erasing = new EraseDrag { View = view, Strokes = CollectStrokes(view.Document) };
                 EraseAt(point);
                 return true;
             }
 
             var viewport = view.ActiveViewport;
-            // "Over view" draws over the saved view that was picked, and only while this
-            // viewport is in it. Every other method makes 3D model content that every view shows.
-            string viewKey = null;
+            Plane plane;
             if (method == DrawMethod.View)
             {
                 string picked = OverViewName;
@@ -372,18 +372,15 @@ namespace RhinoSketchingTool
                     RestoreView(picked, view);
                     return true;
                 }
-                viewKey = overView;
+                if (!TryGetOverViewPlane(view.Document, out plane)) return true;
             }
+            else plane = method == DrawMethod.Cursor ? new Plane(cursor, viewport.CameraDirection) : viewport.ConstructionPlane();
             drawing = new DrawDrag
             {
                 View = view,
-                Plane = method == DrawMethod.Cursor
-                    ? new Plane(cursor, viewport.CameraDirection)
-                    : method == DrawMethod.View
-                        ? new Plane(viewport.CameraTarget, viewport.CameraDirection)
-                        : viewport.ConstructionPlane(),
+                Plane = plane,
                 Color = StrokeColor,
-                ViewKey = viewKey,
+                ViewKey = method == DrawMethod.View ? overView : null,
                 Method = method,
             };
             ExtendStroke(point, pressure);
@@ -404,7 +401,7 @@ namespace RhinoSketchingTool
                 EndDrag(); // wandered into another viewport
                 return;
             }
-            if (drawing?.ViewKey != null && !LiveVisibleInView(view.Document, view.ActiveViewport))
+            if (drawing?.ViewKey != null && drawing.ViewKey != ViewKeyFor(view.Document, view.ActiveViewport))
             {
                 EndDrag(); // the camera moved during a sketch over a view: two projections must not mix
                 return;
@@ -577,7 +574,7 @@ namespace RhinoSketchingTool
                 BeginChange(doc);
                 attributes.ColorSource = ObjectColorSource.ColorFromObject;
                 attributes.ObjectColor = drawing.Color;
-                if (drawing.ViewKey != null) attributes.SetUserString(ViewStrokeKey, drawing.ViewKey); // drawn over a view: shows only there
+                if (drawing.ViewKey != null) attributes.SetUserString(ViewStrokeKey, drawing.ViewKey);
                 var points = drawing.Points.ToArray();
                 var paint = Paint(drawing, true);
                 if (SnapShapes && drawing.Method != DrawMethod.Surface)
@@ -641,7 +638,6 @@ namespace RhinoSketchingTool
             for (int i = erasing.Strokes.Count - 1; i >= 0; i--)
             {
                 var stroke = erasing.Strokes[i];
-                if (!StrokeVisibleInView(doc, viewport, stroke.Attributes)) continue;
                 var screen = new Point2d?[stroke.Points.Length];
                 for (int k = 0; k < screen.Length; k++) screen[k] = ToScreen(viewport, stroke.Points[k]);
                 if (!Touches(screen, pointer, radius)) continue;
@@ -737,13 +733,12 @@ namespace RhinoSketchingTool
         }
 
         // The strokes the eraser can reach: those that can be seen.
-        static List<Stroke> CollectStrokes(RhinoDoc doc, RhinoViewport viewport = null)
+        static List<Stroke> CollectStrokes(RhinoDoc doc)
         {
             var strokes = new List<Stroke>();
             foreach (RhinoObject obj in StrokeObjects(doc))
             {
                 if (!OnVisibleLayer(doc, obj)) continue;
-                if (viewport != null && !StrokeVisibleInView(doc, viewport, obj.Attributes)) continue;
                 if (!(obj.Geometry is Curve curve)) continue;
                 Point3d[] points = StrokePoints(curve, doc.ModelAbsoluteTolerance);
                 if (points == null) continue;
@@ -1192,7 +1187,7 @@ namespace RhinoSketchingTool
             public List<Target> Targets;
             public Color Color;
             public DrawMethod Method;
-            public string ViewKey; // "Over view": the saved view this is drawn over; null for a 3D sketch
+            public string ViewKey; // source camera for an Over view sketch
             public Guid ObjectId;
             public ScreenPoint Last;
 

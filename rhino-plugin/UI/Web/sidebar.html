@@ -207,10 +207,12 @@ main{ height:100%; }
 .lx svg{ width:15px; height:15px; }
 .lx:disabled{ opacity:.35; cursor:default; background:transparent; }
 .lx.del:hover{ color:var(--danger); }
-.lrow .chev{ width:14px; }
-.lrow.shut .chev{ transform:none; }
+.lrow button.chev{ width:14px; height:24px; padding:0; border:0; background:transparent; cursor:pointer; }
 .lrow.grp .chev{ transform:rotate(90deg); }
 .lrow.grp.shut .chev{ transform:none; }
+.group-disclosure{ align-self:flex-start; display:flex; align-items:center; gap:6px; padding:3px 6px 3px 2px; min-height:24px; border:0; border-radius:6px; background:transparent; color:var(--muted); font:400 11.5px var(--f-ui); cursor:pointer; }
+.group-disclosure:hover{ background:var(--hover); color:var(--ink-2); }
+.group-disclosure[aria-expanded="true"] .chev{ transform:rotate(90deg); }
 .lrow .dot{ width:8px; height:8px; flex:none; margin:0 3px; border-radius:50%; background:var(--c); }
 :root.dark .lrow .dot, :root.dark .cy-col{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
 :root.dark .cy-col[aria-pressed="true"]{ box-shadow:0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--ink); }
@@ -472,7 +474,8 @@ function renderSketch(force){
 }
 
 /* ---------- Layers ---------- */
-var shut={}; // groups folded shut, by "kind:id"; all start open
+var layersDocument, openGroups=new Set(), showAllGroups={};
+var recentGroupLimit=5;
 var lastDelete=0, deleteTimer=0;
 function eyeButton(act,id,on,label){
   return '<button type="button" class="lx" data-act="'+act+'" data-value="'+esc(id)+'" aria-pressed="'+!!on+'" title="'+(on?'Hide ':'Show ')+esc(label)+'" aria-label="'+(on?'Hide ':'Show ')+esc(label)+'">'+(on?IC.eye:IC.eyeOff)+'</button>';
@@ -481,19 +484,21 @@ function itemRow(x,kind,groupOn){
   var own=x.ownVisible!==false, name=kind==='sketch'?x.name:(x.text||'Comment '+x.number);
   var off=!own||!groupOn||x.visible===false;
   var mark=kind==='sketch'?'<i class="dot" style="--c:'+esc(x.color||'#15171c')+'"></i>':'<span class="cnum">'+esc(x.number)+'</span>';
-  // drawn over a saved view: it shows only in that view (and nowhere once the view is deleted)
-  var where=x.overlay?(x.view?' · only in view '+x.view:' · its view was deleted'):'';
+  var planeLabel=x.view?'Drawn on the camera plane of '+x.view:'Drawn on a saved camera plane';
   return '<div class="lrow item'+(off?' off':'')+'" data-item="'+esc(x.id)+'" data-kind="'+kind+'">'+
     eyeButton('visible',x.id,own,name)+mark+
-    '<span class="ln" title="'+esc(name+where)+(kind==='sketch'?' · double-click to rename':'')+'">'+esc(name)+'</span>'+(x.overlay?'<span class="lv" title="'+esc(x.view?'Drawn over the view '+x.view+': shows only there':'Its view was deleted: it shows nowhere')+'">'+IC.view+'</span>':'')+
-    (kind==='sketch'?'<button type="button" class="lx" data-act="select" data-value="'+esc(x.id)+'" title="Select in Rhino" aria-label="Select '+esc(name)+'"'+(x.overlay||!groupOn||!own?' disabled':'')+'>'+IC.select+'</button>':'')+
+    '<span class="ln" title="'+esc(name+(x.overlay?' · '+planeLabel:''))+(kind==='sketch'?' · double-click to rename':'')+'">'+esc(name)+'</span>'+(x.overlay?'<span class="lv" title="'+esc(planeLabel)+'">'+IC.view+'</span>':'')+
+    (kind==='sketch'?'<button type="button" class="lx" data-act="select" data-value="'+esc(x.id)+'" title="Select in Rhino" aria-label="Select '+esc(name)+'"'+(!groupOn||!own?' disabled':'')+'>'+IC.select+'</button>':'')+
     '<button type="button" class="lx del" data-act="delete" data-value="'+esc(x.id)+'" title="Delete" aria-label="Delete '+esc(name)+'">'+IC.trash+'</button></div>';
 }
 function groupRows(kind,groups,items){
-  return groups.map(function(g){
-    var key=kind+':'+g.id, members=items.filter(function(x){return (x.group||1)===g.id});
-    var row='<div class="lrow grp'+(g.active?' picked':'')+(shut[key]?' shut':'')+(g.visible?'':' off')+'" data-group="'+key+'" title="'+(g.active?'New '+(kind==='sketch'?'sketches':'comments')+' go here':'Click to draw new '+(kind==='sketch'?'sketches':'comments')+' into '+esc(g.name))+'">'+
-      '<span class="chev" data-act="fold" aria-hidden="true">'+IC.chev+'</span>'+
+  var byGroup=new Map(), ungrouped=[];
+  groups.forEach(function(g){byGroup.set(g.id,[]);});
+  items.forEach(function(x){(byGroup.get(x.group||1)||ungrouped).push(x);});
+  function groupRow(g){
+    var key=kind+':'+g.id, members=byGroup.get(g.id), open=openGroups.has(key);
+    var row='<div class="lrow grp'+(g.active?' picked':'')+(open?'':' shut')+(g.visible?'':' off')+'" data-group="'+key+'" title="'+(g.active?'New '+(kind==='sketch'?'sketches':'comments')+' go here':'Click to draw new '+(kind==='sketch'?'sketches':'comments')+' into '+esc(g.name))+'">'+
+      '<button type="button" class="chev" data-act="fold" data-value="'+key+'" aria-label="'+esc(g.name)+' contents" aria-expanded="'+open+'">'+IC.chev+'</button>'+
       eyeButton('groupVisible',key,g.visible,g.name)+
       '<button type="button" class="lx gai" role="checkbox" data-act="groupContext" data-value="'+key+'" aria-checked="'+(g.context!==false)+'" title="'+(g.context!==false?'Sent to the agent with your next message':'Not sent to the agent')+'" aria-label="Send '+esc(g.name)+' to the agent"><i class="ck">'+IC.tick+'</i></button>'+
       '<span class="ln" data-rename-group="'+key+'">'+esc(g.name)+'</span>'+
@@ -501,17 +506,25 @@ function groupRows(kind,groups,items){
       '<button type="button" class="lx gck" role="radio" data-act="groupActive" data-value="'+key+'" aria-checked="'+!!g.active+'" title="'+(g.active?'You are '+(kind==='sketch'?'sketching':'commenting')+' in this group':(kind==='sketch'?'Sketch':'Comment')+' in this group')+'" aria-label="'+(kind==='sketch'?'Sketch':'Comment')+' in '+esc(g.name)+'">'+IC.tick.replace('<svg ','<svg class="lt" ')+'</button>'+
       '<button type="button" class="lx" data-act="groupRenameStart" data-value="'+key+'" title="Rename group" aria-label="Rename '+esc(g.name)+'">'+IC.rename+'</button>'+
       '<button type="button" class="lx del" data-act="groupDelete" data-value="'+key+'" data-count="'+members.length+'" title="'+(members.length?'Delete this group and its '+members.length+' '+(kind==='sketch'?(members.length===1?'sketch':'sketches'):(members.length===1?'comment':'comments')):'Delete this group')+' (Undo in Rhino brings it back)" aria-label="Delete '+esc(g.name)+'">'+IC.trash+'</button></div>';
-    if(shut[key])return row;
+    if(!open)return row;
     return row+(members.length?members.map(function(x){return itemRow(x,kind,g.visible)}).join(''):'<p class="lempty">'+(kind==='sketch'?'No sketches yet':'No comments yet')+'</p>');
-  }).join('')+
-  // nothing is ever left out: what is in no listed group yet shows below them
-  items.filter(function(x){return !groups.some(function(g){return g.id===(x.group||1)})}).map(function(x){return itemRow(x,kind,true)}).join('');
+  }
+  // Rhino supplies groups in creation order. Keep the recent rows above the disclosure.
+  var rows=groups.slice(-recentGroupLimit).map(groupRow).join('');
+  if(groups.length>recentGroupLimit){
+    var expanded=!!showAllGroups[kind];
+    rows+='<button type="button" class="group-disclosure" data-act="showGroups" data-value="'+kind+'" aria-expanded="'+expanded+'"><span class="chev" aria-hidden="true">'+IC.chev+'</span>show all groups</button>';
+    if(expanded) rows+=groups.slice(0,-recentGroupLimit).map(groupRow).join('');
+  }else{ delete showAllGroups[kind]; }
+  return rows+ungrouped.map(function(x){return itemRow(x,kind,true)}).join('');
 }
 function renderLayers(force){
-  if(document.activeElement&&document.activeElement.tagName==='INPUT'&&$('layers').contains(document.activeElement))return; // renaming
+  if(layersDocument!==S.documentId){
+    layersDocument=S.documentId; openGroups.clear(); showAllGroups={}; force=true;
+  }else if(document.activeElement&&document.activeElement.tagName==='INPUT'&&$('layers').contains(document.activeElement))return; // renaming
   // the groups are the document's own (sublayers in Rhino): none until something is drawn or + is pressed
   var sg=S.sketchGroups||[], cg=S.commentGroups||[], sk=S.sketches||[], cm=S.comments||[];
-  var sig=JSON.stringify([sk,cm,sg,cg,S.newGroup,S.hideUsed,shut]); if(sig===layersSig&&!force)return; layersSig=sig;
+  var sig=JSON.stringify([sk,cm,sg,cg,S.newGroup,S.hideUsed]); if(sig===layersSig&&!force)return; layersSig=sig;
   $('sketchMeta').textContent=sk.length===1?'1 sketch':sk.length+' sketches';
   $('commentMeta').textContent=cm.length===1?'1 comment':cm.length+' comments';
   $('sketchGroups').innerHTML=groupRows('sketch',sg,sk)||'<p class="lempty top">No sketches yet. Draw one, or press + for a group.</p>';
@@ -527,7 +540,15 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');
   if(b&&$('layers').contains(b)){
     e.stopPropagation();
-    if(b.dataset.act==='fold'){ var key=b.closest('[data-group]').dataset.group; shut[key]=!shut[key]; renderLayers(true); return; }
+    if(b.dataset.act==='fold'||b.dataset.act==='showGroups'){
+      var action=b.dataset.act, key=b.dataset.value;
+      if(action==='showGroups') showAllGroups[key]=!showAllGroups[key];
+      else if(openGroups.has(key)) openGroups.delete(key);
+      else openGroups.add(key);
+      renderLayers(true);
+      document.querySelector('[data-act="'+action+'"][data-value="'+key+'"]').focus({preventScroll:true});
+      return;
+    }
     if(b.dataset.act==='groupContext'){ var on=b.getAttribute('aria-checked')!=='true'; setCheck(b,on,true); b.title=on?'Sent to the agent with your next message':'Not sent to the agent'; post('groupContext',b.dataset.value); return; }
     if(b.dataset.act==='groupActive'){ var kind=b.dataset.value.split(':')[0];
       document.querySelectorAll('.lx.gck').forEach(function(t){ if(t.dataset.value.split(':')[0]===kind) setLive(t,t===b); });
@@ -540,7 +561,7 @@ document.addEventListener('click',function(e){
       // is gone: a second click already on its way must not take the next row with it.
       var now=Date.now(); if(now-lastDelete<700)return; lastDelete=now;
       var going=b.closest('.lrow');
-      if(going){ going.classList.add('going'); if(going.classList.contains('grp')) for(var nx=going.nextElementSibling; nx&&!nx.classList.contains('grp'); nx=nx.nextElementSibling) nx.classList.add('going'); }
+      if(going){ going.classList.add('going'); if(going.classList.contains('grp')) for(var nx=going.nextElementSibling; nx&&nx.matches('.lrow.item,.lempty'); nx=nx.nextElementSibling) nx.classList.add('going'); }
       clearTimeout(deleteTimer); deleteTimer=setTimeout(function(){renderLayers(true)},1500); // kept after all? then show it again
       post(b.dataset.act,b.dataset.value); return; }
     post(b.dataset.act,b.dataset.value);

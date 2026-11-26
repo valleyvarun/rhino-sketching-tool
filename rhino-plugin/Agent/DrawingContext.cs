@@ -31,7 +31,7 @@ namespace RhinoSketchingTool
             var sketchGroups = new HashSet<int>();
             var commentGroups = new HashSet<int>();
             foreach (RhinoObject obj in SketchController.StrokeObjects(doc))
-                if (AnnotationGroups.InContext(state, obj.Attributes) && !SketchController.ViewGone(doc, obj.Attributes)) sketchGroups.Add(AnnotationGroups.GroupOf(state, obj.Attributes));
+                if (AnnotationGroups.InContext(state, obj.Attributes)) sketchGroups.Add(AnnotationGroups.GroupOf(state, obj.Attributes));
             var settings = new ObjectEnumeratorSettings { ObjectTypeFilter = ObjectType.Point, HiddenObjects = true, NormalObjects = true, LockedObjects = true, VisibleFilter = false };
             foreach (var obj in doc.Objects.GetObjectList(settings))
                 if (obj.Attributes.GetUserString(SketchController.CommentKey) != null && AnnotationGroups.InContext(state, obj.Attributes))
@@ -51,13 +51,12 @@ namespace RhinoSketchingTool
             int number = 0;
             bool overViews = false;
             // The agent gets every sketch and comment group ticked in Layers, without the
-            // items whose own eye is off. A sketch drawn over a saved view is not 3D: it is
-            // named with its view, and left out once that view is gone (it shows nowhere).
+            // items whose own eye is off.
             foreach (RhinoObject obj in SketchController.StrokeObjects(doc))
             {
                 number++;
                 int group = AnnotationGroups.GroupOf(state, obj.Attributes);
-                if (!AnnotationGroups.InContext(state, obj.Attributes) || SketchController.ViewGone(doc, obj.Attributes)) continue;
+                if (!AnnotationGroups.InContext(state, obj.Attributes)) continue;
                 sketchGroups.Add(group);
                 var points = obj.Geometry is Curve curve ? SketchController.StrokePoints(curve, doc.ModelAbsoluteTolerance) : null;
                 var sampled = new List<object>();
@@ -96,7 +95,7 @@ namespace RhinoSketchingTool
             if (images.Count > 0)
                 context["imageNote"] = "A comment with image has a picture the user put on it. That picture is attached to this prompt as the image file of that name.";
             if (overViews)
-                context["note"] = "A sketch with overView was drawn over that saved Rhino Named View, like a note on a print of it: it is flat, on a plane facing that view's camera, and only means something seen from that view. Its points are not positions in the model.";
+                context["note"] = "overView identifies the saved Rhino Named View used for drawing. The sketch points are world coordinates on a fixed plane facing the original camera.";
             context["sketchGroups"] = state.Sketches.Where(g => sketchGroups.Contains(g.Id)).Select(g => (object)new JsonMap { ["id"] = g.Id, ["name"] = g.Name }).ToList();
             context["commentGroups"] = state.Comments.Where(g => commentGroups.Contains(g.Id)).Select(g => (object)new JsonMap { ["id"] = g.Id, ["name"] = g.Name }).ToList();
             context["units"] = doc.ModelUnitSystem.ToString();

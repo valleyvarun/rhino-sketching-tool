@@ -96,6 +96,7 @@ namespace RhinoSketchingTool.DrawingTest
                 Bar("toolbar-folded" + look, 1.5, "Comments", "Collapse", "None", false, true);
                 Options("options-pen-face" + look, 1.5, "Draw", "Plane", new[] { "Object", "Plane", "Cursor", "View" }, new[] { "FaceChip" }, new[] { "Color" }, new[] { "Snap" });
                 Options("options-pen-cursor" + look, 1.5, "Draw", "Cursor", new[] { "Object", "Plane", "Cursor", "View" }, new[] { "PlaceCursor" }, new[] { "Color" }, new[] { "Snap" });
+                Options("options-pen-object" + look, 1.5, "Draw", "Surface", new[] { "Object", "Plane", "Cursor", "View" }, new[] { "Color" }, new[] { "Snap" });
                 Options("options-eraser" + look, 1.5, "Erase", "Plane", new[] { "EraseWhole", "ErasePart" });
                 Options("options-comment" + look, 1.5, "Comment", "Plane", null, new[] { "Hint" });
                 Options("options-views" + look, 1.5, "Views", "Plane", null, new[] { "SaveView" });
@@ -246,7 +247,9 @@ namespace RhinoSketchingTool.DrawingTest
 
             var items = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType));
             var wells = new List<Wpf.Rect>();
+            var dividers = new List<Wpf.Point>();
             const double GroupGap = 6, SegPad = 3, ButtonHeight = 30, SegButtonHeight = 28;
+            double sectionGap = tool == "Draw" ? (double)toolbarType.GetField("PenSectionGap", Any).GetRawConstantValue() : GroupGap;
             double x = 5, y = 5;
             Action<string, Wpf.Rect> add = (part, box) =>
             {
@@ -272,7 +275,11 @@ namespace RhinoSketchingTool.DrawingTest
             }
             foreach (string[] group in groups)
             {
-                if (x > 5) x += GroupGap;
+                if (x > 5)
+                {
+                    if (tool == "Draw") dividers.Add(new Wpf.Point(x + sectionGap / 2, y + SegPad + SegButtonHeight / 2));
+                    x += sectionGap;
+                }
                 double bx = x;
                 foreach (string part in group)
                 {
@@ -287,6 +294,7 @@ namespace RhinoSketchingTool.DrawingTest
             frameType.GetField("Scale").SetValue(frame, scale);
             frameType.GetField("Items").SetValue(frame, items);
             frameType.GetField("Wells").SetValue(frame, wells);
+            frameType.GetField("SectionDividers").SetValue(frame, dividers);
             frameType.GetField("OptionsSize").SetValue(frame, new Wpf.Size(x + 5, y + SegButtonHeight + 2 * SegPad + 5));
             frameType.GetField("HasOptions").SetValue(frame, true);
             frameType.GetField("Views").SetValue(frame, noViews);

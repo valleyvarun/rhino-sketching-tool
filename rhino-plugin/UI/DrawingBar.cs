@@ -43,7 +43,7 @@ namespace RhinoSketchingTool
         const double BarGap = 8, RowHeight = 44, PopupWidth = 284;
         const int MaxRows = 8;
         const double ListTop = 43, ListRow = 30, ListWidth = 232; // the list: "Save this view" above a hairline, then the rows
-        const double SegPad = 3, GroupGap = 6, ButtonHeight = 30, SegButtonHeight = 28;
+        const double SegPad = 3, GroupGap = 6, PenSectionGap = 11, ButtonHeight = 30, SegButtonHeight = 28;
         static readonly Color[] Swatches = { Color.FromArgb(35,38,44), Color.FromArgb(151,49,176), Color.FromArgb(211,46,39), Color.FromArgb(17,132,91), Color.FromArgb(32,94,211) };
 
         sealed class Frame
@@ -53,6 +53,7 @@ namespace RhinoSketchingTool
             public Wpf.Size OptionsSize, PopupSize;
             public List<Item> Items;
             public List<Wpf.Rect> Wells;     // the grey wells behind segmented buttons
+            public List<Wpf.Point> SectionDividers;
             public IReadOnlyList<string> Views;
             public bool HasOptions;
             public int Rows, RowStart;       // the list of saved views: how many rows it shows, from which view on,
@@ -163,11 +164,13 @@ namespace RhinoSketchingTool
             bool hasList = !collapsed && (controller.Tool == SketchTool.Views || (controller.Tool == SketchTool.Draw && controller.Method == DrawMethod.View));
             viewListLabel = hasList ? ViewListLabel(views) : "";
             var groups = collapsed ? new List<Group>() : OptionGroups(views);
+            bool divideSections = controller.Tool == SketchTool.Draw;
+            double sectionGap = divideSections ? PenSectionGap : GroupGap;
 
             double preferred = 10;
             foreach (Group g in groups)
             {
-                if (preferred > 10) preferred += GroupGap;
+                if (preferred > 10) preferred += sectionGap;
                 if (g.Seg) preferred += 2 * SegPad + (g.Parts.Count - 1) * 2;
                 else preferred += (g.Parts.Count - 1) * GroupGap;
                 foreach (Part p in g.Parts) preferred += OptionWidth(p, views);
@@ -176,13 +179,21 @@ namespace RhinoSketchingTool
 
             var items = new List<Item>();
             var wells = new List<Wpf.Rect>();
+            var dividers = new List<Wpf.Point>();
             double x = 5, y = 5;
             foreach (Group g in groups)
             {
                 double groupWidth = g.Seg ? 2 * SegPad + (g.Parts.Count - 1) * 2 : (g.Parts.Count - 1) * GroupGap;
                 foreach (Part p in g.Parts) groupWidth += OptionWidth(p, views);
-                if (x > 5) x += GroupGap;
-                if (x > 5 && x + groupWidth > width - 5) { x = 5; y += RowHeight - 5; }
+                if (x > 5)
+                {
+                    if (x + sectionGap + groupWidth > width - 5) { x = 5; y += RowHeight - 5; }
+                    else
+                    {
+                        if (divideSections) dividers.Add(new Wpf.Point(x + sectionGap / 2, y + SegPad + SegButtonHeight / 2));
+                        x += sectionGap;
+                    }
+                }
                 if (g.Seg)
                 {
                     wells.Add(new Wpf.Rect(x, y, Math.Min(groupWidth, width - 10), SegButtonHeight + 2 * SegPad));
@@ -235,7 +246,7 @@ namespace RhinoSketchingTool
             double toolX = (pair.Width - toolSize.Width) / 2, optionX = (pair.Width - optionSize.Width) / 2;
             var frame = new Frame
             {
-                Scale = scale, Items = items, Wells = wells, OptionsSize = optionSize, HasOptions = hasOptions, Views = views,
+                Scale = scale, Items = items, Wells = wells, SectionDividers = dividers, OptionsSize = optionSize, HasOptions = hasOptions, Views = views,
                 Rows = rows, RowStart = viewPage * perPage, More = more,
                 // Docked at the bottom, the option row sits above the toolbar.
                 ToolOrigin = new ScreenPoint(origin.X + (int)(toolX * scale), origin.Y + (int)((bottomDock && hasOptions ? optionSize.Height + BarGap : 0) * scale)),
@@ -512,6 +523,12 @@ namespace RhinoSketchingTool
             c.PushTransform(new Media.TranslateTransform(Margin, Margin));
             Picture.Card(c, new Wpf.Rect(f.OptionsSize), 15);
             foreach (var well in f.Wells) c.DrawRoundedRectangle(Fill(Well), null, well, 12, 12);
+            if (f.SectionDividers.Count > 0)
+            {
+                var line = new Media.Pen(Fill(Shade, LineShade), 1);
+                foreach (var centre in f.SectionDividers)
+                    c.DrawLine(line, new Wpf.Point(centre.X, centre.Y - 9), new Wpf.Point(centre.X, centre.Y + 9));
+            }
             foreach (var item in f.Items) PaintOption(c, item, f);
             c.Pop();
         });

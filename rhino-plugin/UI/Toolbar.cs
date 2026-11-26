@@ -585,8 +585,8 @@ namespace RhinoSketchingTool
                 case Part.Object: return "Draw on objects";
                 case Part.Plane: return "Draw on the construction plane";
                 case Part.Cursor: return "Draw on a plane through the 3D cursor";
-                case Part.View: return "Draw over a saved view: the sketch shows only in that view";
-                case Part.ViewList: return PenList ? "Choose the saved view to draw over" : "Go to a saved view";
+                case Part.View: return "Draw on a fixed plane in front of a saved view's camera";
+                case Part.ViewList: return PenList ? "Choose the saved view for the drawing plane" : "Go to a saved view";
                 case Part.PickFace: return controller.Picking == PickMode.Face ? "Click a face of an object (click here again to cancel)" : "Click a face of an object to draw on it · or Ctrl+Shift+click one";
                 case Part.FaceChip: return "Back to the construction plane";
                 case Part.PlaceCursor: return controller.Picking == PickMode.Cursor ? "Click in the model (click here again to cancel)" : "Click in the model to put the 3D cursor there";
@@ -596,7 +596,7 @@ namespace RhinoSketchingTool
                 case Part.ErasePart: return "Erase only where you drag";
                 case Part.SaveView: return "Save what you see now as a named view";
                 default:
-                    if (part >= Part.RowX0 && part <= Part.RowX7) return armedRow == part - Part.RowX0 ? "Click again to delete this view" : "Delete this view, and what is drawn over it";
+                    if (part >= Part.RowX0 && part <= Part.RowX7) return armedRow == part - Part.RowX0 ? "Click again to delete this view" : "Delete this view";
                     return null;
             }
         }

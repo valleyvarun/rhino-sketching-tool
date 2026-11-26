@@ -58,22 +58,14 @@ to return to the top. The option row changes with the tool:
   x (twice) to delete it. *Save this view* is at the top of the list too.
 
 **Saved views are cameras.** They are Rhino Named Views, in sync with Rhino's Named Views
-panel both ways. Going to one from the Saved views row changes the camera and nothing else,
-and nothing is captured automatically. Sketches drawn with Object, Plane or 3D cursor are
-3D model content: they show in every view and never disappear when you orbit.
+panel both ways. Going to one from the Saved views row restores its camera.
 
-**Over view** is the exception, and is for marking up a view as you would a print of it.
-Choose it under the pen, then pick a saved view from the list (or *Save this view* to
-save and pick the one on screen): the viewport goes to that view, and what you draw is
-drawn over it, not into the model. Such a sketch shows only while a viewport is in that
-view, over everything in the model, and disappears as soon as the camera moves away;
-going back to the view (from either list, or Rhino's Named Views panel) brings it back.
-With the camera moved away, the next press of the pen only returns to the view. The
-eraser reaches these sketches in their view only, Select leaves them alone, and Layers
-marks them with a small camera. Deleting a saved view in Crayon deletes what was drawn
-over it (one Undo step); deleted in Rhino's own panel, its sketches show nowhere but
-are still listed in Layers. The agent is told which view such a sketch belongs to, and
-that it is not 3D.
+**Over view** places sketches on a plane in front of a saved view's camera. Choose
+**Over view** under the pen, then pick a saved view or choose *Save this view* to use
+the current camera. In that saved view, the sketch appears over model objects. As you
+orbit or switch to another camera, the sketch stays fixed in 3D and objects can occlude it.
+You can select or erase it from another angle. Deleting the saved view keeps the sketch
+in the model. The camera icon beside the sketch in Layers identifies its drawing method.
 
 Crayon is turned off only with the switch in the panel header; Esc never turns it off.
 

@@ -474,10 +474,12 @@ namespace RhinoSketchingTool
         /// Call with depth writing off: dabs overlap, and must not hide one another.
         /// True if the stroke could not be brought as far forward as it should be (see Lift).
         /// </summary>
-        public bool Paint(DisplayPipeline display, RhinoViewport viewport)
+        public bool Paint(DisplayPipeline display, RhinoViewport viewport, bool foreground = false)
         {
-            Transform lift = Lift(viewport, true, out double scale, out bool cramped);
-            display.PushModelTransform(lift);
+            double scale;
+            bool cramped = false;
+            Transform placement = foreground ? ForegroundPlacement(viewport, out scale) : Lift(viewport, true, out scale, out cramped);
+            display.PushModelTransform(placement);
             try
             {
 #if MAC
@@ -489,6 +491,25 @@ namespace RhinoSketchingTool
             }
             finally { display.PopModelTransform(); }
             return cramped;
+        }
+
+        // Foreground drawing bypasses the depth buffer, but Rhino still clips at the
+        // live frustum. If the saved sketch plane is closer, move the painted copy just
+        // inside the live frustum along the viewing rays. Its projection stays the same.
+        Transform ForegroundPlacement(RhinoViewport viewport, out double scale)
+        {
+            scale = 1;
+            if (!viewport.GetFrustum(out _, out _, out _, out _, out double near, out double far)) return Transform.Identity;
+            Vector3d direction = viewport.CameraDirection;
+            if (!direction.Unitize()) return Transform.Identity;
+            Point3d camera = viewport.CameraLocation;
+            double depth = (points[0] - camera) * direction;
+            double inside = near + Math.Min(Math.Abs(near) * .01, (far - near) * .01);
+            if (depth >= inside) return Transform.Identity;
+            if (viewport.IsParallelProjection) return Transform.Translation(direction * (inside - depth));
+            if (depth <= 0) return Transform.Identity;
+            scale = inside / depth;
+            return Transform.Scale(camera, scale);
         }
 
 #if MAC

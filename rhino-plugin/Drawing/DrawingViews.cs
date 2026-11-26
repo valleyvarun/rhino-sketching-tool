@@ -109,9 +109,8 @@ namespace RhinoSketchingTool
 
         // ------------------------------------------------- drawing over a view
 
-        // The pen's "Over view" method draws over one saved view, as on a print of it: the
-        // sketch is not part of the 3D model, and shows only while a viewport is in that
-        // view. The view is picked first (as a face is for Plane); the camera goes there.
+        // The picked camera sets the drawing plane. Its key records the sketch's source;
+        // existing sketches keep their model-space geometry if that camera changes or goes away.
         string overView;   // the picked view's key (NamedViewKey),
         uint overViewDoc;  // in this document
 
@@ -141,6 +140,39 @@ namespace RhinoSketchingTool
             return true;
         }
 
+        internal bool TryGetOverViewPlane(RhinoDoc doc, out Plane plane)
+        {
+            plane = Plane.Unset;
+            if (doc == null || overViewDoc != doc.RuntimeSerialNumber) return false;
+            int index = NamedViewIndex(doc, overView);
+            if (index < 0) return false;
+            var camera = doc.NamedViews[index].Viewport;
+            if (camera == null || !camera.IsValidCamera || !camera.IsValidFrustum) return false;
+
+            // Base every stroke on the saved frame. Rhino can move the live near clip
+            // when it includes the first stroke in the scene bounds.
+            var frame = camera.FrustumNearPlane;
+            if (!frame.IsValid) return false;
+            double near = camera.FrustumNear;
+            double forwardShift;
+            if (camera.IsParallelProjection)
+            {
+                // Parallel cameras can sit very far from the model. Use the visible
+                // frame size to bound how far the sketch moves toward that virtual eye.
+                forwardShift = Math.Min(.9 * near, .25 * camera.FrustumMinimumDiameter);
+            }
+            else
+            {
+                double minDepth = Math.Max(camera.PerspectiveMinNearDist, camera.FrustumFar * camera.PerspectiveMinNearOverFar);
+                double depth = Math.Min(near, Math.Max(.1 * near, 1.02 * minDepth));
+                forwardShift = near - depth;
+            }
+            frame.Origin += frame.Normal * forwardShift;
+            if (!frame.IsValid) return false;
+            plane = frame;
+            return true;
+        }
+
         /// <summary>The name of the saved view a sketch was drawn over. Null for an ordinary sketch, or once that view is gone.</summary>
         internal static string ViewNameOf(RhinoDoc doc, ObjectAttributes attributes)
         {
@@ -148,17 +180,7 @@ namespace RhinoSketchingTool
             return index < 0 ? null : doc.NamedViews[index].Name;
         }
 
-        /// <summary>Drawn over a view that has since been deleted (in Rhino's Named Views panel): it shows nowhere.</summary>
-        internal static bool ViewGone(RhinoDoc doc, ObjectAttributes attributes)
-        {
-            string key = attributes.GetUserString(ViewStrokeKey);
-            return !string.IsNullOrEmpty(key) && NamedViewIndex(doc, key) < 0;
-        }
-
-        /// <summary>
-        /// Delete a Rhino Named View, and with it the sketches drawn over it (they show
-        /// nowhere else), as one step for Undo. Ordinary sketches are never touched.
-        /// </summary>
+        /// <summary>Delete the saved camera. Sketches drawn on its plane stay in the model.</summary>
         public bool DeleteView(string name)
         {
             var doc = RhinoDoc.ActiveDoc;
@@ -166,16 +188,9 @@ namespace RhinoSketchingTool
             int index = doc.NamedViews.FindByName(name);
             if (index < 0) return false;
             EndDrag();
-            string key = NamedViewKey(doc.NamedViews[index]);
             uint undo = doc.BeginUndoRecord("Delete Crayon view");
             bool done;
-            try
-            {
-                done = doc.NamedViews.Delete(index);
-                if (done)
-                    foreach (RhinoObject obj in StrokeObjects(doc))
-                        if (obj.Attributes.GetUserString(ViewStrokeKey) == key) doc.Objects.Delete(obj, true, true);
-            }
+            try { done = doc.NamedViews.Delete(index); }
             finally { if (undo != 0) doc.EndUndoRecord(undo); }
             Refresh();
             return done;
@@ -184,7 +199,7 @@ namespace RhinoSketchingTool
         // A binding distinguishes two saved views that happen to have identical cameras.
         // Camera matching also recognizes views restored from Rhino's own Named Views panel,
         // and reconstructs the binding after reopening a 3dm file. Native view GUIDs survive
-        // renaming; a view deleted in Rhino's own panel hides what was drawn over it.
+        // renaming, so the pen can continue to use a renamed view.
         sealed class ViewBinding
         {
             public string Key;
@@ -268,22 +283,6 @@ namespace RhinoSketchingTool
                 Math.Abs((bottom + top) / scale - (saved.FrustumBottom + saved.FrustumTop) / savedScale) <= tolerance;
         }
 
-        // An ordinary sketch is 3D and shows in every view. One drawn over a view shows only
-        // while the viewport is in that view; the eraser and comment snapping reach only what shows.
-        internal static bool StrokeVisibleInView(RhinoDoc doc, RhinoViewport viewport, ObjectAttributes attributes)
-        {
-            string key = attributes.GetUserString(ViewStrokeKey);
-            return string.IsNullOrEmpty(key) || key == ViewKeyFor(doc, viewport);
-        }
-
-        internal bool LiveVisibleInView(RhinoDoc doc, RhinoViewport viewport)
-        {
-            if (drawing == null || drawing.View.Document != doc) return false;
-            if (drawing.ViewKey == null) return true; // 3D, like every ordinary sketch: every view of its document shows it
-            return drawing.View.ActiveViewport.Id == viewport.Id && drawing.ViewKey == ViewKeyFor(doc, viewport);
-        }
-
-        /// <summary>The sketch being drawn is over a view: painted over everything, in that viewport only.</summary>
-        internal bool LiveIsView => drawing?.ViewKey != null;
+        internal bool LiveInDocument(RhinoDoc doc) => drawing != null && drawing.View.Document == doc;
     }
 }

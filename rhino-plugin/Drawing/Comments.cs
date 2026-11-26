@@ -252,7 +252,6 @@ namespace RhinoSketchingTool
             double nearest = CommentSnap * Toolbar.Scale(view);
             foreach (Stroke stroke in scene.Strokes)
             {
-                if (!StrokeVisibleInView(doc, viewport, stroke.Attributes)) continue;
                 Point2d? a = ToScreen(viewport, stroke.Points[0]);
                 for (int i = 1; i < stroke.Points.Length; i++)
                 {

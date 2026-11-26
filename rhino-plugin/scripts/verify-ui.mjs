@@ -259,6 +259,7 @@ try {
     })`), 'each pressure button sits to the right of its slider at ' + width);
   }
   sketch.tab = 'layers';
+  sketch.documentId = 1;
   sketch.sketches = [{ id:'b', name: 'Sketch 1', group: 1, ownVisible: true, visible: true, color: '#23262C' }];
   sketch.comments = [{ id:'c', number: 1, text: 'Refine this edge', group: 1, ownVisible: true, visible: true }];
   sketch.sketchGroups = [{id:1,name:'Group 1',active:true,visible:true}];
@@ -267,7 +268,10 @@ try {
   await call('Emulation.setDeviceMetricsOverride', { width: 348, height: 900, deviceScaleFactor: 1, mobile: false });
   await evaluate('crayonSidebar.state(' + JSON.stringify(sketch) + ')');
   await screenshot('sidebar-layers');
-  assert.equal(await evaluate('document.querySelectorAll("#sketchGroups .lrow.item").length'), 1, 'groups start open');
+  assert.equal(await evaluate('document.querySelectorAll("#layers .lrow.item").length'), 0, 'sketch and comment groups start collapsed');
+  await evaluate('document.querySelector("#sketchGroups [data-act=fold]").click()');
+  assert.equal(await evaluate('document.querySelectorAll("#sketchGroups .lrow.item").length'), 1);
+  assert.equal(await evaluate('document.querySelector("#commentGroups [data-act=fold]").getAttribute("aria-expanded")'), 'false');
   assert.equal(await evaluate('document.body.textContent.includes("Stroke ")'), false, 'sketches are never called strokes');
   assert.equal(await evaluate('document.querySelector("[data-check=newGroup]").getAttribute("aria-checked")'), 'true');
   assert.equal(await evaluate('document.querySelector("[data-check=hideUsed]").getAttribute("aria-checked")'), 'true');
@@ -295,6 +299,35 @@ try {
   await evaluate('crayonSidebar.state(' + JSON.stringify(sketch) + ')');
   assert.equal(await evaluate('document.querySelectorAll("#sketchGroups .lrow.grp.picked").length'), 1);
   assert.equal(await evaluate('document.querySelectorAll("#commentGroups .lrow.grp.picked").length'), 1);
+  const refreshLayers = () => evaluate('crayonSidebar.state(' + JSON.stringify(sketch) + ')');
+  const groups = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, name: 'Group ' + (i + 1), visible: true, active: i === 6 }));
+  const groupIds = kind => evaluate(`[...document.querySelectorAll("#${kind}Groups [data-group]")].map(row => Number(row.dataset.group.split(":")[1])).sort((a, b) => a - b)`);
+  const toggleList = kind => evaluate(`document.querySelector("#${kind}Groups [data-act=showGroups]").click()`);
+  sketch.sketchGroups = sketch.commentGroups = groups.slice(0, 5);
+  await refreshLayers();
+  assert.equal(await evaluate('document.querySelectorAll("#layers [data-act=showGroups]").length'), 0, 'all five fit without a disclosure');
+  sketch.sketchGroups = groups.slice(0, 6);
+  sketch.commentGroups = groups;
+  await refreshLayers();
+  assert.deepEqual(await groupIds('sketch'), [2, 3, 4, 5, 6]);
+  assert.deepEqual(await groupIds('comment'), [3, 4, 5, 6, 7]);
+  assert.equal(await evaluate('document.querySelectorAll("#layers .lrow.item").length'), 0, 'older groups hide their contents too');
+  assert.equal(await evaluate('document.querySelector("#sketchGroups [data-act=showGroups]").textContent.trim().toLowerCase()'), 'show all groups');
+  await toggleList('sketch');
+  assert.deepEqual(await groupIds('sketch'), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(await groupIds('comment'), [3, 4, 5, 6, 7], 'the comment list remains collapsed');
+  assert.equal(await evaluate('document.querySelectorAll("#sketchGroups .lrow.item").length'), 1, 'a group opened by the user stays open through refreshes');
+  await toggleList('comment');
+  assert.deepEqual(await groupIds('comment'), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(await evaluate('document.querySelectorAll("#commentGroups .lrow.item").length'), 0, 'showing more groups leaves their contents collapsed');
+  await toggleList('sketch');
+  assert.deepEqual(await groupIds('sketch'), [2, 3, 4, 5, 6]);
+  sketch.documentId = 2;
+  await refreshLayers();
+  assert.deepEqual(await groupIds('comment'), [3, 4, 5, 6, 7], 'a newly opened file starts with its latest five groups');
+  await toggleList('sketch');
+  assert.equal(await evaluate('document.querySelectorAll("#sketchGroups .lrow.item").length'), 0, 'group expansion stays with the previous file');
+  await toggleList('sketch');
   await screenshot('sidebar-groups');
   for (const [width, scale] of [[150, 1], [150, 2], [200, 1], [260, 1.5], [348, 1], [348, 1.25]]) {
     await call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: scale, mobile: false });
