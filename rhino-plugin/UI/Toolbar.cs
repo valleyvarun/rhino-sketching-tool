@@ -18,7 +18,7 @@ using Wpf = System.Windows;
 namespace RhinoSketchingTool
 {
     /// <summary>Where the toolbar sits over the viewport. On the two sides it stands upright.</summary>
-    internal enum ToolbarDock { TopLeft, Top, TopRight, Left, Right, BottomLeft, Bottom, BottomRight }
+    internal enum ToolbarDock { Top = 1, Left = 3, Right = 4, Bottom = 6, Floating = 8 }
 
     /// <summary>
     /// The toolbar over the active viewport: Select, Pen, Eraser, Comments and Saved views,
@@ -29,8 +29,7 @@ namespace RhinoSketchingTool
     /// hands it the clicks that land on it. So it is always exactly where the viewport is,
     /// never takes the keyboard from Rhino, and a pen works on it as it does for drawing.
     ///
-    /// Dragging the grip moves it between eight places: the bar goes to whichever is
-    /// nearest the pointer. Double-clicking the grip puts it back at the top centre.
+    /// Drag the grip to float the bar or drop it near an edge midpoint to dock. Double-clicking the grip puts it back at the top centre.
     /// Where it is, and whether it is folded, is remembered between sessions.
     /// </summary>
     internal sealed partial class Toolbar : DisplayConduit
@@ -53,8 +52,7 @@ namespace RhinoSketchingTool
         const double DotSize = 4;          // the dot that marks the tool in use
         const double Inset = 10;           // from the viewport's edge
         const double Margin = 8;           // room around the bar, in its picture, for the shadow
-        const double TitleClear = 24;      // top left: below the viewport's title
-        const double AxesClear = 56;       // bottom left: beside the world axes icon
+        const double SnapRadius = 40;
 
         // design/tokens/tokens.json
         // Light or dark, following Crayon's own switch (Theme), never Rhino's.
@@ -78,7 +76,9 @@ namespace RhinoSketchingTool
         bool broken;     // painting failed once: the bar stays away rather than fail every frame
 
         Part hover = Part.None, pressed = Part.None;
-        bool dragging;
+        bool dragging, moved;
+        ScreenPoint dragStart;
+        double gripX, gripY, floatingX = .5, floatingY = .5;
 
         DisplayBitmap picture; // the bar as it was last painted,
         Look painted;          // and what it showed
@@ -128,7 +128,11 @@ namespace RhinoSketchingTool
                 {
                     remembered = true;
                     int saved = Settings.GetInteger("ToolbarDock", (int)ToolbarDock.Top);
-                    if (Enum.IsDefined(typeof(ToolbarDock), saved)) dock = (ToolbarDock)saved;
+                    // Legacy bottom corners map to Bottom; old top corners fall back to Top.
+                    dock = Enum.IsDefined(typeof(ToolbarDock), saved) ? (ToolbarDock)saved
+                        : saved == 5 || saved == 7 ? ToolbarDock.Bottom : ToolbarDock.Top;
+                    floatingX = Unit(Settings.GetDouble("ToolbarFloatX", .5));
+                    floatingY = Unit(Settings.GetDouble("ToolbarFloatY", .5));
                     collapsed = Settings.GetBool("ToolbarCollapsed", false);
                 }
                 RhinoView.SetActive += OnActiveView;
@@ -212,44 +216,40 @@ namespace RhinoSketchingTool
         ScreenPoint Origin(System.Drawing.Size viewport, Wpf.Size bar, double scale)
         {
             double width = bar.Width * scale, height = bar.Height * scale, inset = Inset * scale;
-            double x, y;
-            switch (dock)
-            {
-                case ToolbarDock.TopLeft: case ToolbarDock.Left: x = inset; break;
-                case ToolbarDock.BottomLeft: x = inset + AxesClear * scale; break;
-                case ToolbarDock.Top: case ToolbarDock.Bottom: x = (viewport.Width - width) / 2; break;
-                default: x = viewport.Width - width - inset; break;
-            }
-            switch (dock)
-            {
-                case ToolbarDock.TopLeft: y = inset + TitleClear * scale; break;
-                case ToolbarDock.Top: case ToolbarDock.TopRight: y = inset; break;
-                case ToolbarDock.Left: case ToolbarDock.Right: y = (viewport.Height - height) / 2; break;
-                default: y = viewport.Height - height - inset; break;
-            }
+            double x = (viewport.Width - width) / 2, y = (viewport.Height - height) / 2;
+            if (dock == ToolbarDock.Top) y = inset;
+            if (dock == ToolbarDock.Bottom) y = viewport.Height - height - inset;
+            if (dock == ToolbarDock.Left) x = inset;
+            if (dock == ToolbarDock.Right) x = viewport.Width - width - inset;
             return new ScreenPoint((int)Math.Round(Math.Max(0, x)), (int)Math.Round(Math.Max(0, y)));
         }
 
-        // Each place's spot on the viewport's edge, as shares of its width and height.
-        static readonly double[][] Anchors =
-        {
-            new[] { 0.0, 0.0 }, new[] { 0.5, 0.0 }, new[] { 1.0, 0.0 },
-            new[] { 0.0, 0.5 }, new[] { 1.0, 0.5 },
-            new[] { 0.0, 1.0 }, new[] { 0.5, 1.0 }, new[] { 1.0, 1.0 },
-        };
+        static double Unit(double n) => double.IsNaN(n) ? .5 : Math.Max(0, Math.Min(1, n));
 
-        static ToolbarDock Nearest(System.Drawing.Size viewport, ScreenPoint point)
+        static ToolbarDock DropDock(System.Drawing.Size view, ScreenPoint p, double scale)
         {
-            double x = viewport.Width > 0 ? (double)point.X / viewport.Width : 0.5;
-            double y = viewport.Height > 0 ? (double)point.Y / viewport.Height : 0;
-            int nearest = (int)ToolbarDock.Top;
-            double least = double.MaxValue;
-            for (int i = 0; i < Anchors.Length; i++)
-            {
-                double dx = x - Anchors[i][0], dy = y - Anchors[i][1], distance = dx * dx + dy * dy;
-                if (distance < least) { least = distance; nearest = i; }
-            }
-            return (ToolbarDock)nearest;
+            // Disjoint snap targets leave even the corners available for floating.
+            double radius = Math.Min(SnapRadius * scale, Math.Min(view.Width, view.Height) / 4.0);
+            double dx = p.X - view.Width / 2.0, dy = p.Y - view.Height / 2.0;
+            if (Math.Abs(dx) < radius && p.Y < radius) return ToolbarDock.Top;
+            if (Math.Abs(dx) < radius && p.Y > view.Height - radius) return ToolbarDock.Bottom;
+            if (Math.Abs(dy) < radius && p.X < radius) return ToolbarDock.Left;
+            if (Math.Abs(dy) < radius && p.X > view.Width - radius) return ToolbarDock.Right;
+            return ToolbarDock.Floating;
+        }
+
+        void MoveGrip(RhinoView view, ScreenPoint p)
+        {
+            if (!ShowsIn(view)) return;
+            if (!moved && Math.Abs(p.X - dragStart.X) + Math.Abs(p.Y - dragStart.Y) < 3 * Scale(view)) return;
+            moved = true;
+            dock = ToolbarDock.Floating;
+            var viewport = view.ActiveViewport.Size;
+            double scale = OptionsFrame(view).Scale;
+            Layout(out Wpf.Size bar);
+            floatingX = Unit((p.X - gripX * scale) / Math.Max(1, viewport.Width - bar.Width * scale));
+            floatingY = Unit((p.Y - gripY * scale) / Math.Max(1, viewport.Height - bar.Height * scale));
+            view.Redraw();
         }
 
 #if !MAC
@@ -325,7 +325,17 @@ namespace RhinoSketchingTool
             if (part == Part.Grip)
             {
                 if (doubleClick) Dock = ToolbarDock.Top;
-                else dragging = true;
+                else
+                {
+                    var frame = OptionsFrame(view);
+                    var at = Local(point, frame.ToolOrigin, frame.Scale);
+                    gripX = Upright ? at.Y : at.X;
+                    gripY = Upright ? at.X : at.Y;
+                    dragStart = point;
+                    dragging = true;
+                    moved = false;
+                    CloseOptionsPopup();
+                }
             }
             view.Redraw();
             return true;
@@ -340,7 +350,7 @@ namespace RhinoSketchingTool
             }
             if (dragging)
             {
-                if (ShowsIn(view)) Dock = Nearest(view.ActiveViewport.Size, point);
+                MoveGrip(view, point);
                 return;
             }
             if (leftDown && (pressed == Part.Saturation || pressed == Part.Hue))
@@ -359,6 +369,20 @@ namespace RhinoSketchingTool
             Part part = pressed;
             pressed = Part.None;
             bool dragged = dragging;
+            if (dragged)
+            {
+                MoveGrip(view, point);
+                if (moved)
+                {
+                    if (ShowsIn(view)) dock = DropDock(view.ActiveViewport.Size, point, Scale(view));
+                    if (dock == ToolbarDock.Floating)
+                    {
+                        Settings?.SetDouble("ToolbarFloatX", floatingX);
+                        Settings?.SetDouble("ToolbarFloatY", floatingY);
+                    }
+                    Settings?.SetInteger("ToolbarDock", (int)dock);
+                }
+            }
             dragging = false;
             if (!dragged && part != Part.None && Hit(view, point) == part)
             {

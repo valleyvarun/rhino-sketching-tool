@@ -108,8 +108,19 @@ h1 {
   color: #a33399;
 }
 
+.crayon-initial {
+  width: 1.35em;
+  height: 1.35em;
+  margin-inline: -0.1em -0.04em;
+  vertical-align: -0.3em;
+}
+
+.brand-letters,
 .title-subtitle {
   font-size: 0.85em;
+}
+
+.title-subtitle {
   color: #777777;
 }
 
@@ -300,6 +311,12 @@ main {
   color: #777777;
   font-size: 18px;
   line-height: 1.5;
+}
+
+.download-instruction {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .download-buttons {

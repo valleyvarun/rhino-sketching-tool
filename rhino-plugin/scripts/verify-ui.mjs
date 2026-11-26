@@ -223,15 +223,40 @@ try {
   await evaluate('crayonSidebar.state(' + JSON.stringify(sketch) + ')');
   await screenshot('sidebar-sketch');
   assert.equal(await evaluate('document.querySelectorAll("#bars .cy-bar").length'), 3);
-  assert.equal(await evaluate('document.querySelectorAll("#sketch .cy-check").length'), 4, 'every option is a hand-drawn tick');
+  assert.deepEqual(await evaluate('[...document.querySelectorAll("#sketch [role=checkbox]")].map(b => b.dataset.check)'), ['snap']);
   assert.equal(await evaluate('document.querySelectorAll("#main [role=switch]").length'), 0, 'no switches in the panel body');
+  const pressureStates = () => evaluate('[...document.querySelectorAll("#bars button[data-pressure]")].map(b => b.getAttribute("aria-pressed"))');
+  const brushValues = () => evaluate('[...document.querySelectorAll("#bars [role=slider]")].map(b => b.getAttribute("aria-valuenow"))');
+  const sidebarActions = () => evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take() || "[]"))');
+  assert.deepEqual(await pressureStates(), ['true', 'true', 'false']);
+  const initialValues = await brushValues();
+  await evaluate('document.querySelector("[data-pressure=hardnessPressure]").click()');
+  assert.deepEqual(await pressureStates(), ['true', 'true', 'true']);
+  await evaluate('document.querySelector("[data-pressure=sizePressure]").click()');
+  assert.deepEqual(await pressureStates(), ['false', 'true', 'true']);
+  await evaluate('document.querySelector("[data-pressure=opacityPressure]").focus()');
+  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  assert.deepEqual(await pressureStates(), ['false', 'false', 'true']);
+  assert.deepEqual((await sidebarActions()).map(a => a.type), ['hardnessPressure', 'sizePressure', 'opacityPressure']);
+  assert.deepEqual(await brushValues(), initialValues, 'toggling pressure preserves all three slider values');
   await evaluate('document.querySelector(".pr[data-preset=marker]").click()');
-  assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].value, 'marker');
-  await evaluate('document.querySelector("[data-check=hardnessPressure]").click()');
-  assert.equal((await evaluate('JSON.parse(decodeURIComponent(crayonSidebar.take()))'))[0].type, 'hardnessPressure');
+  assert.deepEqual(await sidebarActions(), [{ type: 'preset', value: 'marker' }]);
+  await evaluate('crayonSidebar.state(' + JSON.stringify({ ...sketch, preset: 'marker', size: 12, opacity: 55, hardness: 90, sizePressure: false, opacityPressure: false, hardnessPressure: false }) + ')');
+  assert.deepEqual(await pressureStates(), ['false', 'false', 'false'], 'pressure buttons reflect the preset state sent by Rhino');
+  await evaluate('document.querySelector("#bar-size").focus()');
+  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+  assert.deepEqual(await sidebarActions(), [{ type: 'brush', value: 'size', number: 13 }]);
+  assert.deepEqual(await brushValues(), ['13', '55', '90']);
   for (const width of [260, 300, 348, 640]) {
     await call('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
     assert(await evaluate('document.documentElement.scrollWidth <= innerWidth && document.querySelector("#sketch").scrollWidth <= document.querySelector("#sketch").clientWidth'), 'sketch overflows at ' + width);
+    assert(await evaluate(`[...document.querySelectorAll("#bars [role=slider]")].every(slider => {
+      const button = document.querySelector('[data-pressure="' + slider.dataset.key + 'Pressure"]');
+      const bar = slider.getBoundingClientRect(), toggle = button.getBoundingClientRect();
+      return bar.width > 0 && bar.right <= toggle.left && toggle.top < bar.bottom && toggle.bottom > bar.top;
+    })`), 'each pressure button sits to the right of its slider at ' + width);
   }
   sketch.tab = 'layers';
   sketch.sketches = [{ id:'b', name: 'Sketch 1', group: 1, ownVisible: true, visible: true, color: '#23262C' }];

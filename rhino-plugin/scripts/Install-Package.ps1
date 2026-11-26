@@ -6,9 +6,9 @@ $ErrorActionPreference = 'Stop'
 $pluginRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $repoRoot = Split-Path $pluginRoot
 if (!$PSBoundParameters.ContainsKey('Version')) {
-    $Version = [IO.File]::ReadAllText((Join-Path $repoRoot 'release.version')).Trim()
+    $Version = [IO.File]::ReadAllText((Join-Path $repoRoot 'release.version.txt')).Trim()
 }
-if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$') { throw 'Use a semantic version, for example 0.2.0.' }
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$') { throw 'Use a semantic version in major.minor.patch format.' }
 if (Get-Process Rhino -ErrorAction SilentlyContinue) { throw 'Save your work and close Rhino, then run this again.' }
 $yak = Join-Path $env:ProgramFiles 'Rhino 8/System/Yak.exe'
 if (!(Test-Path -LiteralPath $yak)) { $yak = Join-Path (Get-ItemProperty 'HKLM:\SOFTWARE\McNeel\Rhinoceros\8.0\Install').Path 'Yak.exe' }

@@ -230,11 +230,9 @@ namespace RhinoSketchingTool
             var origin = Origin(viewport, pair, scale);
             origin.X = Math.Max(0, Math.Min(origin.X, (int)Math.Max(0, viewport.Width - pair.Width * scale - Inset * scale)));
             origin.Y = Math.Max(0, Math.Min(origin.Y, (int)Math.Max(0, viewport.Height - pair.Height * scale - Inset * scale)));
-            bool bottomDock = dock == ToolbarDock.Bottom || dock == ToolbarDock.BottomLeft || dock == ToolbarDock.BottomRight;
+            bool bottomDock = dock == ToolbarDock.Bottom;
             // Centre the narrower of the two over the other, as the prototype does.
             double toolX = (pair.Width - toolSize.Width) / 2, optionX = (pair.Width - optionSize.Width) / 2;
-            if (dock == ToolbarDock.TopLeft || dock == ToolbarDock.BottomLeft) { toolX = 0; optionX = 0; }
-            if (dock == ToolbarDock.TopRight || dock == ToolbarDock.BottomRight) { toolX = pair.Width - toolSize.Width; optionX = pair.Width - optionSize.Width; }
             var frame = new Frame
             {
                 Scale = scale, Items = items, Wells = wells, OptionsSize = optionSize, HasOptions = hasOptions, Views = views,
@@ -243,7 +241,23 @@ namespace RhinoSketchingTool
                 ToolOrigin = new ScreenPoint(origin.X + (int)(toolX * scale), origin.Y + (int)((bottomDock && hasOptions ? optionSize.Height + BarGap : 0) * scale)),
                 OptionOrigin = new ScreenPoint(origin.X + (int)(optionX * scale), origin.Y + (int)((bottomDock ? 0 : toolSize.Height + BarGap) * scale)),
             };
-            if (Upright)
+            if (dock == ToolbarDock.Floating)
+            {
+                double toolWidth = toolSize.Width * scale, toolHeight = toolSize.Height * scale;
+                int xTool = (int)Math.Round(floatingX * Math.Max(0, viewport.Width - toolWidth));
+                int yTool = (int)Math.Round(floatingY * Math.Max(0, viewport.Height - toolHeight));
+                double rowHeight = (optionSize.Height + BarGap) * scale;
+                bool above = yTool + toolHeight + rowHeight > viewport.Height && yTool > (viewport.Height - toolHeight) / 2;
+                if (hasOptions)
+                    yTool = above ? Math.Max(yTool, (int)Math.Ceiling(rowHeight))
+                        : Math.Min(yTool, (int)Math.Floor(viewport.Height - toolHeight - rowHeight));
+                frame.ToolOrigin = new ScreenPoint(xTool, yTool);
+                double rowWidth = optionSize.Width * scale;
+                double rowX = xTool + (toolWidth - rowWidth) / 2;
+                frame.OptionOrigin = new ScreenPoint((int)Math.Round(Math.Max(0, Math.Min(rowX, viewport.Width - rowWidth))),
+                    (int)Math.Round(above ? yTool - rowHeight : yTool + toolHeight + BarGap * scale));
+            }
+            else if (Upright)
             {
                 // On a side dock the row stands level with the tool that opened it.
                 double toolY = Math.Max(Inset * scale, (viewport.Height - toolSize.Height * scale) / 2);

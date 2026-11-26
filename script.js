@@ -1,12 +1,23 @@
 "use strict";
 
-const platform = navigator.userAgentData?.platform || navigator.platform;
-const reportsMac = platform ? /^mac/i.test(platform) : /\bMacintosh\b/i.test(navigator.userAgent);
-// iPadOS can report a Mac platform when requesting a desktop site.
-if (reportsMac && !(navigator.maxTouchPoints > 1)) {
-  const macDownload = document.getElementById("mac-download");
-  macDownload.parentElement.prepend(macDownload);
+async function showReleaseVersion() {
+  const label = document.querySelector("[data-release-version]");
+  if (!label) return;
+  try {
+    const response = await fetch("release.version.txt", { cache: "no-cache" });
+    if (!response.ok) return;
+    const version = (await response.text()).trim();
+    if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) return;
+    const display = "v" + version.replace(/^(\d+\.\d+)\.0$/, "$1");
+    label.textContent = display;
+    label.hidden = false;
+    label.closest("a").setAttribute("aria-label", `Download Crayon ${display} for Windows`);
+  } catch {
+    // The download stays available when the release file cannot be loaded.
+  }
 }
+
+showReleaseVersion();
 
 function recordDownload() {
   fetch("https://ceejkfaygodqzzxcvwkk.supabase.co/rest/v1/downloads", {

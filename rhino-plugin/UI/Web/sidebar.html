@@ -163,11 +163,19 @@ main{ height:100%; }
 .cy-col.wheel input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0; }
 /* a soft bar you drag; the value sits inside */
 .cy-bar{ position:relative; flex:1; min-width:0; height:28px; border-radius:8px; background:var(--well); overflow:hidden; cursor:ew-resize; touch-action:none; outline:none; }
-.cy-bar .fill{ position:absolute; left:0; top:0; bottom:0; background:var(--soft-sel); box-shadow:inset -2px 0 0 var(--ink-2); }
-.cy-bar:hover .fill{ background:var(--soft-sel-hover); }
-.cy-bar.drag .fill{ box-shadow:inset -2px 0 0 var(--ink); }
+.cy-bar .fill{ position:absolute; inset:0 auto 0 0; min-width:2px; background:color-mix(in srgb, var(--accent) 24%, var(--well)); border-right:2px solid var(--accent); }
+.cy-bar:hover,.cy-bar.drag{ outline:1px solid var(--accent-ring); }
 .cy-bar .bv{ position:absolute; top:0; right:10px; bottom:0; display:flex; align-items:center; font:500 12px var(--f-ui); font-variant-numeric:tabular-nums; color:var(--ink); pointer-events:none; }
 .cy-bar:focus-visible{ box-shadow:0 0 0 2px var(--accent-ring); }
+.cy-pressure{ flex:none; display:grid; place-items:center; width:28px; height:28px; padding:0; border:1px solid var(--line-2); border-radius:8px; background:transparent; color:var(--ink-2); cursor:pointer; }
+.cy-pressure:hover{ border-color:var(--accent); color:var(--accent); }
+.cy-pressure[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.cy-pressure:focus-visible{ outline-color:var(--accent); }
+.cy-pressure svg{ width:18px; height:18px; }
+@media (max-width:210px){
+  #bars .cy-field{ display:grid; grid-template-columns:minmax(0,1fr) 28px; gap:2px 6px; padding-block:4px; }
+  #bars .cy-lbl{ grid-column:1 / -1; width:auto; }
+}
 
 /* hand-drawn ticks: the only kind of checkbox in Crayon */
 .cy-check{ display:flex; align-items:center; gap:11px; width:100%; padding:8px 6px; border:0; border-radius:8px; background:none; color:inherit; text-align:left; cursor:pointer; }
@@ -265,9 +273,6 @@ main{ height:100%; }
       <div class="ps">
         <div class="cy-field"><span class="cy-lbl">Colour</span><div class="cy-cols" id="colours"></div></div>
         <div id="bars"></div>
-        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="sizePressure"><i class="ck">TICK</i><span class="cy-lbl">Pressure sets weight</span></button>
-        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="opacityPressure"><i class="ck">TICK</i><span class="cy-lbl">Pressure sets opacity</span></button>
-        <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="hardnessPressure"><i class="ck">TICK</i><span class="cy-lbl">Pressure sets hardness</span></button>
         <button type="button" class="cy-check" role="checkbox" aria-checked="false" data-check="snap"><i class="ck">TICK</i><span class="cy-lbl">Snap shapes</span></button>
       </div>
     </section>
@@ -307,6 +312,7 @@ var IC={
   trash:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
   loop:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/><path stroke-width="2.1" d="M5.4 14.4C4.1 10.3 7 6 11.5 5.2c4.6-.8 8.3 2 8.3 5.7 0 4.2-4.2 7.9-8.8 8.1-3.5.2-6-1.6-5.4-4.3.5-2.4 3.4-4.2 6.4-4.1"/></svg>',
   pen:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M15.6 4.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9.4 18.6 5 19.9l1.3-4.4z"/><path d="M13.6 6.4l4 4"/></svg>',
+  pressure:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12 8.2-8.2a1.7 1.7 0 0 1 2.4 0l1.6 1.6a1.7 1.7 0 0 1 0 2.4L12 16l-5.4 1.4zM8 12l4 4"/><path fill="currentColor" stroke="none" d="M3 20c4-1.4 10-2 16-1.5 2.2.2 2.3 2.6-.2 2.6-5.8 0-10.3-1.2-15.8-1.1z"/></svg>',
   bubble:'<svg class="ic" viewBox="0 0 24 24" stroke-width="1.8"><path d="M12 3.8a8.2 8.2 0 1 1-3.9 15.4l-4.3 1 1-4.2A8.2 8.2 0 0 1 12 3.8z"/><path d="M8.6 10.7h6.8"/><path d="M8.6 13.8h4.2"/></svg>',
   view:'<svg class="ic" viewBox="0 0 24 24"><path d="M4.6 7.8h2.6l1.6-2.3h6.4l1.6 2.3h2.6a1.6 1.6 0 0 1 1.6 1.6v8.1a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 17.5V9.4a1.6 1.6 0 0 1 1.6-1.6z"/><circle cx="12" cy="13.3" r="3.3"/></svg>',
   tick:'<svg viewBox="0 0 24 24" aria-hidden="true"><path class="ck-a" d="M4.2 13.4c1.5 1 2.7 2.5 3.7 4.5.4.7 1 .7 1.3 0 2.4-5.3 6.3-10 11.9-13.9"/><path class="ck-b" d="M5 12.8c1.3 1.2 2.4 2.6 3.2 4.3 2.6-5.2 6.4-9.7 11.6-13.3"/></svg>'
@@ -396,7 +402,12 @@ $('presets').innerHTML=PRESETS.map(function(p){
 $('presetCount').textContent=PRESETS.length;
 $('colours').innerHTML=COLOURS.map(function(c){return '<button type="button" class="cy-col" data-colour="'+c[0]+'" style="--c:'+c[0]+'" title="'+c[1]+'" aria-label="'+c[1]+'" aria-pressed="false"></button>'}).join('')+
   '<label class="cy-col wheel" title="Pick any colour" aria-pressed="false" style="--c:#8a5cf6"><input id="wheel" type="color" aria-label="Pick any colour"></label>';
-$('bars').innerHTML=BARS.map(function(b){return '<div class="cy-field"><span class="cy-lbl">'+b[1]+'</span><div class="cy-bar" id="bar-'+b[0]+'" data-key="'+b[0]+'" role="slider" tabindex="0" aria-label="'+b[1]+'" aria-valuemin="'+b[2]+'" aria-valuemax="'+b[3]+'"><i class="fill"></i><span class="bv"></span></div></div>'}).join('');
+$('bars').innerHTML=BARS.map(function(b){
+  var label='Pen pressure for '+b[1].toLowerCase();
+  return '<div class="cy-field"><span class="cy-lbl">'+b[1]+'</span>'+
+    '<div class="cy-bar" id="bar-'+b[0]+'" data-key="'+b[0]+'" role="slider" tabindex="0" aria-label="'+b[1]+'" aria-valuemin="'+b[2]+'" aria-valuemax="'+b[3]+'"><i class="fill"></i><span class="bv"></span></div>'+
+    '<button type="button" class="cy-pressure" data-pressure="'+b[0]+'Pressure" title="'+label+'" aria-label="'+label+'" aria-pressed="false">'+IC.pressure+'</button></div>';
+}).join('');
 
 var held={}; // a bar being dragged ignores state from Rhino until shortly after
 function barValue(b,v){ return Math.max(b[2],Math.min(b[3],Math.round(v))); }
@@ -425,6 +436,8 @@ function paintPreview(){
 document.addEventListener('click',function(e){
   var p=e.target.closest('.pr'); if(p){ S.preset=p.dataset.preset; renderSketch(true); post('preset',p.dataset.preset); return; }
   var c=e.target.closest('[data-colour]'); if(c){ S.color=c.dataset.colour; renderSketch(true); post('color',c.dataset.colour); return; }
+  var pressure=e.target.closest('[data-pressure]');
+  if(pressure){ var pressureKey=pressure.dataset.pressure; S[pressureKey]=!S[pressureKey]; renderSketch(true); post(pressureKey,''); return; }
   var k=e.target.closest('[data-check]'); if(k){ var key=k.dataset.check; S[key]=!S[key]; setCheck(k,S[key],true); post(key,''); return; }
 });
 $('wheel').addEventListener('input',function(){ S.color=this.value; renderSketch(true); post('color',this.value); });
@@ -453,6 +466,7 @@ function renderSketch(force){
   var wheel=document.querySelector('.cy-col.wheel'); wheel.setAttribute('aria-pressed',String(!known)); wheel.style.setProperty('--c',known?'#8a5cf6':colour);
   if(document.activeElement!==$('wheel')) $('wheel').value=colour;
   BARS.forEach(function(b){ if(held[b[0]]&&Date.now()-held[b[0]]<700)return; paintBar(b,barValue(b,S[b[0]]==null?b[2]:S[b[0]])); });
+  document.querySelectorAll('#bars [data-pressure]').forEach(function(button){button.setAttribute('aria-pressed',String(!!S[button.dataset.pressure]))});
   document.querySelectorAll('#sketch [data-check]').forEach(function(k){setCheck(k,!!S[k.dataset.check],false)});
   paintPreview();
 }

@@ -2,7 +2,7 @@
 
 ## In Rhino for Mac
 
-Install Crayon v0.2, restart Rhino, and open a new blank model. Run `RunPythonScript`
+Install Crayon, restart Rhino, and open a new blank model. Run `RunPythonScript`
 and choose [Rhino/smoke.py](Rhino/smoke.py). It checks that Rhino loaded the Mac
 assembly, opens the Crayon panel, clicks through its three tabs via WebKit, and checks
 that the viewport redraw created a toolbar bitmap. Read the PASS lines in command

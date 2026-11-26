@@ -54,15 +54,13 @@ Requires Windows, Rhino 8 (including Yak), a .NET SDK and .NET Framework 4.8 tar
 
 ```powershell
 .\wizard\scripts\Build.ps1
-# To specify this release explicitly:
-.\wizard\scripts\Build.ps1 -Version 0.2.0
 ```
 
 The build stages the latest plugin, builds a local Yak package, embeds it in the
 installer, and writes `dist/CrayonSetup.exe` plus `dist/CrayonSetup.sha256`.
 Publish the executable at `wizard/dist/CrayonSetup.exe` with the website. Nothing
 is published to Yak or a website by the build. By default the Windows installer, its
-embedded Yak package and the Rhino plug-in use the version in [release.version](../release.version).
+embedded Yak package and the Rhino plug-in use the version in [release.version.txt](../release.version.txt).
 
 The generated executable is **unsigned**. Before public distribution, sign it using
 your publisher certificate and timestamp service, then regenerate the SHA-256 file.

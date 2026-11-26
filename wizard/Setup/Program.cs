@@ -121,7 +121,7 @@ namespace CrayonSetup
                 }, CancellationToken.None);
                 done = true;
                 Find<TextBlock>("Heading").Text = "You're ready to create.";
-                Find<TextBlock>("Description").Text = "Crayon will be waiting in Rhino's sidebar. Open Rhino and start sketching.";
+                Find<TextBlock>("Description").Text = "Use command \"Crayon\" in Rhino to activate the tool!";
                 Find<StackPanel>("ProgressArea").Visibility = Visibility.Collapsed;
                 Find<CheckBox>("LaunchRhino").Visibility = Visibility.Visible;
                 Find<Button>("Primary").Content = "Finish";

@@ -36,8 +36,9 @@ this folder when local PowerShell scripts are disabled.
 
 The toolbar holds Select, Pen, Eraser, Comments and Saved views, sized and styled as the
 prototype's dock bar (`design-ui-ux/.../design/prototype/index.html`), light or dark with
-Crayon's own switch. Every control has a tooltip. Drag its grip to dock it on any edge;
-double-click the grip to put it back. Under it, an option row changes with the tool:
+Crayon's own switch. Every control has a tooltip. Drag the grip to float the toolbar anywhere
+in the viewport. Release near the middle of an edge to dock there, or double-click the grip
+to return to the top. The option row changes with the tool:
 
 - **Pen**: Object | Plane | 3D cursor | Over view, colour, Snap shapes (the hand-drawn tick). With
   Plane, **Pick a face** then a click puts the drawing plane on an object's face (the *On a face*

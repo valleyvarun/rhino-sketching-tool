@@ -1,4 +1,4 @@
-# Install and test Crayon v0.2
+# Install and test Crayon
 
 ## Install
 
@@ -35,7 +35,7 @@ Publisher signing, Mac verification and build instructions are in the [Mac guide
 
 ## Build
 
-Both installers and the Rhino plug-in take their release number from [release.version](release.version).
+To change the release, edit the major.minor.patch number in the file below and rebuild both installers. The website reads the same file when the download page opens. Both installers and the Rhino plug-in take their release number from [release.version.txt](release.version.txt).
 
 ```powershell
 .\wizard\scripts\Build.ps1                 # plug-in + installer -> wizard/dist/CrayonSetup.exe

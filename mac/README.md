@@ -1,12 +1,12 @@
-# Crayon v0.2 for Rhino 8 for Mac
+# Crayon for Rhino 8 for Mac
 
-Crayon adds a drawing toolbar and an Agent, Sketch and Layers panel to Rhino. Crayon v0.2 targets Rhino **8.17 or later** on Intel and Apple silicon. For the optional RhinoMCP model connection in chat, use **Apple silicon and Rhino 8.20 or later**. McNeel's Mac package targets .NET 8, the default runtime from Rhino 8.20. [RhinoMCP package project](https://github.com/mcneel/RhinoAI/blob/plugin-v0.4.0/rhino/plugin/RhinoAI.csproj) · [Rhino runtime guide](https://developer.rhino3d.com/guides/rhinocommon/moving-to-dotnet-core/)
+Crayon adds a drawing toolbar and an Agent, Sketch and Layers panel to Rhino. Crayon targets Rhino **8.17 or later** on Intel and Apple silicon. For the optional RhinoMCP model connection in chat, use **Apple silicon and Rhino 8.20 or later**. McNeel's Mac package targets .NET 8, the default runtime from Rhino 8.20. [RhinoMCP package project](https://github.com/mcneel/RhinoAI/blob/plugin-v0.4.0/rhino/plugin/RhinoAI.csproj) · [Rhino runtime guide](https://developer.rhino3d.com/guides/rhinocommon/moving-to-dotnet-core/)
 
 ## Install
 
 Quit Rhino, open [CrayonSetup.pkg](dist/CrayonSetup.pkg), and follow the installer. After setup, open Rhino and enter `Crayon` at the command line.
 
-Setup installs and verifies the Crayon plug-in for the current user. It activates v0.2 even if a higher-numbered preview was previously installed. It reuses or installs Claude Code and Codex, and sets up RhinoMCP on supported Macs. Choose your assistant and sign in when you first use Agent in Rhino. Setup logs are in `~/Library/Logs/Crayon`. To uninstall Crayon, remove `crayon-rhino` in Rhino's Package Manager and restart Rhino.
+Setup installs and verifies the Crayon plug-in for the current user. It activates the bundled version even if a higher-numbered preview was previously installed. It reuses or installs Claude Code and Codex, and sets up RhinoMCP on supported Macs. Choose your assistant and sign in when you first use Agent in Rhino. Setup logs are in `~/Library/Logs/Crayon`. To uninstall Crayon, remove `crayon-rhino` in Rhino's Package Manager and restart Rhino.
 
 ## Drawing and chat
 
@@ -26,11 +26,11 @@ dotnet build mac/plugin/RhinoSketchingTool.Mac.csproj -c Release
 ./mac/scripts/Build.ps1
 ```
 
-Both commands read the default version from `release.version` in the repository root. The build writes `mac/dist/CrayonSetup.pkg` and its SHA-256 file. Use `-YakPath` for a nonstandard Yak location.
+Both commands read the default version from `release.version.txt` in the repository root. The build writes `mac/dist/CrayonSetup.pkg` and its SHA-256 file. Use `-YakPath` for a nonstandard Yak location.
 
 ## Signing a public release without a Mac
 
-The local v0.2 installer is unsigned. For the ordinary download-and-open experience, the publisher signs the installer with a **Developer ID Installer** certificate and has Apple notarize it. Customers use the same Download for Mac button once the signed file is in place. [Apple distribution guide](https://developer.apple.com/macos/distribution/)
+The local installer is unsigned. For the ordinary download-and-open experience, the publisher signs the installer with a **Developer ID Installer** certificate and has Apple notarize it. Customers use the same Download for Mac button once the signed file is in place. [Apple distribution guide](https://developer.apple.com/macos/distribution/)
 
 The repository includes a manually triggered **Mac installer** workflow for a GitHub-hosted Mac. Once the changes are in the repository's default branch, run it from **Actions** to validate the package. Validation can run without an Apple account. [Workflow](../.github/workflows/mac-installer.yml)
 
@@ -48,7 +48,7 @@ The **Crayon-mac-signed** workflow artifact contains the signed, notarized `Cray
 
 ## Verification
 
-The v0.2 installer was built on Windows. Automated checks cover WPF and Eto toolbar rendering, simulated stroke appearance at different widths and hardnesses, the assistant protocols with mock processes, and installer behavior in a disposable package directory. The package has yet to be run inside Rhino for Mac. Test commands and the native smoke script are in the [test guide](tests/README.md).
+The installer was built on Windows. Automated checks cover WPF and Eto toolbar rendering, simulated stroke appearance at different widths and hardnesses, the assistant protocols with mock processes, and installer behavior in a disposable package directory. The package has yet to be run inside Rhino for Mac. Test commands and the native smoke script are in the [test guide](tests/README.md).
 
 For the first native run, use a blank model and run the smoke script. Then check the parts that need the physical display and input devices.
 

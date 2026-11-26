@@ -9,8 +9,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $macRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $repoRoot = Split-Path $macRoot
-if (!$Version) { $Version = [IO.File]::ReadAllText((Join-Path $repoRoot 'release.version')).Trim() }
-if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$') { throw 'Use a semantic version such as 0.2.0.' }
+if (!$Version) { $Version = [IO.File]::ReadAllText((Join-Path $repoRoot 'release.version.txt')).Trim() }
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$') { throw 'Use a semantic version in major.minor.patch format.' }
 $displayVersion = 'v' + ($Version -replace '^(\d+\.\d+)\.0$', '$1')
 $onWindows = $env:OS -eq 'Windows_NT'
 if (!$onWindows -and !(Test-Path '/usr/bin/productbuild')) { throw 'Build the installer on Windows or macOS.' }

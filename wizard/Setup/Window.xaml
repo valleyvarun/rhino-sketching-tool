@@ -28,7 +28,7 @@
   </StackPanel>
   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
    <StackPanel>
-    <TextBlock x:Name="Heading" Text="A little setup.&#10;A lot of possibility." FontSize="30" FontWeight="SemiBold" LineHeight="39"/>
+    <TextBlock x:Name="Heading" Text="A little setup." FontSize="30" FontWeight="SemiBold" LineHeight="39"/>
     <TextBlock x:Name="Description" Text="Bring sketching, comments and your favourite agents into Rhino." Foreground="{DynamicResource Muted}" Margin="0,14,0,24" FontSize="15"/>
     <Border x:Name="Summary" CornerRadius="16" Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="1" Padding="22,18">
      <StackPanel>

@@ -99,7 +99,7 @@ try:
         return frame.GetType().GetField(name, flags).GetValue(frame)
     for width, height in [(1200, 700), (280, 180), (200, 140)]:
         viewport.Size = System.Drawing.Size(width, height)
-        for docking in ["Top", "Left", "Right"]:
+        for docking in ["Top", "Left", "Bottom", "Right", "Floating"]:
             dock_field.SetValue(toolbar, System.Enum.Parse(dock_field.FieldType, docking))
             frame = frame_method.Invoke(toolbar, System.Array[System.Object]([view, System.Double(0)]))
             scale = frame_value(frame, "Scale")

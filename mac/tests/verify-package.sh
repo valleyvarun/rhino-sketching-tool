@@ -3,7 +3,7 @@
 set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
 pkg="${1:-$here/../dist/CrayonSetup.pkg}"
-expected_version="${2:-$(tr -d '\r\n' < "$here/../../release.version")}"
+expected_version="${2:-$(tr -d '\r\n' < "$here/../../release.version.txt")}"
 pkg="$(cd "$(dirname "$pkg")" && pwd)/$(basename "$pkg")"
 test -f "$pkg" || { echo "Missing installer: $pkg" >&2; exit 1; }
 scratch="$(mktemp -d)"
